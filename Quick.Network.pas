@@ -5,9 +5,9 @@
   Unit        : Quick.Network
   Description : Network related functions
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 11/07/2017
-  Modified    : 05/10/2017
+  Modified    : 09/10/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -39,6 +39,7 @@ uses
 
   function IntToIPv4(IPv4: LongWord): string;
   function IPv4ToInt(const IPv4: string) : LongWord;
+  function IPv4ToIntReverse(const IPv4: string) : LongWord;
   procedure CIDRToRange(CIDR : string; out MinIP,MaxIP : string); overload;
   procedure CIDRToRange(CIDR : string; out MinIP,MaxIP : LongWord); overload;
   procedure GetIPRange(const cIP, cMask : string; out LowIP, HighIP : string);
@@ -75,6 +76,21 @@ begin
     S.DelimitedText := IPv4;
     if S.Count <> 4 then raise Exception.Create('Invalid IP4 Address string');
     Result := (StrToInt(S[0]) shl 24) + (StrToInt(S[1]) shl 16) + (StrToInt(S[2]) shl 8) + StrToInt(S[3]);
+  finally
+    S.Free;
+  end;
+end;
+
+function IPv4ToIntReverse(const IPv4: string) : LongWord;
+var
+  S : TStrings;
+begin
+  S := TStringList.Create;
+  try
+    S.Delimiter := '.';
+    S.DelimitedText := IPv4;
+    if S.Count <> 4 then raise Exception.Create('Invalid IP4 Address string');
+    Result := (StrToInt(S[3]) shl 24) + (StrToInt(S[2]) shl 16) + (StrToInt(S[1]) shl 8) + StrToInt(S[0]);
   finally
     S.Free;
   end;
