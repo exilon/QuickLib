@@ -5,9 +5,9 @@
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
-  Version     : 1.5
+  Version     : 1.6
   Created     : 10/05/2017
-  Modified    : 17/09/2017
+  Modified    : 20/10/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -82,12 +82,15 @@ type
   procedure cout(const cMsg : Integer; cEventType : TEventType); overload;
   procedure cout(const cMsg : Double; cEventType : TEventType); overload;
   procedure cout(const cMsg : string; cEventType : TEventType); overload;
-  procedure coutXY(x,y : Integer; const s : string);
+  procedure cout(const cMsg : string; cColor : TConsoleColor); overload;
+  procedure coutXY(x,y : Integer; const s : string; cEventType : TEventType);
+  procedure coutBL(const s : string; cEventType : TEventType);
   procedure coutFmt(const cMsg : string; params : array of const; cEventType : TEventType);
   procedure TextColor(Color: TConsoleColor); overload;
   procedure TextColor(Color: Byte); overload;
   procedure TextBackground(Color: TConsoleColor); overload;
   procedure TextBackground(Color: Byte); overload;
+  procedure ResetColors;
   function ClearScreen : Boolean;
   procedure ClearLine;
   procedure ConsoleWaitForEnterKey;
@@ -98,6 +101,7 @@ var
   Console : TConsoleProperties;
   CSConsole : TRTLCriticalSection;
   LastMode : Word;
+  DefConsoleColor : Byte;
   TextAttr : Byte;
   hStdOut: THandle;
   hStdErr: THandle;
@@ -158,9 +162,25 @@ begin
     finally
       LeaveCriticalSection(CSConsole);
     end;
-    if Assigned(Log) then Log.Add(cMsg,cEventType);
+    if Assigned(Console.Log) then Console.Log.Add(cMsg,cEventType);
   end;
 end;
+
+procedure cout(const cMsg : string; cColor : TConsoleColor);
+begin
+  EnterCriticalSection(CSConsole);
+  try
+    if hStdOut <> 0 then
+    begin
+      TextColor(cColor);
+      Writeln(cMsg);
+      TextColor(LastMode);
+    end;
+  finally
+    LeaveCriticalSection(CSConsole);
+  end;
+end;
+
 
 function GetCursorX: Integer; {$IFDEF INLINES}inline;{$ENDIF}
 var
@@ -178,33 +198,46 @@ begin
   Result := BufferInfo.dwCursorPosition.Y;
 end;
 
+function GetCursorMaxBottom : Integer;
+var
+  BufferInfo: TConsoleScreenBufferInfo;
+begin
+  GetConsoleSCreenBufferInfo(hStdOut, BufferInfo);
+  Result := BufferInfo.srWindow.Bottom;
+end;
+
 procedure SetCursorPos(NewCoord : TCoord);
 begin
   SetConsoleCursorPosition(hStdOut, NewCoord);
 end;
 
-procedure coutXY(x,y : Integer; const s : string);
+procedure coutXY(x,y : Integer; const s : string; cEventType : TEventType);
 var
  NewCoord : TCoord;
  LastCoord : TCoord;
- dwCount : DWORD;
 begin
   if hStdOut = 0 then Exit;
-
-  EnterCriticalSection(CSConsole);
+  LastCoord.X := GetCursorX;
+  LastCoord.Y := GetCursorY;
+  NewCoord.X := x;
+  NewCoord.Y := y;
+  ClearLine;
+  SetCursorPos(NewCoord);
   try
-    LastCoord.X := GetCursorX;
-    LastCoord.Y := GetCursorY;
-    NewCoord.X := x;
-    NewCoord.Y := GetCursorY;
-    ClearLine;
-    SetCursorPos(NewCoord);
-    if s <> '' then Write(s)
-      else ClearLine;
-    SetCursorPos(LastCoord);
+    cout(s,cEventType);
   finally
-    LeaveCriticalSection(CSConsole);
+    SetCursorPos(LastCoord);
   end;
+end;
+
+procedure coutBL(const s : string; cEventType : TEventType);
+var
+  NewCoord : TCoord;
+begin
+  coutXY(0,GetCurSorMaxBottom,s,cEventType);
+  NewCoord.X := GetCursorX;
+  NewCoord.Y := GetCurSorMaxBottom - 1;
+  SetCursorPos(NewCoord);
 end;
 
 procedure coutFmt(const cMsg : string; params : array of const; cEventType : TEventType);
@@ -236,6 +269,12 @@ begin
   LastMode := TextAttr;
   TextAttr := (TextAttr and $0F) or ((Color shl 4) and $F0);
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
+end;
+
+procedure ResetColors;
+begin
+  SetConsoleTextAttribute(hStdOut, DefConsoleColor);
+  TextAttr := DefConsoleColor;
 end;
 
 function ClearScreen : Boolean;
@@ -348,6 +387,7 @@ begin
   ConsoleRect.Right := BufferInfo.dwSize.X - 1;
   ConsoleRect.Bottom := BufferInfo.dwSize.Y - 1;
   TextAttr := BufferInfo.wAttributes and $FF;
+  DefConsoleColor := TextAttr;
   LastMode := 3; //CO80;
 end;
 
