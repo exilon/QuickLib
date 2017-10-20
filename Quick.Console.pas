@@ -92,7 +92,8 @@ type
   procedure TextBackground(Color: Byte); overload;
   procedure ResetColors;
   function ClearScreen : Boolean;
-  procedure ClearLine;
+  procedure ClearLine; overload;
+  procedure ClearLine(Y : Integer); overload;
   procedure ConsoleWaitForEnterKey;
   procedure InitConsole;
 
@@ -221,7 +222,7 @@ begin
   LastCoord.Y := GetCursorY;
   NewCoord.X := x;
   NewCoord.Y := y;
-  ClearLine;
+  ClearLine(Y);
   SetCursorPos(NewCoord);
   try
     cout(s,cEventType);
@@ -234,10 +235,7 @@ procedure coutBL(const s : string; cEventType : TEventType);
 var
   NewCoord : TCoord;
 begin
-  coutXY(0,GetCurSorMaxBottom,s,cEventType);
-  NewCoord.X := GetCursorX;
-  NewCoord.Y := GetCurSorMaxBottom - 1;
-  SetCursorPos(NewCoord);
+  coutXY(0,GetCurSorMaxBottom - 1,s,cEventType);
 end;
 
 procedure coutFmt(const cMsg : string; params : array of const; cEventType : TEventType);
@@ -304,16 +302,21 @@ begin
 end;
 
 procedure ClearLine;
+begin
+  ClearLine(GetCursorY);
+end;
+
+procedure ClearLine(Y : Integer);
 var
  dwWriteCoord: TCoord;
  dwCount, dwSize: DWord;
 begin
- if hStdOut = 0 then Exit;
- dwWriteCoord.X := ConsoleRect.Left;
- dwWriteCoord.Y := GetCursorY;
- dwSize := ConsoleRect.Right - ConsoleRect.Left + 1;
- FillConsoleOutputAttribute(hStdOut, TextAttr, dwSize, dwWriteCoord, dwCount);
- FillConsoleOutputCharacter(hStdOut, ' ', dwSize, dwWriteCoord, dwCount);
+  if hStdOut = 0 then Exit;
+  dwWriteCoord.X := 0;
+  dwWriteCoord.Y := Y;
+  dwSize := ConsoleRect.Right + 1;
+  FillConsoleOutputAttribute(hStdOut, TextAttr, dwSize, dwWriteCoord, dwCount);
+  FillConsoleOutputCharacter(hStdOut, ' ', dwSize, dwWriteCoord, dwCount);
 end;
 
 function ConsoleKeyPressed(ExpectedKey: Word): Boolean;
