@@ -134,6 +134,8 @@ type
   {$ENDIF MSWINDOWS}
   //returns last day of current month
   function LastDayCurrentMonth: TDateTime;
+  //checks if two datetimes are in same day
+  function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
   //returns n times a char
   function FillStr(const C : Char; const Count : Byte) : string;
   //returns a number leading zero
@@ -451,6 +453,11 @@ end;
 function LastDayCurrentMonth: TDateTime;
 begin
   Result := EncodeDate(YearOf(Now),MonthOf(Now), DaysInMonth(Now));
+end;
+
+function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
+begin
+  Result := DateTimeInRange(cNow,StartOfTheDay(cBefore),EndOfTheDay(cNow),True);
 end;
 
 function FillStr(const C : Char; const Count : Byte) : string;
