@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 14/07/2017
-  Modified    : 05/10/2017
+  Modified    : 11/11/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -33,6 +33,7 @@ interface
   uses
     Classes,
     System.SysUtils,
+    System.Types,
     {$IFDEF MSWINDOWS}
       Windows,
       Winapi.ShlObj,
@@ -173,6 +174,8 @@ type
   function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
   //Local DateTime to UTC DateTime
   function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
+  //count number of digits of a Integer
+  function CountDigits(anInt: Cardinal): Cardinal; inline;
 
 var
   {$IFDEF MSWINDOWS}
@@ -253,12 +256,9 @@ begin
 end;
 
 function TTextStreamFile.ReadLn(out Data: string): Boolean;
-var
-   Len, Start: Integer;
-   EOLChar: ansiChar;
 begin
    Data := fReadStream.ReadLine;
-   if Data <> '' then Result := True;
+   Result := Data <> '';
 end;
 
 function TTextStreamFile.ReadLn: string;
@@ -355,20 +355,18 @@ begin
   path.INSTDRIVE := path.HOMEDRIVE;
   path.TEMP := GetEnvironmentVariable('TEMP');
   path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
-  path.DESKTOP := GetSpecialFolderPath(CSIDL_DESKTOP);
-  try
-    path.DESKTOP_ALLUSERS := GetSpecialFolderPath(CSIDL_COMMON_DESKTOPDIRECTORY);
-  except
-    path.DESKTOP_ALLUSERS := path.DESKTOP;
-  end;
-  path.STARTMENU:=GetSpecialFolderPath(CSIDL_PROGRAMS);
-  try
-    path.STARTMENU_ALLUSERS:=GetSpecialFolderPath(CSIDL_COMMON_PROGRAMS);
-  except
-    path.STARTMENU_ALLUSERS := path.STARTMENU;
-  end;
-  path.STARTUP:=GetSpecialFolderPath(CSIDL_STARTUP);
   path.APPDATA:=GetSpecialFolderPath(CSIDL_APPDATA);
+  //these paths fail if user is SYSTEM
+  try
+    path.DESKTOP := GetSpecialFolderPath(CSIDL_DESKTOP);
+    path.DESKTOP_ALLUSERS := GetSpecialFolderPath(CSIDL_COMMON_DESKTOPDIRECTORY);
+    path.STARTMENU:=GetSpecialFolderPath(CSIDL_PROGRAMS);
+    path.STARTMENU_ALLUSERS:=GetSpecialFolderPath(CSIDL_COMMON_PROGRAMS);
+    path.STARTMENU_ALLUSERS := path.STARTMENU;
+    path.STARTUP:=GetSpecialFolderPath(CSIDL_STARTUP);
+  except
+    //
+  end;
 end;
 
 function GetSpecialFolderPath(folderID : Integer) : string;
@@ -379,7 +377,7 @@ begin
   SetLength(Result, MAX_PATH);
   if not SHGetPathFromIDList(ppidl, PChar(Result)) then
   begin
-    raise exception.create(Format('GetSpecialFolderPath Error: Invalid PIPL (%d)',[folderID]));
+    raise exception.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
   end;
   SetLength(Result, lStrLen(PChar(Result)));
 end;
@@ -706,6 +704,18 @@ begin
   Result := TTimeZone.Local.ToUniversalTime(LocalTime);
 end;
 
+function CountDigits(anInt: Cardinal): Cardinal; inline;
+var
+  cmp: Cardinal;
+begin
+  cmp := 10;
+  Result := 1;
+  while (Result < 10) and (cmp <= anInt) do
+  begin
+    cmp := cmp*10;
+    Inc(Result);
+  end;
+end;
 
 initialization
   try
