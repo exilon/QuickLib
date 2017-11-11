@@ -111,7 +111,7 @@ Small delphi library containing interesting and quick to implement functions, cr
     //write formatted error message
     Log.Add('Error is %s',[ErrorStr],etError);
 
-**Quick.Config:** Load/Save a config as json. Create a descend class from TAppConfig and add private variables will be loaded/saved.
+**Quick.Config:** Load/Save a config as json file or Windows Registry keys. Create a descend class from TAppConfig and add private variables will be loaded/saved.
 
      //create a class heritage
      TMyConfig = class(TAppConfig)
@@ -125,11 +125,30 @@ Small delphi library containing interesting and quick to implement functions, cr
         property Status : Integer read fStatus write fStatus;
       end;
       
-      //save your config to json file
-      MyConfig.ConfigFile := '.\config.json';
+      //create your config to json file
+	  //Add Quick.Config.Json to your uses
+	  AppConfigJson := TAppConfigJsonProvider<TMyConfig>.Create(MyConfig);
+	  AppConfigJson.CreateIfNotExists := True;
+      AppConfigJson.Filename := 'Config.json';
       MyConfig.Name := 'John';
       MyConfig.Surname := 'Smith';
-      MyConfig.Save;
+	  //load
+      AppConfigJson.Load(Config);
+	  //save
+	  AppConfigJson.Save(Config);
+	  
+	  //create your config to Windows Registry
+	  //Add Quick.Config.Registry to your uses
+	  AppConfigReg := TAppConfigRegistryProvider<TMyConfig>.Create(MyConfig);
+	  ////Define Registry as HKEY_CURRENT_USER\Software\MyApp
+	  AppConfigReg.HRoot := HKEY_CURRENT_USER; 
+	  AppConfigReg.MainKey := 'MyApp';
+      MyConfig.Name := 'John';
+      MyConfig.Surname := 'Smith';
+	  //load
+      AppConfigReg.Load(Config);
+	  //save
+	  AppConfigReg.Save(Config);
 
 **Quick.FileMonitor:** Monitorizes a file for changes and throws events.
 
@@ -140,3 +159,13 @@ Small delphi library containing interesting and quick to implement functions, cr
     FileMonitor.Notifies := [mnFileModified, mnFileDeleted)];
     FileMonitor.OnFileChange := MyFileChangeFunction;
     FileMonitor.Enabled := True;
+
+	
+**Quick.JsonUtils:** Utils for working with json objects.
+
+	//When unit declared in uses, a TObject Helper allows all your objects to be loaded or saved to/from json string
+	MyObject.FromJson := jsonstring;
+	MyString := MyObject.ToJson;
+	
+	//You can clone simple objects with clone function
+	MyObject1.Clone(MyObject2);
