@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.17
   Created     : 10/04/2016
-  Modified    : 17/09/2017
+  Modified    : 24/10/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -43,7 +43,6 @@ type
   TMemoryLog = class
   private
     fLines : TStrings;
-    fText : string;
     fEnabled : Boolean;
     function GetLogText : string;
   public
@@ -159,7 +158,7 @@ begin
   begin
     try
       fCurrentLogSize := TFile.GetSize(logname);
-      if fCurrentLogSize > fLimitLogSize Then if DeleteFile(logname) then fCurrentLogSize := 0;
+      if fCurrentLogSize > fLimitLogSize then if DeleteFile(logname) then fCurrentLogSize := 0;
     except
       raise Exception.Create('can''t access to log file!');
     end;
@@ -170,19 +169,23 @@ begin
   //writes header info
   if fShowHeaderInfo then
   begin
-    Self.WriteLog(FillStr('-',70));
-    Self.WriteLog(Format('Application : %s %s',[ExtractFilenameWithoutExt(ParamStr(0)),GetAppVersionFullStr]));
-    Self.WriteLog(Format('Path        : %s',[ExtractFilePath(ParamStr(0))]));
-    Self.WriteLog(Format('CPU cores   : %d',[CPUCount]));
-    Self.WriteLog(Format('OS version  : %s',[TOSVersion.ToString]));
-    Self.WriteLog(Format('Host        : %s',[GetComputerName]));
-    Self.WriteLog(Format('Username    : %s',[Trim(GetLoggedUserName)]));
-    Self.WriteLog(Format('Started     : %s',[NowStr]));
-    if IsService then Self.WriteLog('AppType     : Service')
-      else if System.IsConsole then Self.WriteLog('AppType     : Console');
+    try
+      Self.WriteLog(FillStr('-',70));
+      Self.WriteLog(Format('Application : %s %s',[ExtractFilenameWithoutExt(ParamStr(0)),GetAppVersionFullStr]));
+      Self.WriteLog(Format('Path        : %s',[ExtractFilePath(ParamStr(0))]));
+      Self.WriteLog(Format('CPU cores   : %d',[CPUCount]));
+      Self.WriteLog(Format('OS version  : %s',[TOSVersion.ToString]));
+      Self.WriteLog(Format('Host        : %s',[GetComputerName]));
+      Self.WriteLog(Format('Username    : %s',[Trim(GetLoggedUserName)]));
+      Self.WriteLog(Format('Started     : %s',[NowStr]));
+      if IsService then Self.WriteLog('AppType     : Service')
+        else if System.IsConsole then Self.WriteLog('AppType     : Console');
 
-    if IsDebug then Self.WriteLog('Debug mode  : On');
-    Self.WriteLog(FillStr('-',70));
+      if IsDebug then Self.WriteLog('Debug mode  : On');
+      Self.WriteLog(FillStr('-',70));
+    except
+      on E : Exception do Self.WriteLog('Can''t get info: ' + e.message);
+    end;
   end;
   Result := True;
 end;

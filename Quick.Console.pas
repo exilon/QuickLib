@@ -232,8 +232,6 @@ begin
 end;
 
 procedure coutBL(const s : string; cEventType : TEventType);
-var
-  NewCoord : TCoord;
 begin
   coutXY(0,GetCurSorMaxBottom - 1,s,cEventType);
 end;
