@@ -133,9 +133,9 @@ Small delphi library containing interesting and quick to implement functions, cr
       MyConfig.Name := 'John';
       MyConfig.Surname := 'Smith';
 	  //load
-      AppConfigJson.Load(Config);
+      AppConfigJson.Load(MyConfig);
 	  //save
-	  AppConfigJson.Save(Config);
+	  AppConfigJson.Save(MyConfig);
 	  
 	  //create your config to Windows Registry
 	  //Add Quick.Config.Registry to your uses
