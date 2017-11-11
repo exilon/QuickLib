@@ -169,3 +169,24 @@ Small delphi library containing interesting and quick to implement functions, cr
 	
 	//You can clone simple objects with clone function
 	MyObject1.Clone(MyObject2);
+	
+	
+**Quick.SMTP:** Send email with two code lines.
+
+	//Send email
+	SMTP := TSMTP.Create('mail.domain.com',25,False);
+	SMTP.SendMail('my@email.com','to@email.com','Email subject','My message body');
+	
+	//You can define more advanced options
+	SMTP.SenderName := 'John';
+	SMTP.From := 'my@email.com';
+	SMTP.Recipient := 'one@email.com,two@email.com';
+	SMTP.Subject := 'Email subject';
+	SMTP.AddBodyFromFile := '.\body.html';
+	SMTP.CC := 'other@email.com';
+	SMTP.BCC := 'more@email.com';
+	SMTP.Attachments.Add('.\notes.txt');
+	SMTP.SendMail;
+	
+	
+
