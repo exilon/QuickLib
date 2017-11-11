@@ -5,9 +5,9 @@
   Unit        : Quick.Config
   Description : Load/Save config from/to JSON file
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.2
   Created     : 26/01/2017
-  Modified    : 29/09/2017
+  Modified    : 11/11/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,36 +34,61 @@ interface
 uses
   System.Classes,
   System.SysUtils,
+  System.Rtti,
   {$IF CompilerVersion >= 32.0}
-  System.JSON.Types,
-  System.JSON.Serializers;
+    JSON.Types,
+    JSON.Serializers;
   {$ELSE}
-  Rest.Json.Types,
-  Rest.Json;
+    Rest.Json.Types,
+    Rest.Json;
   {$ENDIF}
 
 type
 
+  TDateTimeZone = (tzLocal, tzUTC);
+
+  IAppConfigProvider<T> = interface
+  ['{D55B1EBF-47F6-478B-8F70-9444575CB825}']
+    procedure Load(var cConfig : T);
+    procedure Save(var cConfig : T);
+  end;
+
+  TAppConfigProviderBase<T : class> = class(TInterfacedObject,IAppConfigProvider<T>)
+  private
+    fCreateIfNotExists : Boolean;
+  public
+    constructor Create(var cConfig : T); virtual;
+    property CreateIfNotExists : Boolean read fCreateIfNotExists write fCreateIfNotExists;
+    function InitObject : T;
+    procedure Load(var cConfig : T); virtual; abstract;
+    procedure Save(var cConfig : T); virtual; abstract;
+  end;
+
+  TApplyConfigEvent = procedure of object;
+
   [JsonSerialize(TJsonMemberSerialization.&Public)]
   TAppConfig = class
   private
-    [JSONMarshalledAttribute(False)]
-    fConfigFile : string;
-    [JSONMarshalledAttribute(False)]
-    fConfigEncrypted : Boolean;
-    [JSONMarshalledAttribute(False)]
-    fConfigPassword : string;
+    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
+    fOnApplyConfig : TApplyConfigEvent;
+    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
+    fDateTimeZone: TDateTimeZone;
+    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
+    fJsonIndent: Boolean;
+    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
+    fLastSaved : TDateTime;
   public
-    constructor Create(const ConfigFileName : string);
-    [JsonIgnoreAttribute]
-    property ConfigFile : string read fConfigFile;
-    [JsonIgnoreAttribute]
-    property ConfigEncrypted : Boolean read fConfigEncrypted write fConfigEncrypted;
-    [JsonIgnoreAttribute]
-    property ConfigPassword : string read fConfigPassword write fConfigPassword;
-    function Load(CreateIfNotExists : Boolean = False) : Boolean;
-    function Save : Boolean;
-    function AsJsonString : string;
+    constructor Create; virtual;
+    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    property OnApplyConfig : TApplyConfigEvent read fOnApplyConfig write fOnApplyConfig;
+    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    property DateTimeZone : TDateTimeZone read fDateTimeZone write fDateTimeZone;
+    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    property JsonIndent : Boolean read fJsonIndent write fJsonIndent;
+    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    property LastSaved : TDateTime read fLastSaved write fLastSaved;
+    procedure Apply;
+    function ToJSON : string;
   end;
 
   {Usage: create a descend class from TAppConfig and add public properties to be loaded/saved
@@ -78,111 +103,99 @@ type
     property SurName : string read fSurname write fSurname;
     property Status : Integer read fStatus write fStatus;
   end;
+
+  MyConfig := TMyConfig.Create;
+  AppConfigProvider := TAppConfigJsonProvider<TMyConfig>.Create;
+  MyConfig.Name := 'John';
   }
 
 implementation
 
 
+{ TAppConfigProviderBase }
+
+constructor TAppConfigProviderBase<T>.Create(var cConfig : T);
+begin
+  fCreateIfNotExists := True;
+  //create object with rtti
+  if Assigned(cConfig) then cConfig.Free;
+  cConfig := InitObject;
+end;
+
+function TAppConfigProviderBase<T>.InitObject : T;
+var
+  AValue: TValue;
+  ctx: TRttiContext;
+  rType: TRttiType;
+  AMethCreate: TRttiMethod;
+  instanceType: TRttiInstanceType;
+begin
+  ctx := TRttiContext.Create;
+  try
+    rType := ctx.GetType(TypeInfo(T));
+    try
+      for AMethCreate in rType.GetMethods do
+      begin
+        if (AMethCreate.IsConstructor) and (Length(AMethCreate.GetParameters) = 0) then
+        begin
+          instanceType := rType.AsInstance;
+          AValue := AMethCreate.Invoke(instanceType.MetaclassType,[]);
+          Result := AValue.AsType<T>;
+          Break;
+        end;
+      end;
+    finally
+      rType.Free;
+    end;
+  finally
+    ctx.Free;
+  end;
+end;
+
 { TAppConfig }
 
-constructor TAppConfig.Create(const ConfigFileName : string);
+constructor TAppConfig.Create;
 begin
-  fConfigFile := ConfigFileName;
+  fDateTimeZone := TDateTimeZone.tzLocal;
+  fJsonIndent := True;
+  fLastSaved := 0;
 end;
 
-function TAppConfig.Load(CreateIfNotExists : Boolean = False) : Boolean;
-var
-  json : TStrings;
-  {$IF CompilerVersion >= 32.0}
-    Serializer : TJsonSerializer;
-  {$ENDIF}
+procedure TAppConfig.Apply;
 begin
-  if (CreateIfNotExists) and (not FileExists(fConfigFile)) then
-  begin
-    Self.Save;
-    Result := False;
-  end;
-
-  try
-    json := TStringList.Create;
-    try
-      json.LoadFromFile(fConfigFile);
-      if fConfigEncrypted then
-      begin
-        //decrypt json
-      end;
-      {$IF CompilerVersion >= 32.0}
-        Serializer := TJsonSerializer.Create;
-        try
-          Self := Serializer.Deserialize<TAppConfig>(json.Text);
-        finally
-          Serializer.Free;
-        end;
-      {$ELSE}
-        Self := TJson.JsonToObject<TAppConfig>(json.Text)
-      {$ENDIF}
-    finally
-      json.Free;
-    end;
-  except
-    on e : Exception do raise e;
-  end;
+  if Assigned(fOnApplyConfig) then fOnApplyConfig;
 end;
 
-function TAppConfig.Save : Boolean;
-var
-  json : TStrings;
-  {$IF CompilerVersion >= 32.0}
-    Serializer : TJsonSerializer;
-  {$ENDIF}
-begin
-  try
-    json := TStringList.Create;
-    try
-      if fConfigEncrypted then
-      begin
-        //encrypt json
-      end;
-      {$IF CompilerVersion >= 32.0}
-        Serializer := TJsonSerializer.Create;
-        try
-          Serializer.Formatting := TJsonFormatting.Indented;
-          json.Text := Serializer.Serialize(Self);
-        finally
-          Serializer.Free;
-        end;
-      {$ELSE}
-        json.Text := TJson.ObjectToJsonString(Self);
-      {$ENDIF}
-      json.SaveToFile(fConfigFile);
-    finally
-      json.Free;
-    end;
-  except
-    on e : Exception do raise e;
-  end;
-end;
 
-function TAppConfig.AsJsonString : string;
+function TAppConfig.ToJSON : string;
 {$IF CompilerVersion >= 32.0}
   var
-    Serializer: TJsonSerializer;
-{$ENDIF}
+    Serializer : TJsonSerializer;
+  {$ENDIF}
 begin
   Result := '';
-  {$IF CompilerVersion >= 32.0}
-    Serializer := TJsonSerializer.Create;
-    try
-      Serializer.Formatting := TJsonFormatting.Indented;
-      Result := Serializer.Serialize(Self);
-    finally
-      Serializer.Free;
-    end;
-  {$ELSE}
-    Result := TJson.ObjectToJsonString(Self);
-  {$ENDIF}
+  try
+    {$IF CompilerVersion >= 32.0}
+      Serializer := TJsonSerializer.Create;
+      try
+        Serializer.Formatting := TJsonFormatting.Indented;
+        if JsonIndent then Serializer.Formatting := TJsonFormatting.Indented;
+        if DateTimeZone = TDateTimeZone.tzLocal then
+        begin
+          Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Local;
+          Serializer.DateFormatHandling := TJsonDateFormatHandling.FormatSettings;
+        end
+        else Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Utc;
+        Result := Serializer.Serialize<TObject>(Self);
+      finally
+        Serializer.Free;
+      end;
+    {$ELSE}
+      Result := TJson.ObjectToJsonString(Self);
+    {$ENDIF}
+  except
+    on e : Exception do raise Exception.Create(e.Message);
+  end;
 end;
-
-
 
 end.
