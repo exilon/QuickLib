@@ -5,9 +5,9 @@
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
-  Version     : 1.6
+  Version     : 1.7
   Created     : 10/05/2017
-  Modified    : 20/10/2017
+  Modified    : 21/11/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -79,6 +79,8 @@ type
     Log : TQuickLog;
   end;
 
+  TOutputProc<T> = reference to procedure(const aLine : T);
+
   procedure cout(const cMsg : Integer; cEventType : TEventType); overload;
   procedure cout(const cMsg : Double; cEventType : TEventType); overload;
   procedure cout(const cMsg : string; cEventType : TEventType); overload;
@@ -95,6 +97,7 @@ type
   procedure ClearLine; overload;
   procedure ClearLine(Y : Integer); overload;
   procedure ConsoleWaitForEnterKey;
+  procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
   procedure InitConsole;
 
 
@@ -363,6 +366,74 @@ begin
       end;
     end;
   end;
+end;
+
+procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
+const
+  CReadBuffer = 2400;
+var
+  saSecurity: Windows.TSecurityAttributes;
+  hRead: THandle;
+  hWrite: THandle;
+  suiStartup: TStartupInfo;
+  piProcess: TProcessInformation;
+  pBuffer: array [0..CReadBuffer] of AnsiChar;
+  dBuffer: array [0..CReadBuffer] of AnsiChar;
+  dRead: DWORD;
+  dRunning: DWORD;
+  dAvailable: DWORD;
+begin
+  saSecurity.nLength := SizeOf(Windows.TSecurityAttributes);
+  saSecurity.bInheritHandle := true;
+  saSecurity.lpSecurityDescriptor := nil;
+  if CreatePipe(hRead,hWrite,@saSecurity, 0) then
+  begin
+    try
+      FillChar(suiStartup, SizeOf(TStartupInfo), #0);
+      suiStartup.cb := SizeOf(TStartupInfo);
+      suiStartup.hStdInput := hRead;
+      suiStartup.hStdOutput := hWrite;
+      suiStartup.hStdError := hWrite;
+      suiStartup.dwFlags := STARTF_USESTDHANDLES or STARTF_USESHOWWINDOW;
+      suiStartup.wShowWindow := SW_HIDE;
+      if CreateProcess(nil,PChar(Format('%s %s',[aCommand,aParameters])),
+                            @saSecurity,
+                            @saSecurity,
+                            True,
+                            NORMAL_PRIORITY_CLASS,
+                            nil,
+                            nil,
+                            suiStartup,
+                            piProcess) then
+      begin
+        try
+          repeat
+            dRunning := WaitForSingleObject(piProcess.hProcess,100);
+            PeekNamedPipe(hRead,nil,0,nil,@dAvailable,nil);
+            if (dAvailable > 0) then
+            begin
+              repeat
+                dRead := 0;
+                ReadFile(hRead,pBuffer[0],CReadBuffer,dRead,nil);
+                pBuffer[dRead] := #0;
+                OemToCharA(pBuffer,dBuffer);
+                if Assigned(CallBack) then CallBack(dBuffer);
+                if Assigned(OutputLines) then OutputLines.Add(dBuffer);
+              until (dRead < CReadBuffer);
+            end;
+            //Application.ProcessMessages;
+          until (dRunning <> WAIT_TIMEOUT);
+        finally
+          CloseHandle(piProcess.hProcess);
+          CloseHandle(piProcess.hThread);
+        end;
+      end;
+    finally
+      CloseHandle(hRead);
+      CloseHandle(hWrite);
+    end;
+  end
+  else raise Exception.Create('Can''t create pipe!');
 end;
 
 procedure InitConsole;
