@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 14/07/2017
-  Modified    : 11/11/2017
+  Modified    : 12/12/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -455,7 +455,7 @@ end;
 
 function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
 begin
-  Result := DateTimeInRange(cNow,StartOfTheDay(cBefore),EndOfTheDay(cNow),True);
+  Result := DateTimeInRange(cNow,StartOfTheDay(cBefore),EndOfTheDay(cBefore),True);
 end;
 
 function FillStr(const C : Char; const Count : Byte) : string;
