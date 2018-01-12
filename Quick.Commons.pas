@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 14/07/2017
-  Modified    : 12/12/2017
+  Modified    : 12/01/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -105,6 +105,9 @@ type
       procedure Close;
       property EOF: Boolean read GetEOF;
   end;
+
+  EEnvironmentPath = class(Exception);
+  EShellError = class(Exception);
 
   //generates a random password with complexity options
   function RandomPassword(const PasswordLength : Integer; Complexity : TPasswordComplexity = [pfIncludeNumbers,pfIncludeSigns]) : string;
@@ -377,7 +380,7 @@ begin
   SetLength(Result, MAX_PATH);
   if not SHGetPathFromIDList(ppidl, PChar(Result)) then
   begin
-    raise exception.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
+    raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
   end;
   SetLength(Result, lStrLen(PChar(Result)));
 end;
@@ -721,7 +724,14 @@ initialization
   try
     GetEnvironmentPaths;
   except
-    on E : Exception do if not IsService then raise Exception.Create(E.Message);
+    on E : Exception do
+    begin
+      if not IsService then
+      begin
+        if IsConsole then Writeln(Format('GetEnvironmentPaths: %s',[E.Message]))
+          else raise EEnvironmentPath.Create(Format('Get environment path error: %s',[E.Message]));
+      end;
+    end;
   end;
 
 end.
