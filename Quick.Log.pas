@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2017 Kike Pérez
+  Copyright (c) 2016-2018 Kike Pérez
 
   Unit        : Quick.Log
   Description : Threadsafe Log
   Author      : Kike Pérez
   Version     : 1.17
   Created     : 10/04/2016
-  Modified    : 24/10/2017
+  Modified    : 18/01/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -79,8 +79,8 @@ type
     constructor Create;
     destructor Destroy; override;
     function SetLog(logname : string; AddCurrentDateToFileName : Boolean; LimitSizeInMB : Integer = 0) : Boolean;
-    procedure Add(const cMsg : string; cEventType : TEventType = etInfo); overload;
-    procedure Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TEventType = etInfo); overload;
+    procedure Add(const cMsg : string; cEventType : TLogEventType = etInfo); overload;
+    procedure Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = etInfo); overload;
   end;
 
 var
@@ -190,7 +190,7 @@ begin
   Result := True;
 end;
 
-procedure TQuickLog.Add(const cMsg : string; cEventType : TEventType = etInfo);
+procedure TQuickLog.Add(const cMsg : string; cEventType : TLogEventType = etInfo);
 begin
   //Check Log Verbose level
   if cEventType in fVerbose then
@@ -261,7 +261,7 @@ begin
   end;
 end;
 
-procedure TQuickLog.Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TEventType = etInfo);
+procedure TQuickLog.Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = etInfo);
 begin
   Self.Add(Format(cFormat,cParams),cEventType);
 end;

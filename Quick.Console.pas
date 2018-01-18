@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2017 Kike Pérez
+  Copyright (c) 2016-2018 Kike Pérez
 
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
   Version     : 1.7
   Created     : 10/05/2017
-  Modified    : 21/11/2017
+  Modified    : 18/01/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -81,13 +81,13 @@ type
 
   TOutputProc<T> = reference to procedure(const aLine : T);
 
-  procedure cout(const cMsg : Integer; cEventType : TEventType); overload;
-  procedure cout(const cMsg : Double; cEventType : TEventType); overload;
-  procedure cout(const cMsg : string; cEventType : TEventType); overload;
+  procedure cout(const cMsg : Integer; cEventType : TLogEventType); overload;
+  procedure cout(const cMsg : Double; cEventType : TLogEventType); overload;
+  procedure cout(const cMsg : string; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : string; cColor : TConsoleColor); overload;
-  procedure coutXY(x,y : Integer; const s : string; cEventType : TEventType);
-  procedure coutBL(const s : string; cEventType : TEventType);
-  procedure coutFmt(const cMsg : string; params : array of const; cEventType : TEventType);
+  procedure coutXY(x,y : Integer; const s : string; cEventType : TLogEventType);
+  procedure coutBL(const s : string; cEventType : TLogEventType);
+  procedure coutFmt(const cMsg : string; params : array of const; cEventType : TLogEventType);
   procedure TextColor(Color: TConsoleColor); overload;
   procedure TextColor(Color: Byte); overload;
   procedure TextBackground(Color: TConsoleColor); overload;
@@ -115,7 +115,7 @@ var
 implementation
 
 
-procedure cout(const cMsg : Integer; cEventType : TEventType);
+procedure cout(const cMsg : Integer; cEventType : TLogEventType);
 var
   FmtSets : TFormatSettings;
 begin
@@ -129,7 +129,7 @@ begin
   end;
 end;
 
-procedure cout(const cMsg : Double; cEventType : TEventType);
+procedure cout(const cMsg : Double; cEventType : TLogEventType);
 var
   FmtSets : TFormatSettings;
 begin
@@ -143,7 +143,7 @@ begin
   end;
 end;
 
-procedure cout(const cMsg : string; cEventType : TEventType);
+procedure cout(const cMsg : string; cEventType : TLogEventType);
 begin
   if cEventType in Console.LogVerbose then
   begin
@@ -215,7 +215,7 @@ begin
   SetConsoleCursorPosition(hStdOut, NewCoord);
 end;
 
-procedure coutXY(x,y : Integer; const s : string; cEventType : TEventType);
+procedure coutXY(x,y : Integer; const s : string; cEventType : TLogEventType);
 var
  NewCoord : TCoord;
  LastCoord : TCoord;
@@ -234,12 +234,12 @@ begin
   end;
 end;
 
-procedure coutBL(const s : string; cEventType : TEventType);
+procedure coutBL(const s : string; cEventType : TLogEventType);
 begin
   coutXY(0,GetCurSorMaxBottom - 1,s,cEventType);
 end;
 
-procedure coutFmt(const cMsg : string; params : array of const; cEventType : TEventType);
+procedure coutFmt(const cMsg : string; params : array of const; cEventType : TLogEventType);
 begin
   cout(Format(cMsg,params),cEventType);
 end;

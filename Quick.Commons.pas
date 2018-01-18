@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2017 Kike Pérez
+  Copyright (c) 2016-2018 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 14/07/2017
-  Modified    : 12/01/2018
+  Modified    : 18/01/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -44,8 +44,8 @@ interface
 
 type
 
- TEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etTrace);
- TLogVerbose = set of TEventType;
+ TLogEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etTrace);
+ TLogVerbose = set of TLogEventType;
 
 const
   LOG_ONLYERRORS = [etInfo,etError];
