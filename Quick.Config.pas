@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2018 Kike Pérez
 
   Unit        : Quick.Config
   Description : Load/Save config from/to JSON file
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 26/01/2017
-  Modified    : 11/11/2017
+  Modified    : 02/02/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -79,6 +79,7 @@ type
     fLastSaved : TDateTime;
   public
     constructor Create; virtual;
+    //constructor Create(ADefaultValues : Boolean); overload; virtual; abstract;
     {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
     property OnApplyConfig : TApplyConfigEvent read fOnApplyConfig write fOnApplyConfig;
     {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
@@ -104,8 +105,7 @@ type
     property Status : Integer read fStatus write fStatus;
   end;
 
-  MyConfig := TMyConfig.Create;
-  AppConfigProvider := TAppConfigJsonProvider<TMyConfig>.Create;
+  AppConfigProvider := TAppConfigJsonProvider<TMyConfig>.Create(MyConfig);
   MyConfig.Name := 'John';
   }
 
@@ -126,26 +126,21 @@ function TAppConfigProviderBase<T>.InitObject : T;
 var
   AValue: TValue;
   ctx: TRttiContext;
+  f : TRttiField;
   rType: TRttiType;
   AMethCreate: TRttiMethod;
-  instanceType: TRttiInstanceType;
 begin
   ctx := TRttiContext.Create;
   try
     rType := ctx.GetType(TypeInfo(T));
-    try
-      for AMethCreate in rType.GetMethods do
+    for AMethCreate in rType.GetMethods do
+    begin
+      if (AMethCreate.IsConstructor) and (Length(AMethCreate.GetParameters) = 0) then
       begin
-        if (AMethCreate.IsConstructor) and (Length(AMethCreate.GetParameters) = 0) then
-        begin
-          instanceType := rType.AsInstance;
-          AValue := AMethCreate.Invoke(instanceType.MetaclassType,[]);
-          Result := AValue.AsType<T>;
-          Break;
-        end;
+        AValue := AMethCreate.Invoke(rType.AsInstance.AsInstance.MetaclassType,[]);
+        Result := AValue.AsType<T>;
+        Break;
       end;
-    finally
-      rType.Free;
     end;
   finally
     ctx.Free;
