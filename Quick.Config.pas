@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 26/01/2017
-  Modified    : 02/02/2018
+  Modified    : 12/02/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -79,7 +79,6 @@ type
     fLastSaved : TDateTime;
   public
     constructor Create; virtual;
-    //constructor Create(ADefaultValues : Boolean); overload; virtual; abstract;
     {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
     property OnApplyConfig : TApplyConfigEvent read fOnApplyConfig write fOnApplyConfig;
     {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
@@ -89,7 +88,9 @@ type
     {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
     property LastSaved : TDateTime read fLastSaved write fLastSaved;
     procedure Apply;
+    procedure DefaultValues; virtual;
     function ToJSON : string;
+    procedure FromJSON(const json : string);
   end;
 
   {Usage: create a descend class from TAppConfig and add public properties to be loaded/saved
@@ -161,6 +162,11 @@ begin
   if Assigned(fOnApplyConfig) then fOnApplyConfig;
 end;
 
+procedure TAppConfig.DefaultValues;
+begin
+  //inherit to set default values if no config exists before
+end;
+
 
 function TAppConfig.ToJSON : string;
 {$IF CompilerVersion >= 32.0}
@@ -187,6 +193,36 @@ begin
       end;
     {$ELSE}
       Result := TJson.ObjectToJsonString(Self);
+    {$ENDIF}
+  except
+    on e : Exception do raise Exception.Create(e.Message);
+  end;
+end;
+
+procedure TAppConfig.FromJSON(const json : string);
+{$IF CompilerVersion >= 32.0}
+  var
+    Serializer : TJsonSerializer;
+  {$ENDIF}
+begin
+  try
+    {$IF CompilerVersion >= 32.0}
+      Serializer := TJsonSerializer.Create;
+      try
+        Serializer.Formatting := TJsonFormatting.Indented;
+        if JsonIndent then Serializer.Formatting := TJsonFormatting.Indented;
+        if DateTimeZone = TDateTimeZone.tzLocal then
+        begin
+          Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Local;
+          Serializer.DateFormatHandling := TJsonDateFormatHandling.FormatSettings;
+        end
+        else Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Utc;
+        Self := Serializer.Deserialize<TAppConfig>(json);
+      finally
+        Serializer.Free;
+      end;
+    {$ELSE}
+      TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json.Text)));
     {$ENDIF}
   except
     on e : Exception do raise Exception.Create(e.Message);

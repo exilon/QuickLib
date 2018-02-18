@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2018 Kike Pérez
 
   Unit        : Quick.Config.Provider.Json
   Description : Save config to JSON file
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 21/10/2017
-  Modified    : 11/11/2017
+  Modified    : 12/02/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -80,6 +80,7 @@ begin
 
   if (not FileExists(fFilename)) and (CreateIfNotExists) then
   begin
+    TAppConfig(cConfig).DefaultValues;
     Self.Save(cConfig);
   end;
 
