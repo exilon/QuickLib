@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2018 Kike Pérez
 
   Unit        : Quick.JSONUtils
   Description : Utils for working with JSON
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 27/01/2017
-  Modified    : 28/10/2017
+  Modified    : 13/02/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -54,6 +54,9 @@ type
   end;
 
   //only public properties will be cloned or gotten
+
+  function IncludeJsonBraces(const json : string) : string;
+  function RemoveJsonBraces(const json : string) : string;
 
 
 implementation
@@ -103,6 +106,17 @@ begin
   cObj.FromJson(Self.ToJson);
 end;
 
+function IncludeJsonBraces(const json : string) : string;
+begin
+  if (not json.StartsWith('{')) and (not json.EndsWith('}')) then Result := '{' + json + '}'
+    else Result := json;
+end;
+
+function RemoveJsonBraces(const json : string) : string;
+begin
+  if (json.StartsWith('{')) and (json.EndsWith('}')) then Result := Copy(json,2,Json.Length - 2)
+    else Result := json;
+end;
 
 
 end.
