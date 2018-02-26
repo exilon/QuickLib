@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2018 Kike Pérez
 
   Unit        : Quick.Amazon
   Description : Amazon object operations
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 18/11/2016
-  Modified    : 20/11/2016
+  Modified    : 21/02/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -39,6 +39,23 @@ uses
   Data.Cloud.CloudAPI,
   Data.Cloud.AmazonAPI;
 
+const
+
+  AWSRegionSet : array of string = [
+  'eu-west-1',
+  'eu-west-1',
+  'eu-central-1',
+  'us-east-1',
+  'us-west-1',
+  'us-west-2',
+  'ap-southeast-1',
+  'ap-southeast-2',
+  'ap-northeast-1',
+  'ap-northeast-2',
+  'sa-east-1',
+  'us-east-1',  // deprecate
+  'us-east-1','us-east-1'];
+
 type
 
   TAmazonProtocol = (amHTTP,amHTTPS);
@@ -65,10 +82,12 @@ type
       fconAmazon : TAmazonConnectionInfo;
       fAccountName : string;
       fAccountKey : string;
+      fAWSRegion : TAmazonRegion;
       fAmazonProtocol : TAmazonProtocol;
       procedure SetAccountName(amAccountName : string);
       procedure SetAccountKey(amAccountKey : string);
       procedure SetAmazonProtocol(amProtocol : TAmazonProtocol);
+      procedure SetAWSRegion(Value : TAmazonRegion);
       function FileToArray(cFilename : string) : TArray<Byte>;
       function StreamToArray(cStream : TStream) : TArray<Byte>;
     public
@@ -78,6 +97,7 @@ type
       property AccountName : string read fAccountName write SetAccountName;
       property AccountKey : string read fAccountKey write SetAccountKey;
       property AmazonProtocol : TAmazonProtocol read fAmazonProtocol write SetAmazonProtocol;
+      property AWSRegion : TAmazonRegion read fAWSRegion write SetAWSRegion;
       function StorageURL(amBucket : string) : string;
       function PutObject(amBucket, cFilename, amObjectName : string; amACLType : TAmazonACLType; var amResponseInfo : TAmazonResponseInfo) : Boolean; overload;
       function PutObject(amBucket : string; cStream : TStream; amObjectName : string; amACLType : TAmazonACLType; var amResponseInfo : TAmazonResponseInfo) : Boolean; overload;
@@ -91,6 +111,8 @@ type
       function ListBuckets(var amResponseInfo : TAmazonResponseInfo) : TStrings;
       function CreateBucket(amBucket : string; amBucketRegion : TAmazonRegion; amACLType : TAmazonACLAccess; var amResponseInfo : TAmazonResponseInfo) : Boolean;
       function DeleteBucket(amBucket : string; amBucketRegion : TAmazonRegion; var amResponseInfo : TAmazonResponseInfo) : Boolean;
+      class function GetAWSRegion(Region: TAmazonRegion): string; overload;
+      class function GetAWSRegion(const Region : string) : TAmazonRegion; overload;
   end;
 
 implementation
@@ -100,6 +122,7 @@ begin
   inherited;
   fconAmazon := TAmazonConnectionInfo.Create(nil);
   fAmazonProtocol := amHTTP;
+  fconAmazon.UseDefaultEndpoints := False;
 end;
 
 constructor TQuickAmazon.Create(amAccountName, amAccountKey : string);
@@ -113,6 +136,12 @@ destructor TQuickAmazon.Destroy;
 begin
   if Assigned(fconAmazon) then fconAmazon.Free;
   inherited;
+end;
+
+procedure TQuickAmazon.SetAWSRegion(Value : TAmazonRegion);
+begin
+  fAWSRegion := Value;
+  fconAmazon.StorageEndpoint := Format('s3-%s.amazonaws.com',[GetAWSRegion(Value)]);
 end;
 
 procedure TQuickAmazon.SetAccountName(amAccountName : string);
@@ -175,6 +204,13 @@ begin
   end;
 end;
 
+{function TQuickAmazon.StreamToArray(cStream : TStream) : TArray<Byte>;
+begin
+  SetLength(Result,cStream.Size);
+  cStream.WriteData(Result,Length(Result));
+end;}
+
+
 function GetResponseInfo(amResponseInfo : TCloudResponseInfo) : TAmazonResponseInfo;
 begin
   Result.StatusCode := amResponseInfo.StatusCode;
@@ -222,12 +258,15 @@ begin
     try
       //AmazonS3.Timeout := fTimeout;
       CloudResponseInfo := TCloudResponseInfo.Create;
+      //CloudResponseInfo.Headers.AddPair();
       Content := StreamToArray(cStream);
       Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
-    amResponseInfo := GetResponseInfo(CloudResponseInfo);
+      amResponseInfo := GetResponseInfo(CloudResponseInfo);
     finally
       AmazonS3.Free;
       CloudResponseInfo.Free;
+      SetLength(Content,0);
+      Content := nil;
     end;
   except
       Result := False;
@@ -521,6 +560,16 @@ begin
     AmazonS3.Free;
     CloudResponseInfo.Free;
   end;
+end;
+
+class function TQuickAmazon.GetAWSRegion(const Region : string) : TAmazonRegion;
+begin
+  Result := TAmazonStorageService.GetRegionFromString(Region);
+end;
+
+class function TQuickAmazon.GetAWSRegion(Region: TAmazonRegion): string;
+begin
+  Result := TAmazonStorageService.GetRegionString(Region);
 end;
 
 end.
