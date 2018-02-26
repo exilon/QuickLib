@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 27/08/2015
-  Modified    : 09/05/2017
+  Modified    : 20/10/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -270,18 +270,21 @@ var
 begin
   Result := False;
   BlobService := TAzureBlobService.Create(fconAzure);
-  if azContainer = '' then azContainer := '$root';
-  CloudResponseInfo := TCloudResponseInfo.Create;
   try
-    BlobService.Timeout := fTimeout;
-    Content := FileToArray(cFilename);
-    if azBlobName = '' then azBlobName := cFilename;
-    if azBlobName.StartsWith('/') then azBlobName := Copy(azBlobName,2,Length(azBlobName));
-    Result := BlobService.PutBlockBlob(azContainer,azBlobName,Content,EmptyStr,nil,nil,CloudResponseInfo);
-    azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    if azContainer = '' then azContainer := '$root';
+    CloudResponseInfo := TCloudResponseInfo.Create;
+    try
+      BlobService.Timeout := fTimeout;
+      Content := FileToArray(cFilename);
+      if azBlobName = '' then azBlobName := cFilename;
+      if azBlobName.StartsWith('/') then azBlobName := Copy(azBlobName,2,Length(azBlobName));
+      Result := BlobService.PutBlockBlob(azContainer,azBlobName,Content,EmptyStr,nil,nil,CloudResponseInfo);
+      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -305,12 +308,15 @@ begin
     try
       BlobService.Timeout := fTimeout;
       CloudResponseInfo := TCloudResponseInfo.Create;
-      Content := StreamToArray(cStream);
-      Result := BlobService.PutBlockBlob(azContainer,azBlobName,Content,EmptyStr,nil,nil,CloudResponseInfo);
-      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+      try
+        Content := StreamToArray(cStream);
+        Result := BlobService.PutBlockBlob(azContainer,azBlobName,Content,EmptyStr,nil,nil,CloudResponseInfo);
+        azResponseInfo := GetResponseInfo(CloudResponseInfo);
+      finally
+        CloudResponseInfo.Free;
+      end;
     finally
       BlobService.Free;
-      CloudResponseInfo.Free;
     end;
   except
     on E : Exception do
@@ -334,12 +340,16 @@ begin
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
-    CloudResponseInfo := TCloudResponseInfo.Create;
     fs := TFileStream.Create(cFilenameTo,fmCreate);
     try
       try
-        Result := BlobService.GetBlob(azContainer,azBlobName,fs,EmptyStr,CloudResponseInfo);
-        azResponseInfo := GetResponseInfo(CloudResponseInfo);
+        CloudResponseInfo := TCloudResponseInfo.Create;
+        try
+          Result := BlobService.GetBlob(azContainer,azBlobName,fs,EmptyStr,CloudResponseInfo);
+          azResponseInfo := GetResponseInfo(CloudResponseInfo);
+        finally
+          CloudResponseInfo.Free;
+        end;
       except
         Result := False;
       end;
@@ -348,7 +358,6 @@ begin
     end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -364,16 +373,19 @@ begin
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
-    CloudResponseInfo := TCloudResponseInfo.Create;
     try
-      Result := BlobService.GetBlob(azContainer,azBlobName,Stream,EmptyStr,CloudResponseInfo);
-      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+      CloudResponseInfo := TCloudResponseInfo.Create;
+      try
+        Result := BlobService.GetBlob(azContainer,azBlobName,Stream,EmptyStr,CloudResponseInfo);
+        azResponseInfo := GetResponseInfo(CloudResponseInfo);
+      finally
+        CloudResponseInfo.Free;
+      end;
     except
       Stream := nil;
     end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -395,10 +407,14 @@ begin
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
-    CloudResponseInfo := TCloudResponseInfo.Create;
     try
-      Result := BlobService.CopyBlob(azTargetContainer,azTargetBlobName,azSourceContainer,azSourceBlobName,'',nil,CloudResponseInfo);
-      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+      CloudResponseInfo := TCloudResponseInfo.Create;
+      try
+        Result := BlobService.CopyBlob(azTargetContainer,azTargetBlobName,azSourceContainer,azSourceBlobName,'',nil,CloudResponseInfo);
+        azResponseInfo := GetResponseInfo(CloudResponseInfo);
+      finally
+        CloudResponseInfo.Free;
+      end;
     except
       on E : Exception do
       begin
@@ -409,7 +425,6 @@ begin
     end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -461,7 +476,6 @@ begin
   Result := False;
   if azContainer = '' then azContainer := '$root';
   BlobService := TAzureBlobService.Create(fconAzure);
-  CloudResponseInfo := TCloudResponseInfo.Create;
   try
     BlobService.Timeout := fTimeout;
     AzParams := TStringList.Create;
@@ -471,18 +485,22 @@ begin
       AzParams.Values['delimiter'] := '/';
       AzParams.Values['maxresults'] := '1';
       cNextMarker := '';
-      azBlobList := BlobService.ListBlobs(azContainer,cNextMarker,AzParams,CloudResponseInfo);
+      CloudResponseInfo := TCloudResponseInfo.Create;
       try
-        if (Assigned(azBlobList)) and (azBlobList.Count > 0) and (CloudResponseInfo.StatusCode = 200) then Result := True;
+        azBlobList := BlobService.ListBlobs(azContainer,cNextMarker,AzParams,CloudResponseInfo);
+        try
+          if (Assigned(azBlobList)) and (azBlobList.Count > 0) and (CloudResponseInfo.StatusCode = 200) then Result := True;
+        finally
+          azBlobList.Free;
+        end;
       finally
-        azBlobList.Free;
+        CloudResponseInfo.Free;
       end;
     finally
       AzParams.Free;
     end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -498,11 +516,14 @@ begin
   try
     BlobService.Timeout := fTimeout;
     CloudResponseInfo := TCloudResponseInfo.Create;
-    Result := BlobService.DeleteBlob(azContainer,azBlobName,False,EmptyStr,CloudResponseInfo);
-    azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    try
+      Result := BlobService.DeleteBlob(azContainer,azBlobName,False,EmptyStr,CloudResponseInfo);
+      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -520,7 +541,6 @@ begin
   cNextMarker := '';
   if azContainer = '' then azContainer := '$root';
   BlobService := TAzureBlobService.Create(fconAzure);
-  CloudResponseInfo := TCloudResponseInfo.Create;
   try
     BlobService.Timeout := fTimeout;
     repeat
@@ -529,32 +549,36 @@ begin
         AzParams.Values['prefix'] := azBlobsStartWith;
         if not Recursive then AzParams.Values['delimiter'] := '/';
         if cNextMarker <> '' then AzParams.Values['marker'] := cNextMarker;
-        azBlobList := BlobService.ListBlobs(azContainer,cNextMarker,AzParams,CloudResponseInfo);
-        azResponseInfo := GetResponseInfo(CloudResponseInfo);
-        if Assigned(azBlobList) then
-        begin
-          try
-            for azBlob in azBlobList do
-            begin
-              Blob := TAzureBlobObject.Create;
-              Blob.Name := azBlob.Name;
-              Blob.Size := StrToInt64Def(azBlob.Properties.Values['Content-Length'],0);
-              Blob.LastModified := GMT2DateTime(azBlob.Properties.Values['Last-Modified']);
-              Result.Add(Blob);
+        CloudResponseInfo := TCloudResponseInfo.Create;
+        try
+          azBlobList := BlobService.ListBlobs(azContainer,cNextMarker,AzParams,CloudResponseInfo);
+          azResponseInfo := GetResponseInfo(CloudResponseInfo);
+          if Assigned(azBlobList) then
+          begin
+            try
+              for azBlob in azBlobList do
+              begin
+                Blob := TAzureBlobObject.Create;
+                Blob.Name := azBlob.Name;
+                Blob.Size := StrToInt64Def(azBlob.Properties.Values['Content-Length'],0);
+                Blob.LastModified := GMT2DateTime(azBlob.Properties.Values['Last-Modified']);
+                Result.Add(Blob);
+              end;
+            finally
+              //frees azbloblist objects
+              for azBlob in azBlobList do azBlob.Free;
+              azBlobList.Free;
             end;
-          finally
-            //frees azbloblist objects
-            for azBlob in azBlobList do azBlob.Free;
-            azBlobList.Free;
           end;
+        finally
+          CloudResponseInfo.Free;
         end;
       finally
-        AzParams.Free;
+        FreeAndNil(AzParams);
       end;
     until (cNextMarker = '') or (azResponseInfo.StatusCode <> 200);
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
