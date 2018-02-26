@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 14/07/2017
-  Modified    : 18/01/2018
+  Modified    : 22/01/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -117,6 +117,8 @@ type
   function UnixToWindowsPath(const UnixPath: string): string;
   //converts a Windows path to Unix path
   function WindowsToUnixPath(const WindowsPath: string): string;
+  //corrects malformed urls
+  function CorrectURLPath(cUrl : string) : string;
   {$IFDEF MSWINDOWS}
   //get typical environment paths as temp, desktop, etc
   procedure GetEnvironmentPaths;
@@ -179,6 +181,10 @@ type
   function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
   //count number of digits of a Integer
   function CountDigits(anInt: Cardinal): Cardinal; inline;
+  //save stream to file
+  procedure SaveStreamToFile(stream : TStream; const filename : string);
+  //process messages on console applications
+  procedure ProcessMessages;
 
 var
   {$IFDEF MSWINDOWS}
@@ -335,12 +341,22 @@ end;
 
 function UnixToWindowsPath(const UnixPath: string): string;
 begin
-  Result:=StringReplace(UnixPath, '/', '\',[rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(UnixPath, '/', '\',[rfReplaceAll, rfIgnoreCase]);
 end;
 
 function WindowsToUnixPath(const WindowsPath: string): string;
 begin
-  Result:=StringReplace(WindowsPath, '\', '/',[rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(WindowsPath, '\', '/',[rfReplaceAll, rfIgnoreCase]);
+end;
+
+function CorrectURLPath(cUrl : string) : string;
+var
+  nurl : string;
+begin
+  nurl := WindowsToUnixPath(cUrl);
+  nurl := StringReplace(nurl,'//','/',[rfReplaceAll]);
+  Result := StringReplace(nurl,' ','%20',[rfReplaceAll]);
+  //TNetEncoding.Url.Encode()
 end;
 
 {$IFDEF MSWINDOWS}
@@ -463,7 +479,7 @@ end;
 
 function FillStr(const C : Char; const Count : Byte) : string;
 var
-    i   : Byte;
+  i   : Byte;
 begin
   Result := '';
   for i := 1 to Count do Result := Result + C;
@@ -720,6 +736,30 @@ begin
   end;
 end;
 
+procedure SaveStreamToFile(stream : TStream; const filename : string);
+var
+  fs : TFileStream;
+begin
+  fs := TFileStream.Create(filename,fmCreate);
+  try
+    stream.Seek(0,soBeginning);
+    fs.CopyFrom(stream,stream.Size);
+  finally
+    fs.Free;
+  end;
+end;
+
+procedure ProcessMessages;
+var
+  Msg: TMsg;
+begin
+  while integer(PeekMessage(Msg, 0, 0, 0, PM_REMOVE)) <> 0 do
+  begin
+    TranslateMessage(Msg);
+    DispatchMessage(Msg);
+  end;
+end;
+
 initialization
   try
     GetEnvironmentPaths;
@@ -728,7 +768,7 @@ initialization
     begin
       if not IsService then
       begin
-        if IsConsole then Writeln(Format('GetEnvironmentPaths: %s',[E.Message]))
+        if IsConsole then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
           else raise EEnvironmentPath.Create(Format('Get environment path error: %s',[E.Message]));
       end;
     end;
