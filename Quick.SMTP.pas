@@ -163,6 +163,7 @@ var
   email : string;
   filename : string;
   mBody : TIdText;
+  idattach : TIdAttachmentFile;
 begin
   Result := False;
   SSLHandler := TIdSSLIOHandlerSocketOpenSSL.Create(nil);
@@ -191,7 +192,7 @@ begin
       begin
         for filename in fMail.Attachments do
         begin
-          TIdAttachmentFile.Create(msg.MessageParts,filename);
+          idattach := TIdAttachmentFile.Create(msg.MessageParts,filename);
         end;
       end;
 
@@ -227,10 +228,14 @@ begin
         on E : Exception do raise Exception.Create(Format('[%s] : %s',[Self.ClassName,e.Message]));
       end;
     finally
+      if Assigned(msg.MessageParts) then msg.MessageParts.Free;
+      if Assigned(mBody) then mBody.Free;
+      if Assigned(idattach) then idattach.Free;
+
       msg.Free;
     end;
   finally
-    if Assigned(SSLHandler) then SSLHandler.Free;
+    SSLHandler.Free;
   end;
 end;
 
