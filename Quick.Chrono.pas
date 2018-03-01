@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2018 Kike Pérez
 
   Unit        : Quick.Chrono
   Description : Chronometers time elapsed and estimated time to do a task
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 27/08/2015
-  Modified    : 29/09/2017
+  Modified    : 27/02/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -183,7 +183,7 @@ end;
 
 class function TChronometer.GetUnitTime(TimeValue : TTimeValue; LongFormat : Boolean) : string;
 begin
-  if LongFormat then Result := UnitLongTime[TimeValue] + '(s)'
+  if LongFormat then Result := ' ' + UnitLongTime[TimeValue] + '(s)'
     else Result := UnitShortTime[TimeValue];
 end;
 
