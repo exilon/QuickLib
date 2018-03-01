@@ -1,4 +1,5 @@
-﻿**QuickLib**
+﻿
+**QuickLib**
 --------
 ----------
 
@@ -62,6 +63,21 @@ Small delphi library containing interesting and quick to implement functions, cr
     
     //Capitalize every word of a phrase
     CapitalizeAll('the grey fox'); //returns "The Grey Fox"
+    
+    //Simple TCounter and TTimeCounter for loops
+    counter := TCounter;
+    counter.Init(200);
+    timecounter : TTimeCounter;
+    timecounter.Init(10000);
+    while true do
+    begin
+	    Inc(n);
+	    {your procedural process here}
+	    //every 200 steps writes to console
+	    if counter.Check then writeln(Format('Processed %d entries',[n]));
+	    //every 10 seconds writes to console
+	    if timecounter.Check then writeln('Im working...'); 
+    end;
 
 **Quick.Chrono:** Chronometer and Benchmark a piece of code is simple.
 
