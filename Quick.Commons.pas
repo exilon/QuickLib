@@ -106,6 +106,30 @@ type
       property EOF: Boolean read GetEOF;
   end;
 
+  TCounter = record
+  private
+    fMaxValue : Integer;
+    fCurrentValue : Integer;
+  public
+    property MaxValue : Integer read fMaxValue;
+    procedure Init(aMaxValue : Integer);
+    function Count : Integer;
+    function CountIs(aValue : Integer) : Boolean;
+    function Check : Boolean;
+    procedure Reset;
+  end;
+
+  TTimeCounter = record
+  private
+    fCurrentTime : TDateTime;
+    fDoneEvery : Integer;
+  public
+    property DoneEvery : Integer read fDoneEvery;
+    procedure Init(MillisecondsToReach : Integer);
+    function Check : Boolean;
+    procedure Reset;
+  end;
+
   EEnvironmentPath = class(Exception);
   EShellError = class(Exception);
 
@@ -747,6 +771,65 @@ begin
   finally
     fs.Free;
   end;
+end;
+
+{ TCounter }
+
+procedure TCounter.Init(aMaxValue : Integer);
+begin
+  fMaxValue := aMaxValue;
+  fCurrentValue := 0;
+end;
+
+function TCounter.Count : Integer;
+begin
+  Result := fCurrentValue;
+end;
+
+function TCounter.CountIs(aValue : Integer) : Boolean;
+begin
+  Result := fCurrentValue = aValue;
+end;
+
+function TCounter.Check : Boolean;
+begin
+  if fCurrentValue = fMaxValue then
+  begin
+    Result := True;
+    Reset;
+  end
+  else
+  begin
+    Result := False;
+    Inc(fCurrentValue);
+  end;
+end;
+
+procedure TCounter.Reset;
+begin
+  fCurrentValue := fMaxValue;
+end;
+
+{ TimeCounter }
+
+procedure TTimeCounter.Init(MillisecondsToReach : Integer);
+begin
+  fDoneEvery := MillisecondsToReach;
+end;
+
+function TTimeCounter.Check : Boolean;
+begin
+  if MilliSecondsBetween(fCurrentTime,Now) > fDoneEvery then
+  begin
+    fCurrentTime := Now();
+    Result := True;
+  end
+  else Result := False;
+end;
+
+procedure TTimeCounter.Reset;
+begin
+  fCurrentTime := Now();
 end;
 
 procedure ProcessMessages;
