@@ -1,4 +1,5 @@
 ﻿
+
 **QuickLib**
 --------
 ----------
@@ -92,6 +93,19 @@ Small delphi library containing interesting and quick to implement functions, cr
 
     //shows elapsed time in ShortTime format (02:10:00)
     Showmessage(Chrono.TimeElapsed(False));
+    //get benchmak info of a process
+    Chrono := TChronoBenchMark.Create;
+    Chrono.TotalProcess := 100000;
+    for i := 1 to 10000 do
+    begin
+	    {your process here}
+	    Chrono.CurrentProcess := i;
+	    //shows estimated time your process will take in x hour(s), x minute(s) x second(s) format
+	    writeln(Chrono.EstimatedTime(True));
+	    //shows speed: num items per second processed of your process
+	    writeln(Format('Items processed %d/sec',[Chrono.Speed]));
+    end;
+    writeln(Chrono.ElapsedTime(False)); //shows total time elapsed in 00:00:00 format
     
 **Quick.Console:** Write log messages to console with colors and more...
 
