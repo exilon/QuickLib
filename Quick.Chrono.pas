@@ -1,13 +1,13 @@
-{ ***************************************************************************
+ï»¿{ ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2018 Kike PÃ©rez
 
   Unit        : Quick.Chrono
   Description : Chronometers time elapsed and estimated time to do a task
-  Author      : Kike Pérez
+  Author      : Kike PÃ©rez
   Version     : 1.2
   Created     : 27/08/2015
-  Modified    : 27/02/2018
+  Modified    : 02/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -43,6 +43,8 @@ resourcestring
   strMINUTE = 'minute';
   strSECOND = 'second';
   strMILLISECOND = 'millisecond';
+  strMICROSECOND = 'microsecond';
+  strNANOSECOND = 'nanosecond';
   strFMTSHORT_HOURS_MINUTES = 'hh:nn:ss';
   strFMTSHORT_MINUTES_SECONDS = 'hh:nn:ss';
   strFMTLONG_HOURS_MINUTES = 'h "hour(s) and" n "minute(s)"';
@@ -50,12 +52,13 @@ resourcestring
 
 type
 
-  TTimeValue = (utDay, utHour, utMinute, utSecond, utMillisecond);
+  TTimeValue = (utDay, utHour, utMinute, utSecond, utMillisecond,utMicrosecond,utNanosecond);
   TTimeFmt = (tfHoursAndMinutes, tfMinutesAndSeconds);
+  TPrecissionFormat = (pfFloat, pfRound, pfTruncate);
 
 const
-  UnitShortTime : array[utDay..utMillisecond] of string = ('d','h','m','s','ms');
-  UnitLongTime : array[utDay..utMillisecond] of string = (strDAY,strHOUR,strMINUTE,strSECOND,strMILLISECOND);
+  UnitShortTime : array[utDay..utNanosecond] of string = ('d','h','m','s','ms','Î¼s','ns');
+  UnitLongTime : array[utDay..utNanosecond] of string = (strDAY,strHOUR,strMINUTE,strSECOND,strMILLISECOND,strMICROSECOND,strNANOSECOND);
   FmtShortTime : array[tfHoursAndMinutes..tfMinutesAndSeconds] of string = (strFMTSHORT_HOURS_MINUTES,strFMTSHORT_MINUTES_SECONDS);
   FmtLongTime : array[tfHoursAndMinutes..tfMinutesAndSeconds] of string = (strFMTLONG_HOURS_MINUTES,strFMTLONG_MINUTES_SECONDS);
 
@@ -64,11 +67,13 @@ type
   TChronometer = class
   private
     fFrequency: TLargeInteger;
+    fUnitsPerMiS : Int64;
     fIsRunning: Boolean;
     fIsHighResolution: Boolean;
     fStartCount, fStopCount: TLargeInteger;
     fStartBreakPoint, fStopBreakPoint : TLargeInteger;
-    fReportFormatPrecission : Boolean;
+    fReportFormatPrecission : TPrecissionFormat;
+    class function Precission(aValue : Extended; FormatPrecission : TPrecissionFormat) : Extended;
     procedure SetTickStamp(var lInt: TLargeInteger);
     function GetElapsedTicks: TLargeInteger;
     function GetElapsedMilliseconds: TLargeInteger;
@@ -87,7 +92,7 @@ type
     procedure BreakPoint;
     property IsHighResolution: Boolean read fIsHighResolution;
     property IsRunning: Boolean read fIsRunning;
-    property ReportFormatPrecission: boolean read fReportFormatPrecission write fReportFormatPrecission;
+    property ReportFormatPrecission: TPrecissionFormat read fReportFormatPrecission write fReportFormatPrecission;
     property ElapsedTicks: TLargeInteger read GetElapsedTicks;
     property ElapsedMilliseconds: TLargeInteger read GetElapsedMilliseconds;
     property ElapsedMilliseconds_Breakpoint: TLargeInteger read GetElapsedMilliseconds_BreakPoint;
@@ -97,7 +102,7 @@ type
     function ElapsedTime(LongFormat : Boolean = False) : string;
     function ElapsedTime_BreakPoint(LongFormat : Boolean = False) : string;
     class function MillisecondsToString(aMilliseconds : TLargeInteger; LongFormat : Boolean = False) : string; overload;
-    class function MillisecondsToString(aMillisecondsWithPrecission : Extended; LongFormat : Boolean = False) : string; overload;
+    class function MillisecondsToString(aMilliseconds : Extended; FormatPrecission : TPrecissionFormat = pfFloat; LongFormat : Boolean = False) : string; overload;
 
   end;
 
@@ -133,12 +138,13 @@ begin
   inherited Create;
   fIsRunning := False;
   fIsHighResolution := QueryPerformanceFrequency(fFrequency);
-  fReportFormatPrecission := True;
+  fReportFormatPrecission := pfFloat;
   fStartCount := 0;
   fStopCount := 0;
   fStartBreakPoint := 0;
   fStopBreakPoint := 0;
   if not fIsHighResolution then fFrequency := MSecsPerSec;
+  fUnitsPerMiS := fFrequency div 1000000;
   if StartOnCreate then Start;
 end;
 
@@ -155,30 +161,12 @@ end;
 
 function TChronometer.ElapsedTime(LongFormat : Boolean = False) : string;
 begin
-  if LongFormat then
-  begin
-    if fReportFormatPrecission then Result := MillisecondsToString(ElapsedMillisecondsWithPrecission,True)
-      else Result := MillisecondsToString(ElapsedMilliseconds,True);
-  end
-  else
-  begin
-    if fReportFormatPrecission then Result := MillisecondsToString(ElapsedMillisecondsWithPrecission)
-      else Result := MillisecondsToString(ElapsedMilliseconds);
-  end;
+  Result := MillisecondsToString(ElapsedMillisecondsWithPrecission,fReportFormatPrecission,LongFormat);
 end;
 
 function TChronometer.ElapsedTime_BreakPoint(LongFormat : Boolean = False) : string;
 begin
-  if LongFormat then
-  begin
-    if fReportFormatPrecission then Result := MillisecondsToString(ElapsedMillisecondsWithPrecission_BreakPoint,True)
-      else Result := MillisecondsToString(ElapsedMilliseconds_BreakPoint,True);
-  end
-  else
-  begin
-    if fReportFormatPrecission then Result := MillisecondsToString(ElapsedMillisecondsWithPrecission_BreakPoint)
-      else Result := MillisecondsToString(ElapsedMilliseconds_BreakPoint);
-  end;
+  Result := MillisecondsToString(ElapsedMillisecondsWithPrecission_BreakPoint,fReportFormatPrecission,True);
 end;
 
 class function TChronometer.GetUnitTime(TimeValue : TTimeValue; LongFormat : Boolean) : string;
@@ -194,79 +182,68 @@ begin
 end;
 
 class function TChronometer.MillisecondsToString(aMilliseconds : TLargeInteger; LongFormat : Boolean = False) : string;
-var
-  dt : TDateTime;
-  sp : string;
 begin
-  if LongFormat then sp := ' ' else sp := '';
+  MillisecondsToString(aMilliseconds.ToExtended,pfTruncate,LongFormat);
+end;
 
-  if aMilliseconds < MSecsPerSec then //milliseconds
-  begin
-    Result := Format('%d%s%s',[aMilliseconds,sp,GetUnitTime(utMillisecond,LongFormat)]);
-  end
-  else if (aMilliseconds / MSecsPerSec) < SecsPerMin then //seconds
-  begin
-    Result := Format('%d%s%s',[(aMilliseconds div MSecsPerSec),sp,GetUnitTime(utSecond,LongFormat)]);
-  end
-  else if ((aMilliseconds / MSecsPerSec) < SecsPerHour) and ((aMilliseconds mod (SecsPerMin * MSecsPerSec)) = 0) then //minutes
-  begin
-    Result := Format('%d%s%s',[(aMilliseconds div (SecsPerMin * MSecsPerSec)),sp,GetUnitTime(utMinute,LongFormat)]);
-  end
-  else if (aMilliseconds / MSecsPerSec) < SecsPerDay then //hours
-  begin
-    dt := aMilliseconds / MSecsPerSec / SecsPerDay;
-    if LongFormat then
-    begin
-      if (aMilliseconds / MSecsPerSec) > SecsPerHour then Result := FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt))
-        else Result := FormatDateTime(GetFmtTime(tfMinutesAndSeconds,LongFormat),Frac(dt))
-    end
-    else
-    begin
-      Result := FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt));
-    end;
-  end
-  else //days
-  begin
-    dt := aMilliseconds / MSecsPerSec / SecsPerDay;
-    Result := Format('%d%s%s, %s', [trunc(dt),sp,GetUnitTime(utDay,LongFormat),FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt))]);
+class function TChronometer.Precission(aValue : Extended; FormatPrecission : TPrecissionFormat) : Extended;
+begin
+  case FormatPrecission of
+    pfRound : Result := Round(aValue).ToExtended;
+    pfTruncate : Result := Int(aValue);
+    else Result := aValue;
   end;
 end;
 
-class function TChronometer.MillisecondsToString(aMillisecondsWithPrecission : Extended; LongFormat : Boolean = False) : string;
+class function TChronometer.MillisecondsToString(aMilliseconds : Extended; FormatPrecission : TPrecissionFormat = pfFloat; LongFormat : Boolean = False) : string;
 var
   dt : TDateTime;
-  sp : string;
+  mc : Extended;
 begin
-  if LongFormat then sp := '' else sp := ' ';
-  if aMillisecondsWithPrecission < MSecsPerSec then //milliseconds
+  if aMilliseconds < 1.0 then
   begin
-    Result := Format('%f%s%s',[aMillisecondsWithPrecission,sp,GetUnitTime(utMillisecond,LongFormat)]);
+    mc := frac(aMilliseconds) * 1000;
+    if Int(mc) = 0 then Result := Format('%d%s',[Trunc(frac(mc) * 1000),GetUnitTime(utNanosecond,LongFormat)]) //nanoseconds
+      else Result := Format('%d%s',[Trunc(mc),GetUnitTime(utMicrosecond,LongFormat)]); //microseconds
   end
-  else if (aMillisecondsWithPrecission / MSecsPerSec) < 60 then //seconds
+  else
   begin
-    Result := Format('%f%s%s',[(aMillisecondsWithPrecission / MSecsPerSec),sp,GetUnitTime(utSecond,LongFormat)]);
-  end
-  else if (aMillisecondsWithPrecission / MSecsPerSec) < SecsPerHour then //minutes
-  begin
-    Result := Format('%f%s%s',[(aMillisecondsWithPrecission / (SecsPerMin * MSecsPerSec)),sp,GetUnitTime(utMinute,LongFormat)]);
-  end
-  else if (aMillisecondsWithPrecission / MSecsPerSec) < SecsPerDay then //hours
-  begin
-    dt := aMillisecondsWithPrecission / MSecsPerSec / SecsPerDay;
-    if LongFormat then
+    if aMilliseconds < MSecsPerSec then //milliseconds
     begin
-      if (aMillisecondsWithPrecission / MSecsPerSec) > SecsPerHour then Result := FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt))
-        else Result := FormatDateTime(GetFmtTime(tfMinutesAndSeconds,LongFormat),Frac(dt));
+      aMilliseconds := Precission(aMilliseconds,FormatPrecission);
+      if (FormatPrecission = pfFloat) or (frac(aMilliseconds) > 0) then Result := Format('%f%s',[aMilliseconds,GetUnitTime(utMillisecond,LongFormat)])
+        else Result := Format('%d%s',[Trunc(aMilliseconds),GetUnitTime(utMillisecond,LongFormat)])
     end
-    else
+    else if (aMilliseconds / MSecsPerSec) < SecsPerMin then //seconds
     begin
-      Result := FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt));
+      aMilliseconds := Precission((aMilliseconds / MSecsPerSec),FormatPrecission);
+      if (FormatPrecission = pfFloat) or (frac(aMilliseconds) > 0) then Result := Format('%f%s',[aMilliseconds,GetUnitTime(utSecond,LongFormat)])
+        else Result := Format('%d%s',[Trunc(aMilliseconds),GetUnitTime(utSecond,LongFormat)]);
+    end
+    else if ((aMilliseconds / MSecsPerSec) < SecsPerHour) and ((Round(aMilliseconds) mod (SecsPerMin * MSecsPerSec)) = 0) then //minutes
+    begin
+      aMilliseconds := Precission((aMilliseconds / (SecsPerMin * MSecsPerSec)),FormatPrecission);
+      if (FormatPrecission = pfFloat) or (frac(aMilliseconds) > 0) then Result := Format('%f%s',[aMilliseconds,GetUnitTime(utMinute,LongFormat)])
+        else Result := Format('%d%s',[Trunc(aMilliseconds),GetUnitTime(utMinute,LongFormat)])
+    end
+    else if (aMilliseconds / MSecsPerSec) < SecsPerDay then //hours
+    begin
+      dt := aMilliseconds / MSecsPerSec / SecsPerDay;
+      if LongFormat then
+      begin
+        if (aMilliseconds / MSecsPerSec) > SecsPerHour then Result := FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt))
+          else Result := FormatDateTime(GetFmtTime(tfMinutesAndSeconds,LongFormat),Frac(dt));
+      end
+      else
+      begin
+        Result := FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt));
+      end;
+    end
+    else //dÃ­as
+    begin
+      dt := aMilliseconds / MSecsPerSec / SecsPerDay;
+      Result := Format('%d%s, %s', [trunc(dt),GetUnitTime(utDay,LongFormat),FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt))]);
     end;
-  end
-  else //días
-  begin
-    dt := aMillisecondsWithPrecission / MSecsPerSec / SecsPerDay;
-    Result := Format('%d%s%s, %s', [trunc(dt),sp,GetUnitTime(utDay,LongFormat),FormatDateTime(GetFmtTime(tfHoursAndMinutes,LongFormat),Frac(dt))]);
   end;
 end;
 
