@@ -52,7 +52,9 @@ type
     Complex : TProcessType;
     ModifyDate : TDateTime;
     WorkList : TObjectList<TWorker>;
+    constructor Create; override;
     destructor Destroy; override;
+    procedure DefaultValues;
     property Title : string read fTitle write fTitle;
     property SessionName : string read fSessionName write fSessionName;
   end;
@@ -129,8 +131,6 @@ begin
   cConfig.Complex.Redundant := False;
   cConfig.Title := 'a fresh title';
   cConfig.SessionName := 'First Session';
-  if Assigned(cConfig.WorkList) then cconfig.WorkList.Free;
-  cConfig.WorkList := TObjectList<TWorker>.Create(True);
   for I := 0 to 22 do
   begin
     worker := TWorker.Create;
@@ -199,6 +199,18 @@ begin
 end;
 
 { TMyConfig }
+
+constructor TMyConfig.Create;
+begin
+  inherited;
+  WorkList := TObjectList<TWorker>.Create(True);
+  DefaultValues;
+end;
+
+procedure TMyConfig.DefaultValues;
+begin
+  fTitle := 'Default value';
+end;
 
 destructor TMyConfig.Destroy;
 begin
