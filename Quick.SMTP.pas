@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2017 Kike Pérez
+  Copyright (c) 2016-2018 Kike Pérez
 
   Unit        : Quick.SMTP
   Description : Send Emails
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 12/10/2017
-  Modified    : 11/11/2017
+  Modified    : 07/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -171,6 +171,8 @@ begin
     msg := TIdMessage.Create(nil);
     try
       //create mail msg
+      idattach := nil;
+      mBody := nil;
       msg.From.Address := fMail.From;
       if fMail.SenderName <> '' then msg.From.Name := fMail.SenderName;
       msg.Subject := fMail.Subject;
@@ -228,10 +230,8 @@ begin
         on E : Exception do raise Exception.Create(Format('[%s] : %s',[Self.ClassName,e.Message]));
       end;
     finally
-      if Assigned(msg.MessageParts) then msg.MessageParts.Free;
-      if Assigned(mBody) then mBody.Free;
       if Assigned(idattach) then idattach.Free;
-
+      if Assigned(mBody) then mBody.Free;
       msg.Free;
     end;
   finally
