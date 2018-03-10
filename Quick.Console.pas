@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.7
   Created     : 10/05/2017
-  Modified    : 18/01/2018
+  Modified    : 07/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -80,6 +80,32 @@ type
   end;
 
   TOutputProc<T> = reference to procedure(const aLine : T);
+  TExecuteProc = reference to procedure;
+
+  TConsoleMenuOption = record
+  private
+    fCaption : string;
+    fKey : Word;
+    fOnKeyPressed : TExecuteProc;
+  public
+    property Caption : string read fCaption write fCaption;
+    property Key : Word read fKey write fKey;
+    property OnKeyPressed : TExecuteProc read fOnKeyPressed write fOnKeyPressed;
+    procedure DoKeyPressed;
+  end;
+
+  TConsoleMenu = class
+  private
+    fConsoleMenu : array of TConsoleMenuOption;
+    fMenuColor : TConsoleColor;
+    procedure WriteMenu;
+  public
+    constructor Create;
+    property MenuColor : TConsoleColor read fMenuColor write fMenuColor;
+    procedure AddMenu(const cMenuCaption : string; const cMenuKey : Word; MenuAction : TExecuteProc); overload;
+    procedure AddMenu(MenuOption : TConsoleMenuOption); overload;
+    procedure WaitForKeys;
+  end;
 
   procedure cout(const cMsg : Integer; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : Double; cEventType : TLogEventType); overload;
@@ -96,6 +122,7 @@ type
   function ClearScreen : Boolean;
   procedure ClearLine; overload;
   procedure ClearLine(Y : Integer); overload;
+  procedure ProcessMessages;
   procedure ConsoleWaitForEnterKey;
   procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
   procedure InitConsole;
@@ -346,6 +373,42 @@ begin
   end;
 end;
 
+function GetConsoleKeyPressed : Word;
+var
+  lpNumberOfEvents: DWORD;
+  lpBuffer: TInputRecord;
+  lpNumberOfEventsRead : DWORD;
+  nStdHandle: THandle;
+begin
+  Result := 0;
+  nStdHandle := GetStdHandle(STD_INPUT_HANDLE);
+  lpNumberOfEvents := 0;
+  GetNumberOfConsoleInputEvents(nStdHandle, lpNumberOfEvents);
+  if lpNumberOfEvents <> 0 then
+  begin
+    PeekConsoleInput(nStdHandle, lpBuffer, 1, lpNumberOfEventsRead);
+    if lpNumberOfEventsRead <> 0 then
+    begin
+      if lpBuffer.EventType = KEY_EVENT then
+      begin
+        Result := lpBuffer.Event.KeyEvent.wVirtualKeyCode;
+        FlushConsoleInputBuffer(nStdHandle);
+      end
+      else FlushConsoleInputBuffer(nStdHandle);
+    end;
+  end;
+end;
+
+procedure ProcessMessages;
+var
+  Msg: TMsg;
+begin
+  while integer(PeekMessage(Msg, 0, 0, 0, PM_REMOVE)) <> 0 do begin
+    TranslateMessage(Msg);
+    DispatchMessage(Msg);
+  end;
+end;
+
 procedure ConsoleWaitForEnterKey;
 var
   msg: TMsg;
@@ -461,6 +524,123 @@ begin
   TextAttr := BufferInfo.wAttributes and $FF;
   DefConsoleColor := TextAttr;
   LastMode := 3; //CO80;
+end;
+
+{ TConsoleMenu }
+
+procedure TConsoleMenu.AddMenu(const cMenuCaption: string; const cMenuKey: Word; MenuAction: TExecuteProc);
+var
+  conmenu : TConsoleMenuOption;
+begin
+  conmenu.Caption := cMenuCaption;
+  conmenu.Key := cMenuKey;
+  conmenu.OnKeyPressed := MenuAction;
+  fConsoleMenu := fConsoleMenu + [conmenu];
+end;
+
+procedure TConsoleMenu.AddMenu(MenuOption: TConsoleMenuOption);
+begin
+  fConsoleMenu := fConsoleMenu + [MenuOption];
+end;
+
+constructor TConsoleMenu.Create;
+begin
+  fMenuColor := ccLightCyan;
+end;
+
+procedure TConsoleMenu.WaitForKeys;
+var
+  msg: TMsg;
+  conmenu : TConsoleMenuOption;
+  keypressed : Word;
+begin
+  WriteMenu;
+  while True do
+  begin
+    //check key pressed
+    keypressed := GetConsoleKeyPressed;
+    for conmenu in fConsoleMenu do
+    begin
+      if keypressed = conmenu.Key then conmenu.DoKeyPressed;
+    end;
+    if keypressed = VK_ESCAPE then
+    begin
+      coutXY(50,12,'Exiting...',etInfo);
+      Exit;
+    end;
+
+    {$ifndef LVCL}
+    if GetCurrentThreadID=MainThreadID then CheckSynchronize{$ifdef WITHUXTHEME}(1000){$endif}  else
+    {$endif}
+    WaitMessage;
+    while PeekMessage(msg,0,0,0,PM_REMOVE) do
+    begin
+      if Msg.Message = WM_QUIT then Exit
+      else
+      begin
+        TranslateMessage(Msg);
+        DispatchMessage(Msg);
+      end;
+    end;
+  end;
+end;
+
+function GetCharFromVirtualKey(Key: Word): string;
+var
+    keyboardState: TKeyboardState;
+    asciiResult: Integer;
+begin
+    GetKeyboardState(keyboardState) ;
+
+    SetLength(Result, 2) ;
+    asciiResult := ToAscii(key, MapVirtualKey(key, 0), keyboardState, @Result[1], 0) ;
+    case asciiResult of
+      0: Result := '';
+      1: SetLength(Result, 1) ;
+      2:;
+      else
+        Result := '';
+    end;
+end;
+
+procedure TConsoleMenu.WriteMenu;
+var
+  conmenu : TConsoleMenuOption;
+  ckey : string;
+  coord : TCoord;
+begin
+  coord.X := 0;
+  coord.Y := 0;
+  SetCursorPos(coord);
+  TextColor(fMenuColor);
+  for conmenu in fConsoleMenu do
+  begin
+    case conmenu.Key of
+      VK_F1 : ckey := 'F1';
+      VK_F2 : ckey := 'F2';
+      VK_F3 : ckey := 'F3';
+      VK_F4 : ckey := 'F4';
+      VK_F5 : ckey := 'F5';
+      VK_F6 : ckey := 'F6';
+      VK_F7 : ckey := 'F7';
+      VK_F8 : ckey := 'F8';
+      VK_F9 : ckey := 'F9';
+      VK_F10 : ckey := 'F10';
+      VK_F11 : ckey := 'F11';
+      VK_F12 : ckey := 'F12';
+    else ckey := GetCharFromVirtualKey(conmenu.Key);
+    end;
+    Write(Format('[%s] %s  ',[ckey,conmenu.Caption]));
+  end;
+  write('[ESC] Exit');
+  TextColor(ccWhite);
+end;
+
+{ TConsoleMenuOption }
+
+procedure TConsoleMenuOption.DoKeyPressed;
+begin
+  if Assigned(fOnKeyPressed) then fOnKeyPressed;
 end;
 
 initialization

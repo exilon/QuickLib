@@ -498,6 +498,7 @@ end;
 
 function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
 begin
+  //Test: Result := MinutesBetween(cBefore,cNow) < 1;
   Result := DateTimeInRange(cNow,StartOfTheDay(cBefore),EndOfTheDay(cBefore),True);
 end;
 
