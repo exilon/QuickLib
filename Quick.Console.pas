@@ -5,9 +5,9 @@
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
-  Version     : 1.7
+  Version     : 1.8
   Created     : 10/05/2017
-  Modified    : 07/03/2018
+  Modified    : 09/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -98,12 +98,15 @@ type
   private
     fConsoleMenu : array of TConsoleMenuOption;
     fMenuColor : TConsoleColor;
+    fIsActive : Boolean;
     procedure WriteMenu;
   public
     constructor Create;
     property MenuColor : TConsoleColor read fMenuColor write fMenuColor;
+    property IsActive : Boolean read fIsActive;
     procedure AddMenu(const cMenuCaption : string; const cMenuKey : Word; MenuAction : TExecuteProc); overload;
     procedure AddMenu(MenuOption : TConsoleMenuOption); overload;
+    procedure Refresh(aClearScreen : Boolean = False);
     procedure WaitForKeys;
   end;
 
@@ -111,17 +114,30 @@ type
   procedure cout(const cMsg : Double; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : string; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : string; cColor : TConsoleColor); overload;
-  procedure coutXY(x,y : Integer; const s : string; cEventType : TLogEventType);
-  procedure coutBL(const s : string; cEventType : TLogEventType);
+  procedure coutXY(x,y : Integer; const cMsg : string; cEventType : TLogEventType); overload;
+  procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor); overload;
+  procedure coutXY(x,y : Integer; const cMsg : string; params : array of const; cEventType : TLogEventType); overload;
+  procedure coutXY(x,y : Integer; const cMsg : string; params : array of const; cColor : TConsoleColor); overload;
+  procedure coutTL(const cMsg : string; cEventType : TLogEventType); overload;
+  procedure coutTL(const cMsg : string; cColor : TConsoleColor); overload;
+  procedure coutBL(const cMsg : string; cEventType : TLogEventType); overload;
+  procedure coutBL(const cMsg : string; cColor : TConsoleColor); overload;
   procedure coutFmt(const cMsg : string; params : array of const; cEventType : TLogEventType);
   procedure TextColor(Color: TConsoleColor); overload;
   procedure TextColor(Color: Byte); overload;
   procedure TextBackground(Color: TConsoleColor); overload;
   procedure TextBackground(Color: Byte); overload;
   procedure ResetColors;
-  function ClearScreen : Boolean;
+  procedure ConsoleResize(Width, Height : Integer);
+  procedure ClearScreen;
   procedure ClearLine; overload;
   procedure ClearLine(Y : Integer); overload;
+  procedure ShowCursor;
+  procedure HideCursor;
+  function GetCursorX: Integer; {$IFDEF INLINES}inline;{$ENDIF}
+  function GetCursorY: Integer; {$IFDEF INLINES}inline;{$ENDIF}
+  function GetCursorMaxBottom : Integer;
+  procedure SetCursorPos(NewCoord : TCoord);
   procedure ProcessMessages;
   procedure ConsoleWaitForEnterKey;
   procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
@@ -138,6 +154,7 @@ var
   hStdErr: THandle;
   ConsoleRect: TSmallRect;
   ScreenBufInfo : TConsoleScreenBufferInfo;
+  CursorInfo : TConsoleCursorInfo;
 
 implementation
 
@@ -242,7 +259,7 @@ begin
   SetConsoleCursorPosition(hStdOut, NewCoord);
 end;
 
-procedure coutXY(x,y : Integer; const s : string; cEventType : TLogEventType);
+procedure coutXY(x,y : Integer; const cMsg : string; cEventType : TLogEventType);
 var
  NewCoord : TCoord;
  LastCoord : TCoord;
@@ -255,15 +272,59 @@ begin
   ClearLine(Y);
   SetCursorPos(NewCoord);
   try
-    cout(s,cEventType);
+    cout(cMsg,cEventType);
   finally
     SetCursorPos(LastCoord);
   end;
 end;
 
-procedure coutBL(const s : string; cEventType : TLogEventType);
+procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor); overload;
+var
+ NewCoord : TCoord;
+ LastCoord : TCoord;
 begin
-  coutXY(0,GetCurSorMaxBottom - 1,s,cEventType);
+  if hStdOut = 0 then Exit;
+  LastCoord.X := GetCursorX;
+  LastCoord.Y := GetCursorY;
+  NewCoord.X := x;
+  NewCoord.Y := y;
+  ClearLine(Y);
+  SetCursorPos(NewCoord);
+  try
+    cout(cMsg,cColor);
+  finally
+    SetCursorPos(LastCoord);
+  end;
+end;
+
+procedure coutXY(x,y : Integer; const cMsg : string; params : array of const; cEventType : TLogEventType);
+begin
+  coutXY(x,y,Format(cMsg,params),cEventType);
+end;
+
+procedure coutXY(x,y : Integer; const cMsg : string; params : array of const; cColor : TConsoleColor);
+begin
+  coutXY(x,y,Format(cMsg,params),cColor);
+end;
+
+procedure coutTL(const cMsg : string; cEventType : TLogEventType);
+begin
+  coutXY(0,0,cMsg,cEventType);
+end;
+
+procedure coutTL(const cMsg : string; cColor : TConsoleColor);
+begin
+  coutXY(0,0,cMsg,cColor);
+end;
+
+procedure coutBL(const cMsg : string; cEventType : TLogEventType);
+begin
+  coutXY(0,GetCursorMaxBottom - 1,cMsg,cEventType);
+end;
+
+procedure coutBL(const cMsg : string; cColor : TConsoleColor);
+begin
+  coutXY(0,GetCursorMaxBottom - 1,cMsg,cColor);
 end;
 
 procedure coutFmt(const cMsg : string; params : array of const; cEventType : TLogEventType);
@@ -303,29 +364,39 @@ begin
   TextAttr := DefConsoleColor;
 end;
 
-function ClearScreen : Boolean;
-const
-  BUFSIZE = 80*25;
+procedure ConsoleResize(Width, Height : Integer);
 var
-  Han, Dummy: LongWord;
-  buf: string;
-  coord: TCoord;
+  Rect: TSmallRect;
+  Coord: TCoord;
 begin
-  Result := false;
-  Han := GetStdHandle(STD_OUTPUT_HANDLE);
-  if Han <> INVALID_HANDLE_VALUE then
+  Rect.Left := 1;
+  Rect.Top := 1;
+  Rect.Right := Width;
+  Rect.Bottom := Height;
+  Coord.X := Rect.Right + 1 - Rect.Left;
+  Coord.y := Rect.Bottom + 1 - Rect.Top;
+  SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), Coord);
+  SetConsoleWindowInfo(GetStdHandle(STD_OUTPUT_HANDLE), True, Rect);
+end;
+
+procedure ClearScreen;
+var
+  stdout: THandle;
+  bufinfo: TConsoleScreenBufferInfo;
+  ConsoleSize: DWORD;
+  NumWritten: DWORD;
+  Origin: TCoord;
+begin
+  stdout := GetStdHandle(STD_OUTPUT_HANDLE);
+  if stdout<>INVALID_HANDLE_VALUE then
   begin
-    if SetConsoleTextAttribute(han, FOREGROUND_RED or FOREGROUND_GREEN or FOREGROUND_BLUE) then
-    begin
-      SetLength(buf,BUFSIZE);
-      FillChar(buf[1],Length(buf),' ');
-      if WriteConsole(han,PChar(buf),BUFSIZE,Dummy,nil) then
-      begin
-        coord.X := 0;
-        coord.Y := 0;
-        if SetConsoleCursorPosition(han,coord) then Result := true;
-      end;
-    end;
+    GetConsoleScreenBufferInfo(stdout,bufinfo);
+    ConsoleSize := bufinfo.dwSize.X * bufinfo.dwSize.Y;
+    Origin.X := 0;
+    Origin.Y := 0;
+    FillConsoleOutputCharacter(stdout,' ',ConsoleSize,Origin,NumWritten);
+    FillConsoleOutputAttribute(stdout,bufinfo.wAttributes,ConsoleSize,Origin,NumWritten);
+    SetConsoleCursorPosition(stdout, Origin);
   end;
 end;
 
@@ -345,6 +416,20 @@ begin
   dwSize := ConsoleRect.Right + 1;
   FillConsoleOutputAttribute(hStdOut, TextAttr, dwSize, dwWriteCoord, dwCount);
   FillConsoleOutputCharacter(hStdOut, ' ', dwSize, dwWriteCoord, dwCount);
+end;
+
+procedure ShowCursor;
+begin
+  GetConsoleCursorInfo(hStdOut,CursorInfo);
+  CursorInfo.bVisible := True;
+  SetConsoleCursorInfo(hStdOut,CursorInfo);
+end;
+
+procedure HideCursor;
+begin
+  GetConsoleCursorInfo(hStdOut,CursorInfo);
+  CursorInfo.bVisible := False;
+  SetConsoleCursorInfo(hStdOut,CursorInfo);
 end;
 
 function ConsoleKeyPressed(ExpectedKey: Word): Boolean;
@@ -546,6 +631,13 @@ end;
 constructor TConsoleMenu.Create;
 begin
   fMenuColor := ccLightCyan;
+  fIsActive := False;
+end;
+
+procedure TConsoleMenu.Refresh(aClearScreen: Boolean);
+begin
+  if aClearScreen then ClearScreen;
+  WriteMenu;
 end;
 
 procedure TConsoleMenu.WaitForKeys;
@@ -554,6 +646,8 @@ var
   conmenu : TConsoleMenuOption;
   keypressed : Word;
 begin
+  fIsActive := True;
+  HideCursor;
   WriteMenu;
   while True do
   begin
@@ -561,7 +655,12 @@ begin
     keypressed := GetConsoleKeyPressed;
     for conmenu in fConsoleMenu do
     begin
-      if keypressed = conmenu.Key then conmenu.DoKeyPressed;
+      if keypressed = conmenu.Key then
+      begin
+        ClearScreen;
+        WriteMenu;
+        conmenu.DoKeyPressed;
+      end;
     end;
     if keypressed = VK_ESCAPE then
     begin
@@ -570,7 +669,7 @@ begin
     end;
 
     {$ifndef LVCL}
-    if GetCurrentThreadID=MainThreadID then CheckSynchronize{$ifdef WITHUXTHEME}(1000){$endif}  else
+    if GetCurrentThreadID=MainThreadID then CheckSynchronize{$ifdef WITHUXTHEME}(1000){$endif} else
     {$endif}
     WaitMessage;
     while PeekMessage(msg,0,0,0,PM_REMOVE) do
@@ -583,6 +682,8 @@ begin
       end;
     end;
   end;
+  ShowCursor;
+  fIsActive := False;
 end;
 
 function GetCharFromVirtualKey(Key: Word): string;
@@ -608,11 +709,15 @@ var
   conmenu : TConsoleMenuOption;
   ckey : string;
   coord : TCoord;
+  oldcoord : TCoord;
 begin
+  oldcoord.X := GetCursorX;
+  oldcoord.Y := GetCursorY;
   coord.X := 0;
   coord.Y := 0;
   SetCursorPos(coord);
   TextColor(fMenuColor);
+  ClearLine(0);
   for conmenu in fConsoleMenu do
   begin
     case conmenu.Key of
@@ -630,10 +735,17 @@ begin
       VK_F12 : ckey := 'F12';
     else ckey := GetCharFromVirtualKey(conmenu.Key);
     end;
-    Write(Format('[%s] %s  ',[ckey,conmenu.Caption]));
+    TextColor(ccWhite);
+    Write(Format('[%s]',[ckey]));
+    TextColor(Self.MenuColor);
+    Write(Format(' %s  ',[conmenu.Caption]));
   end;
-  write('[ESC] Exit');
   TextColor(ccWhite);
+  Write('[ESC]');
+  TextColor(Self.MenuColor);
+  Write(' Exit');
+  TextColor(LastMode);
+  SetCursorPos(oldcoord);
 end;
 
 { TConsoleMenuOption }
