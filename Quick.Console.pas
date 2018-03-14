@@ -114,6 +114,7 @@ type
   procedure cout(const cMsg : Double; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : string; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : string; cColor : TConsoleColor); overload;
+  procedure cout(const cMsg : string; params : array of const; cEventType : TLogEventType); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; cEventType : TLogEventType); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; params : array of const; cEventType : TLogEventType); overload;
@@ -229,6 +230,10 @@ begin
   end;
 end;
 
+procedure cout(const cMsg : string; params : array of const; cEventType : TLogEventType);
+begin
+  cout(Format(cMsg,params),cEventType);
+end;
 
 function GetCursorX: Integer; {$IFDEF INLINES}inline;{$ENDIF}
 var
