@@ -56,11 +56,12 @@ uses
   //get a process of running processes
   function GetProcessList : TstringList;
   //determine if a process is running
-  function IsExeRunning(const aFileName: string; aFullPath: Boolean): Boolean;
+  function IsProcessRunnig(const aFileName: string; aFullPath: Boolean): Boolean;
   //get id running process
   function GetProcessId(const aFilename : string; out vProcessId : Integer) : Boolean; overload;
   //get user name is running a process
-  function GetProcessUser(aProcessId : DWORD): string;
+  function GetProcessUser(aProcessId : DWORD) : string; overload;
+  function GetProcessUser(const aFileName : string) : string; overload;
   //executes an aplication and wait for terminate
   function ExecuteAndWait(const aFilename, aCommandLine: string): Boolean;
   function ShellExecuteAndWait(const aOperation, aFileName, aParameter, aDirectory : string; aShowMode : Word; aWaitForTerminate: Boolean) : LongInt;
@@ -253,7 +254,7 @@ begin
   RedrawWindow(TrayWindow,NIL,0,RDW_INVALIDATE OR RDW_ERASE OR RDW_UPDATENOW);
 end;
 
-function IsExeRunning(const aFileName: string; aFullPath: Boolean): Boolean;
+function IsProcessRunnig(const aFileName: string; aFullPath: Boolean): Boolean;
 var
   i: Integer;
   proclist: TstringList;
@@ -340,6 +341,14 @@ begin
   finally
     CloseHandle(procHnd);
   end;
+end;
+
+function GetProcessUser(const aFilename : string) : string;
+var
+  procId : Integer;
+begin
+  if not GetProcessId(aFilename,procId) then raise Exception.Create('Process not found!')
+    else Result := GetProcessUser(procId);
 end;
 
 function ExecuteAndWait(const aFilename, aCommandLine: string): Boolean;
