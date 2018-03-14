@@ -26,12 +26,15 @@
   limitations under the License.
 
  *************************************************************************** }
+
 unit Quick.Threads;
 
 interface
 
 uses
   Classes,
+  Types,
+  System.RTLConsts,
   System.Generics.Collections,
   System.SyncObjs;
 
@@ -112,6 +115,26 @@ type
     procedure Execute; override;
     function AddTask(Task : T) : Boolean;
     procedure Start;
+  end;
+
+  TThreadObjectList<T: class> = class(TList<T>)
+    private
+      fList: TObjectList<T>;
+      fLock: TObject;
+      fDuplicates: TDuplicates;
+      function GetItem(aIndex : Integer) : T;
+      procedure SetItem(aIndex : Integer; aValue : T);
+    public
+      constructor Create(OwnedObjects : Boolean);
+      destructor Destroy; override;
+      property Items[Index : Integer] : T read GetItem write SetItem ; default;
+      procedure Add(const Item: T);
+      procedure Clear;
+      function LockList: TObjectList<T>;
+      procedure Remove(const Item: T); inline;
+      procedure RemoveItem(const Item: T; Direction: TDirection);
+      procedure UnlockList; inline;
+      property Duplicates: TDuplicates read fDuplicates write fDuplicates;
   end;
 
 implementation
@@ -382,6 +405,98 @@ end;
 procedure TThreadTask<T>.Start;
 begin
   fTaskQueue := TThreadedQueueCS<T>.Create(fMaxQueue,fInsertTimeout,fExtractTimeout);
+end;
+
+{ TThreadObjectList<T> }
+
+procedure TThreadObjectList<T>.Add(const Item: T);
+begin
+  LockList;
+  try
+    if (Duplicates = dupAccept) or
+       (fList.IndexOf(Item) = -1) then
+      fList.Add(Item)
+    else if Duplicates = dupError then
+      raise EListError.CreateFmt(SDuplicateItem, [fList.ItemValue(Item)]);
+  finally
+    UnlockList;
+  end;
+end;
+
+procedure TThreadObjectList<T>.Clear;
+begin
+  LockList;
+  try
+    fList.Clear;
+  finally
+    UnlockList;
+  end;
+end;
+
+constructor TThreadObjectList<T>.Create(OwnedObjects : Boolean);
+begin
+  inherited Create;
+  fLock := TObject.Create;
+  fList := TObjectList<T>.Create;
+  fDuplicates := dupIgnore;
+end;
+
+destructor TThreadObjectList<T>.Destroy;
+begin
+  LockList;
+  try
+    fList.Free;
+    inherited Destroy;
+  finally
+    UnlockList;
+    fLock.Free;
+  end;
+end;
+
+function TThreadObjectList<T>.GetItem(aIndex: Integer): T;
+begin
+  LockList;
+  try
+    Result := fList[aIndex];
+  finally
+    UnlockList;
+  end;
+end;
+
+function TThreadObjectList<T>.LockList: TObjectList<T>;
+begin
+  System.TMonitor.Enter(fLock);
+  Result := fList;
+end;
+
+procedure TThreadObjectList<T>.Remove(const Item: T);
+begin
+  RemoveItem(Item, TDirection.FromBeginning);
+end;
+
+procedure TThreadObjectList<T>.RemoveItem(const Item: T; Direction: TDirection);
+begin
+  LockList;
+  try
+    fList.RemoveItem(Item, Direction);
+  finally
+    UnlockList;
+  end;
+end;
+
+procedure TThreadObjectList<T>.SetItem(aIndex: Integer; aValue: T);
+begin
+  LockList;
+  try
+    fList[aIndex] := aValue;
+  finally
+    UnlockList;
+  end;
+end;
+
+procedure TThreadObjectList<T>.UnlockList;
+begin
+  System.TMonitor.Exit(fLock);
 end;
 
 end.
