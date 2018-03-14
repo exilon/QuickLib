@@ -89,23 +89,6 @@ type
     class function GetSize(const Path: String): Int64; static;
   end;
 
-  TTextFileOperation = (tfOpenRead,tfOpenOverwrite,tfOpenAppend);
-
-	TTextStreamFile = class
-    private
-      fReadStream : TStreamReader;
-      fWriteStream : TStreamWriter;
-      function GetEOF : Boolean;
-    public
-      constructor Create(const FileName : string; OpenMode : TTextFileOperation);
-      destructor Destroy; override;
-      function ReadLn: string; overload;
-      function ReadLn(out Data: string): Boolean; overload;
-      procedure WriteLn (const Data : string);
-      procedure Close;
-      property EOF: Boolean read GetEOF;
-  end;
-
   TCounter = record
   private
     fMaxValue : Integer;
@@ -209,6 +192,8 @@ type
   procedure SaveStreamToFile(stream : TStream; const filename : string);
   //process messages on console applications
   procedure ProcessMessages;
+  //get last error message
+  function GetLastOSError : String;
 
 var
   {$IFDEF MSWINDOWS}
@@ -264,55 +249,6 @@ begin
   begin
     Result := Result + TFile.GetSize(filename);
   end;
-end;
-
-{TTextStreamFile}
-
-constructor TTextStreamFile.Create(const FileName : string; OpenMode : TTextFileOperation);
-var
-  Append : Boolean;
-begin
-  if OpenMode = tfOpenRead then fReadStream := TStreamReader.Create(FileName,True)
-  else
-  begin
-    if OpenMode = tfOpenAppend then Append := True
-      else Append := False;
-    fWriteStream := TStreamWriter.Create(FileName,Append);
-  end;
-end;
-
-destructor TTextStreamFile.Destroy;
-begin
-   if Assigned(fReadStream) then fReadStream.Free;
-   if Assigned(fWriteStream) then fWriteStream.Free;
-   inherited Destroy;
-end;
-
-function TTextStreamFile.ReadLn(out Data: string): Boolean;
-begin
-   Data := fReadStream.ReadLine;
-   Result := Data <> '';
-end;
-
-function TTextStreamFile.ReadLn: string;
-begin
-   Result := fReadStream.ReadLine;
-end;
-
-procedure TTextStreamFile.WriteLn (const Data : string);
-begin
-  fWriteStream.WriteLine(Data);
-end;
-
-function TTextStreamFile.GetEOF : Boolean;
-begin
-  Result := fReadStream.EndOfStream;
-end;
-
-procedure TTextStreamFile.Close;
-begin
-  if Assigned(fReadStream) then fReadStream.Close;
-  if Assigned(fWriteStream) then fWriteStream.Close;
 end;
 
 {other functions}
@@ -842,6 +778,11 @@ begin
     TranslateMessage(Msg);
     DispatchMessage(Msg);
   end;
+end;
+
+function GetLastOSError: String;
+begin
+  Result := SysErrorMessage(Windows.GetLastError);
 end;
 
 initialization
