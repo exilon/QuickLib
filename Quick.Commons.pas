@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 14/07/2017
-  Modified    : 22/01/2018
+  Modified    : 14/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -119,7 +119,7 @@ type
   //generates a random password with complexity options
   function RandomPassword(const PasswordLength : Integer; Complexity : TPasswordComplexity = [pfIncludeNumbers,pfIncludeSigns]) : string;
   //extracts file extension from a filename
-  function ExtractFileNameWithoutExt(const FileName: String): String;
+  function ExtractFileNameWithoutExt(const FileName: string): string;
   //converts a Unix path to Windows path
   function UnixToWindowsPath(const UnixPath: string): string;
   //converts a Windows path to Unix path
@@ -294,7 +294,7 @@ begin
   end;
 end;
 
-function ExtractFileNameWithoutExt(const FileName: String): String;
+function ExtractFileNameWithoutExt(const FileName: string): string;
 begin
   Result := TPath.GetFileNameWithoutExtension(FileName);
 end;
