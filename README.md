@@ -1,8 +1,9 @@
 ﻿
 
+
 **QuickLib**
 --------
-----------
+
 
 
 Small delphi library containing interesting and quick to implement functions, created to simplify application development.
@@ -29,7 +30,7 @@ begin
     AppService.OnStop := YourStopFunction;
     AppService.CheckParams;
 end;
-```delphi
+```
 
 **Quick.Azure/Amazon:** Simplifies blob iteraction with Azure and Amazon Cloud Storage.
 
@@ -48,7 +49,7 @@ for azBlob in ListBlobs('MyContainer','/Public/Documents',Recursive,ResponseInfo
 begin
     if azBlob.Size > 1000 then Showmessage(azBlob.Name);
 end;
-```delphi
+```
 
 
 **Quick.Network:** CIDR and IP Range functions.
@@ -59,7 +60,7 @@ IPv4ToInt('192.168.1.10');
 
 //get first and last ip of a subnet scope
 GetIpRange('192.168.100.0','255.255.255.0',LowIp,HighIP);
-```delphi
+```
 
 **Quick.Commons:** Functions frequently needed in the everyday of a developer.
 
@@ -87,7 +88,7 @@ begin
     //every 10 seconds writes to console
     if timecounter.Check then writeln('Im working...'); 
 end;
-```delphi
+```
 
 **Quick.Chrono:** Chronometer and Benchmark a piece of code is simple.
 
@@ -116,7 +117,7 @@ begin
     writeln(Format('Items processed %d/sec',[Chrono.Speed]));
 end;
 writeln(Chrono.ElapsedTime(False)); //shows total time elapsed in 00:00:00 format
-```delphi
+```
 
 **Quick.Console:** Write log messages to console with colors and more...
 
@@ -138,7 +139,7 @@ MyQuickLog := TQuickLog.Create;
 MyQuickLog.Verbose := LOG_ALL;
 Console.Verbose := LOG_ONLYERRORS;
 Console.Log := MyQuickLog;
-```delphi
+```
 
 **Quick.Log:** Log to disk or memory with verbose levels and daily or max space rotation.
 
@@ -154,7 +155,7 @@ Log.Add('Error x',etError);
 
 //write formatted error message
 Log.Add('Error is %s',[ErrorStr],etError);
-```delphi
+```
 
 **Quick.Config:** Load/Save a config as json file or Windows Registry keys. Create a descend class from TAppConfig and add private variables will be loaded/saved.
 
@@ -195,7 +196,7 @@ MyConfig.Surname := 'Smith';
 AppConfigReg.Load(Config);
 //save
 AppConfigReg.Save(Config);
-```delphi
+```
 
 **Quick.FileMonitor:** Monitorizes a file for changes and throws events.
 
@@ -207,7 +208,7 @@ FileMonitor.Interval := 2000;
 FileMonitor.Notifies := [mnFileModified, mnFileDeleted)];
 FileMonitor.OnFileChange := MyFileChangeFunction;
 FileMonitor.Enabled := True;
-```delphi
+```
 	
 **Quick.JsonUtils:** Utils for working with json objects.
 
@@ -218,7 +219,7 @@ MyString := MyObject.ToJson;
 
 //You can clone simple objects with clone function
 MyObject1.Clone(MyObject2);
-```delphi
+```
 
 **Quick.SMTP:** Send email with two code lines.
 
@@ -237,12 +238,12 @@ SMTP.CC := 'other@email.com';
 SMTP.BCC := 'more@email.com';
 SMTP.Attachments.Add('.\notes.txt');
 SMTP.SendMail;
-```delphi
+```
 
 **Quick.Threads:** Thread safe classes.
-TThreadedQueueCS: Version of TThreadedQueue with Critical Section.
-TThreadObjectList: Thread safe Object List.
-TThreadedQueueList: Thread safe Queue List. Autogrow and with Critical Section.
+- TThreadedQueueCS: Version of TThreadedQueue with Critical Section.
+- TThreadObjectList: Thread safe Object List.
+- TThreadedQueueList: Thread safe Queue List. Autogrow and with Critical Section.
 
 **Quick.Process:** Manages windows processes.
 ```delphi
@@ -254,7 +255,7 @@ if IsProcessRunning('explorer.exe') then Showmessage('Explorer is running!');
 writeln('Explorer.exe open by: ' + GetProcessUser('explorer.exe');
 //gets handle of a window with a 20 seconds timeout
 if FindWindowTimeout('MainWindow',20) then writeln('Window detected');
-```delphi
+```
 
 **Quick.Process:** Manages windows services.
 ```delphi
@@ -264,7 +265,7 @@ if not ServiceIsPresent('localhost','MySvc') then raise Exception.Create('Servic
 ServiceStart('localhost','MySvc');
 //Uninstall a service
 ServiceUninstall('MySvc');
-```delphi
+```
 
 **Quick.Format:** String format.
 
@@ -272,6 +273,6 @@ ServiceUninstall('MySvc');
 //Format bytes to MB, GB, TB...
 FormatBytes(50000) //shows 50KB
 FormatBytes(90000000) //shows 90MB
-```delphi
+```
 	
 
