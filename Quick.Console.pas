@@ -309,7 +309,7 @@ end;
 
 procedure coutTL(const cMsg : string; cEventType : TLogEventType);
 begin
-  coutXY(0,0,cMsg,cEventType);
+  coutXY(0,GetCursorMaxBottom - 1,cMsg,cEventType);
 end;
 
 procedure coutTL(const cMsg : string; cColor : TConsoleColor);
@@ -319,7 +319,7 @@ end;
 
 procedure coutBL(const cMsg : string; cEventType : TLogEventType);
 begin
-  coutXY(0,GetCursorMaxBottom - 1,cMsg,cEventType);
+  coutXY(0,0,cMsg,cEventType);
 end;
 
 procedure coutBL(const cMsg : string; cColor : TConsoleColor);
