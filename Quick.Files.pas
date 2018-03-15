@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 09/03/2018
-  Modified    : 14/03/2018
+  Modified    : 15/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -58,7 +58,7 @@ type
   function CreateDummyFile(const aFilename : string; const aSize : Int64) : Boolean;
   procedure SplitFile(const aFileName : string; aSplitByteSize : Int64);
   procedure MergeFiles(const aFirstSplitFileName, aOutFileName : string); overload;
-  procedure MergeFiles(aFilenames : array of const; const aOutFileName : string); overload;
+  procedure MergeFiles(aFilenames : array of string; const aOutFileName : string); overload;
   function IsFileInUse(const aFileName : string) : Boolean;
   procedure FileReplaceText(const aFileName, aSearchText, AReplaceText : string);
   function FileSearchText(const aFileName, SearchText: string; caseSensitive : Boolean): Longint;
@@ -123,11 +123,14 @@ function CreateDummyFile(const aFilename : string; const aSize : Int64 ) : Boole
 var
   fs : TFileStream;
   i : Integer;
+  buf : string;
 Begin
   Result := False;
   fs := TFileStream.Create(aFilename,fmCreate);
+  buf := 'A';
   try
-    for i := 0 to aSize do fs.Write('A',1);
+    fs.Seek(0, soBeginning);
+    for i := 0 to aSize do fs.Write(buf[1], Length(buf));
   finally
     fs.Free;
   end;
@@ -163,27 +166,29 @@ procedure MergeFiles(const aFirstSplitFileName, aOutFileName : string);
 var
   fs, ss: TFileStream;
   cnt: integer;
+  splitfilename : string;
 begin
    cnt := 1;
+   splitfilename := aFirstSplitFileName;
    fs := TFileStream.Create(aOutFileName, fmCreate or fmShareExclusive) ;
    try
-     while FileExists(aFirstSplitFileName) do
+     while FileExists(splitfilename) do
      begin
-       ss := TFileStream.Create(aFirstSplitFileName, fmOpenRead or fmShareDenyWrite) ;
+       ss := TFileStream.Create(splitfilename, fmOpenRead or fmShareDenyWrite) ;
        try
          fs.CopyFrom(ss, 0) ;
        finally
          ss.Free;
        end;
        Inc(cnt) ;
-       aFirstSplitFileName := ChangeFileExt(aFirstSplitFileName, Format('%s%.3d', ['.',cnt])) ;
+       splitfilename := ChangeFileExt(aFirstSplitFileName, Format('%s%.3d', ['.',cnt])) ;
      end;
    finally
      fs.Free;
    end;
 end;
 
-procedure MergeFiles(aFilenames : array of const; const aOutFileName : string);
+procedure MergeFiles(aFilenames : array of string; const aOutFileName : string);
 var
   filename : string;
   fs,
