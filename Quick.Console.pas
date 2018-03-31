@@ -625,12 +625,22 @@ begin
   conmenu.Caption := cMenuCaption;
   conmenu.Key := cMenuKey;
   conmenu.OnKeyPressed := MenuAction;
+  {$IF CompilerVersion > 27}
   fConsoleMenu := fConsoleMenu + [conmenu];
+  {$ELSE}
+  SetLength(fConsoleMenu,High(fConsoleMenu)+1);
+  fConsoleMenu[High(fConsoleMenu)] := conmenu;
+  {$ENDIF}
 end;
 
 procedure TConsoleMenu.AddMenu(MenuOption: TConsoleMenuOption);
 begin
+  {$IF CompilerVersion > 27}
   fConsoleMenu := fConsoleMenu + [MenuOption];
+  {$ELSE}
+  SetLength(fConsoleMenu,High(fConsoleMenu)+1);
+  fConsoleMenu[High(fConsoleMenu)] := MenuOption;
+  {$ENDIF}
 end;
 
 constructor TConsoleMenu.Create;

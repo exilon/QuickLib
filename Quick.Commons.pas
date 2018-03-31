@@ -5,9 +5,9 @@
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 14/07/2017
-  Modified    : 14/03/2018
+  Modified    : 29/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -53,8 +53,11 @@ const
   LOG_TRACE = [etInfo,etError,etWarning,etTrace];
   LOG_ALL = [etInfo,etSuccess,etWarning,etError,etTrace];
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
+  {$IF CompilerVersion > 27}
   EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','TRACE'];
-
+  {$ELSE}
+  EventStr : array[0..5] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','TRACE');
+  {$ENDIF}
 type
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
 
@@ -81,7 +84,9 @@ type
   {$ENDIF MSWINDOWS}
 
   TFileHelper = record helper for TFile
+    {$IFDEF MSWINDOWS}
     class function IsInUse(const FileName : string) : Boolean; static;
+    {$ENDIF}
     class function GetSize(const FileName: String): Int64; static;
   end;
 
@@ -166,10 +171,12 @@ type
   //Upper case for first letter
   function Capitalize(s: string): string;
   function CapitalizeWords(s: string): string;
+  {$IFDEF MSWINDOWS}
   //returns current logged user
   function GetLoggedUserName : string;
   //returns computer name
   function GetComputerName : string;
+  {$ENDIF}
   //Changes incorrect delims in path
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
   //Removes last segment of a path
@@ -178,10 +185,12 @@ type
   function ParamFindSwitch(const Switch : string) : Boolean;
   //gets value for a switch if exists
   function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
+  {$IFDEF MSWINDOWS}
   //returns app version (major & minor)
   function GetAppVersionStr: string;
   //returns app version full (major, minor, release & compiled)
   function GetAppVersionFullStr: string;
+  {$ENDIF}
   //UTC DateTime to Local DateTime
   function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
   //Local DateTime to UTC DateTime
@@ -190,20 +199,23 @@ type
   function CountDigits(anInt: Cardinal): Cardinal; inline;
   //save stream to file
   procedure SaveStreamToFile(stream : TStream; const filename : string);
+  {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
   //get last error message
   function GetLastOSError : String;
+  {$ENDIF}
 
+{$IFDEF MSWINDOWS}
 var
-  {$IFDEF MSWINDOWS}
   path : TEnvironmentPath;
-  {$ENDIF MSWINDOWS}
+{$ENDIF}
 
 implementation
 
 {TFileHelper}
 
+{$IFDEF MSWINDOWS}
 class function TFileHelper.IsInUse(const FileName : string) : Boolean;
 var
   HFileRes: HFILE;
@@ -228,15 +240,26 @@ begin
     Result := True;
   end;
 end;
+{$ENDIF}
 
+{$IFDEF MSWINDOWS}
 class function TFileHelper.GetSize(const FileName: String): Int64;
-  var
-    info: TWin32FileAttributeData;
+var
+  info: TWin32FileAttributeData;
 begin
   Result := -1;
   if not GetFileAttributesEx(PWideChar(FileName), GetFileExInfoStandard, @info) then Exit;
   Result := Int64(info.nFileSizeLow) or Int64(info.nFileSizeHigh shl 32);
 end;
+{$ELSE}
+class function TFileHelper.GetSize(const FileName: String): Int64;
+var
+  sr : TSearchRec;
+begin
+  if FindFirst(fileName, faAnyFile, sr ) = 0 then Result := sr.Size
+    else Result := -1;
+end;
+{$ENDIF}
 
 {TDirectoryHelper}
 
@@ -547,6 +570,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 function GetLoggedUserName : string;
 const
   cnMaxUserNameLen = 254;
@@ -570,6 +594,7 @@ begin
   if not Windows.GetComputerName(pchar(result), dwLength) then Result := 'Not detected!';
   Result := pchar(result);
 end;
+{$ENDIF}
 
 function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
 begin
@@ -616,6 +641,8 @@ begin
   Result := FindCmdLineSwitch(Switch,cvalue,True,[clstValueAppended]);
 end;
 
+
+{$IFDEF MSWINDOWS}
 function GetAppVersionStr: string;
 var
   Rec: LongRec;
@@ -673,6 +700,7 @@ begin
      LongRec(FixedPtr.dwFileVersionLS).Lo]); //build
   end;
 end;
+{$ENDIF}
 
 function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
 begin
@@ -769,6 +797,7 @@ begin
   fCurrentTime := Now();
 end;
 
+{$IFDEF MSWINDOWS}
 procedure ProcessMessages;
 var
   Msg: TMsg;
@@ -784,8 +813,10 @@ function GetLastOSError: String;
 begin
   Result := SysErrorMessage(Windows.GetLastError);
 end;
+{$ENDIF}
 
 initialization
+{$IFDEF MSWINDOWS}
   try
     GetEnvironmentPaths;
   except
@@ -798,5 +829,6 @@ initialization
       end;
     end;
   end;
+{$ENDIF}
 
 end.
