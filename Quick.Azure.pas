@@ -491,6 +491,8 @@ begin
         try
           if (Assigned(azBlobList)) and (azBlobList.Count > 0) and (CloudResponseInfo.StatusCode = 200) then Result := True;
         finally
+          //frees azbloblist objects
+          for azBlob in azBlobList do azBlob.Free;
           azBlobList.Free;
         end;
       finally
