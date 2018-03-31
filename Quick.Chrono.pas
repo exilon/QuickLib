@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 27/08/2015
-  Modified    : 02/03/2018
+  Modified    : 20/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -183,7 +183,7 @@ end;
 
 class function TChronometer.MillisecondsToString(aMilliseconds : TLargeInteger; LongFormat : Boolean = False) : string;
 begin
-  MillisecondsToString(aMilliseconds.ToExtended,pfTruncate,LongFormat);
+  Result := MillisecondsToString(aMilliseconds.ToExtended,pfTruncate,LongFormat);
 end;
 
 class function TChronometer.Precission(aValue : Extended; FormatPrecission : TPrecissionFormat) : Extended;
