@@ -5,9 +5,9 @@
   Unit        : Quick.SMTP
   Description : Send Emails
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 12/10/2017
-  Modified    : 07/03/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -124,7 +124,7 @@ end;
 
 constructor TSMTP.Create;
 begin
-  inherited;
+  inherited Create;
   fMail := TMailMessage.Create;
   Port := 25;
   UseTLS := TIdUseTLS.utNoTLSSupport;
