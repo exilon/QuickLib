@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2017 Kike Pérez
+  Copyright (c) 2016-2018 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 14/07/2017
-  Modified    : 05/10/2017
+  Modified    : 29/03/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -27,24 +27,45 @@
 
  *************************************************************************** }
 
+{$IFDEF FPC}
+{$mode DELPHI}
+{$ENDIF}
+
 unit Quick.Commons;
 
 interface
   uses
     Classes,
+    {$IFnDEF FPC}
     System.SysUtils,
+    System.Types,
+    {$ELSE}
+    SysUtils,
+    Types,
+    {$ENDIF}
     {$IFDEF MSWINDOWS}
       Windows,
-      Winapi.ShlObj,
-      System.Win.Registry,
+      {$IFnDEF FPC}
+        Winapi.ShlObj,
+        System.Win.Registry,
+      {$ELSE}
+      jwawinuser,
+      ShlObj,
+      Registry,
+      {$ENDIF}
     {$ENDIF MSWINDOWS}
+    {$IFnDEF FPC}
     System.IOUtils,
     System.DateUtils;
+    {$ELSE}
+      FileUtil,
+      dateutils;
+    {$ENDIF}
 
 type
 
- TEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etTrace);
- TLogVerbose = set of TEventType;
+ TLogEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etTrace);
+ TLogVerbose = set of TLogEventType;
 
 const
   LOG_ONLYERRORS = [etInfo,etError];
@@ -52,8 +73,13 @@ const
   LOG_TRACE = [etInfo,etError,etWarning,etTrace];
   LOG_ALL = [etInfo,etSuccess,etWarning,etError,etTrace];
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
+  {$IFDEF CompilerVersion}
+  {$IF CompilerVersion > 27}
   EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','TRACE'];
-
+  {$ENDIF}
+  {$ELSE}
+  EventStr : array[0..5] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','TRACE');
+  {$ENDIF}
 type
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
 
@@ -78,41 +104,67 @@ type
     ALLUSERSPROFILE : string;
   end;
   {$ENDIF MSWINDOWS}
-
+  {$IFNDEF FPC}
   TFileHelper = record helper for TFile
+    {$IFDEF MSWINDOWS}
     class function IsInUse(const FileName : string) : Boolean; static;
+    {$ENDIF}
     class function GetSize(const FileName: String): Int64; static;
   end;
 
   TDirectoryHelper = record helper for TDirectory
     class function GetSize(const Path: String): Int64; static;
   end;
+  {$ELSE}
+    TFileHelper = class
+      {$IFDEF MSWINDOWS}
+      class function IsInUse(const FileName : string) : Boolean; static;
+      {$ENDIF}
+      class function GetSize(const FileName: String): Int64; static;
+    end;
 
-  TTextFileOperation = (tfOpenRead,tfOpenOverwrite,tfOpenAppend);
+    TDirectoryHelper = class
+      class function GetSize(const Path: String): Int64; static;
+    end;
+  {$ENDIF}
 
-	TTextStreamFile = class
-    private
-      fReadStream : TStreamReader;
-      fWriteStream : TStreamWriter;
-      function GetEOF : Boolean;
-    public
-      constructor Create(const FileName : string; OpenMode : TTextFileOperation);
-      destructor Destroy; override;
-      function ReadLn: string; overload;
-      function ReadLn(out Data: string): Boolean; overload;
-      procedure WriteLn (const Data : string);
-      procedure Close;
-      property EOF: Boolean read GetEOF;
+  TCounter = record
+  private
+    fMaxValue : Integer;
+    fCurrentValue : Integer;
+  public
+    property MaxValue : Integer read fMaxValue;
+    procedure Init(aMaxValue : Integer);
+    function Count : Integer;
+    function CountIs(aValue : Integer) : Boolean;
+    function Check : Boolean;
+    procedure Reset;
   end;
+
+  TTimeCounter = record
+  private
+    fCurrentTime : TDateTime;
+    fDoneEvery : Integer;
+  public
+    property DoneEvery : Integer read fDoneEvery;
+    procedure Init(MillisecondsToReach : Integer);
+    function Check : Boolean;
+    procedure Reset;
+  end;
+
+  EEnvironmentPath = class(Exception);
+  EShellError = class(Exception);
 
   //generates a random password with complexity options
   function RandomPassword(const PasswordLength : Integer; Complexity : TPasswordComplexity = [pfIncludeNumbers,pfIncludeSigns]) : string;
   //extracts file extension from a filename
-  function ExtractFileNameWithoutExt(const FileName: String): String;
+  function ExtractFileNameWithoutExt(const FileName: string): string;
   //converts a Unix path to Windows path
   function UnixToWindowsPath(const UnixPath: string): string;
   //converts a Windows path to Unix path
   function WindowsToUnixPath(const WindowsPath: string): string;
+  //corrects malformed urls
+  function CorrectURLPath(cUrl : string) : string;
   {$IFDEF MSWINDOWS}
   //get typical environment paths as temp, desktop, etc
   procedure GetEnvironmentPaths;
@@ -134,6 +186,8 @@ type
   {$ENDIF MSWINDOWS}
   //returns last day of current month
   function LastDayCurrentMonth: TDateTime;
+  //checks if two datetimes are in same day
+  function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
   //returns n times a char
   function FillStr(const C : Char; const Count : Byte) : string;
   //returns a number leading zero
@@ -151,10 +205,12 @@ type
   //Upper case for first letter
   function Capitalize(s: string): string;
   function CapitalizeWords(s: string): string;
+  {$IFDEF MSWINDOWS}
   //returns current logged user
   function GetLoggedUserName : string;
   //returns computer name
   function GetComputerName : string;
+  {$ENDIF}
   //Changes incorrect delims in path
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
   //Removes last segment of a path
@@ -163,24 +219,43 @@ type
   function ParamFindSwitch(const Switch : string) : Boolean;
   //gets value for a switch if exists
   function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
+  {$IFDEF MSWINDOWS}
   //returns app version (major & minor)
   function GetAppVersionStr: string;
   //returns app version full (major, minor, release & compiled)
   function GetAppVersionFullStr: string;
+  {$ENDIF}
   //UTC DateTime to Local DateTime
   function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
   //Local DateTime to UTC DateTime
   function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
-
-var
+  //count number of digits of a Integer
+  function CountDigits(anInt: Cardinal): Cardinal; inline;
+  //save stream to file
+  procedure SaveStreamToFile(stream : TStream; const filename : string);
   {$IFDEF MSWINDOWS}
+  //process messages on console applications
+  procedure ProcessMessages;
+  //get last error message
+  function GetLastOSError : String;
+  {$ENDIF}
+  {$IFDEF FPC}
+  //implement our delphi time range functions becasue FPC hasn't yet
+  function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
+  function DateInRange(ADate: TDate; AStartDate, AEndDate: TDate; AInclusive: Boolean = True): Boolean;
+  function TimeInRange(ATime: TTime; AStartTime, AEndTime: TTime; AInclusive: Boolean = True): Boolean;
+  {$ENDIF}
+
+{$IFDEF MSWINDOWS}
+var
   path : TEnvironmentPath;
-  {$ENDIF MSWINDOWS}
+{$ENDIF}
 
 implementation
 
 {TFileHelper}
 
+{$IFDEF MSWINDOWS}
 class function TFileHelper.IsInUse(const FileName : string) : Boolean;
 var
   HFileRes: HFILE;
@@ -205,18 +280,35 @@ begin
     Result := True;
   end;
 end;
+{$ENDIF}
 
+{$IFDEF MSWINDOWS}
 class function TFileHelper.GetSize(const FileName: String): Int64;
-  var
-    info: TWin32FileAttributeData;
+var
+  info: TWin32FileAttributeData;
 begin
   Result := -1;
+  {$IFNDEF FPC}
   if not GetFileAttributesEx(PWideChar(FileName), GetFileExInfoStandard, @info) then Exit;
+  {$ELSE}
+  if not GetFileAttributesEx(PAnsiChar(FileName), GetFileExInfoStandard, @info) then Exit;
+  {$ENDIF}
   Result := Int64(info.nFileSizeLow) or Int64(info.nFileSizeHigh shl 32);
 end;
+{$ELSE}
+class function TFileHelper.GetSize(const FileName: String): Int64;
+var
+  sr : TSearchRec;
+begin
+  if FindFirst(fileName, faAnyFile, sr ) = 0 then Result := sr.Size
+    else Result := -1;
+end;
+{$ENDIF}
 
 {TDirectoryHelper}
 
+
+{$IFNDEF FPC}
 class function TDirectoryHelper.GetSize(const Path: String): Int64;
 var
   filename : string;
@@ -227,58 +319,18 @@ begin
     Result := Result + TFile.GetSize(filename);
   end;
 end;
-
-{TTextStreamFile}
-
-constructor TTextStreamFile.Create(const FileName : string; OpenMode : TTextFileOperation);
+{$ELSE}
+class function TDirectoryHelper.GetSize(const Path: String): Int64;
 var
-  Append : Boolean;
+  filename : string;
 begin
-  if OpenMode = tfOpenRead then fReadStream := TStreamReader.Create(FileName,True)
-  else
+  Result := -1;
+  for filename in FindAllFiles(Path) do
   begin
-    if OpenMode = tfOpenAppend then Append := True
-      else Append := False;
-    fWriteStream := TStreamWriter.Create(FileName,Append);
+    Result := Result + TFileHelper.GetSize(filename);
   end;
 end;
-
-destructor TTextStreamFile.Destroy;
-begin
-   if Assigned(fReadStream) then fReadStream.Free;
-   if Assigned(fWriteStream) then fWriteStream.Free;
-   inherited Destroy;
-end;
-
-function TTextStreamFile.ReadLn(out Data: string): Boolean;
-var
-   Len, Start: Integer;
-   EOLChar: ansiChar;
-begin
-   Data := fReadStream.ReadLine;
-   if Data <> '' then Result := True;
-end;
-
-function TTextStreamFile.ReadLn: string;
-begin
-   Result := fReadStream.ReadLine;
-end;
-
-procedure TTextStreamFile.WriteLn (const Data : string);
-begin
-  fWriteStream.WriteLine(Data);
-end;
-
-function TTextStreamFile.GetEOF : Boolean;
-begin
-  Result := fReadStream.EndOfStream;
-end;
-
-procedure TTextStreamFile.Close;
-begin
-  if Assigned(fReadStream) then fReadStream.Close;
-  if Assigned(fWriteStream) then fWriteStream.Close;
-end;
+{$ENDIF}
 
 {other functions}
 
@@ -323,25 +375,40 @@ begin
   end;
 end;
 
-function ExtractFileNameWithoutExt(const FileName: String): String;
+function ExtractFileNameWithoutExt(const FileName: string): string;
 begin
+  {$IFNDEF FPC}
   Result := TPath.GetFileNameWithoutExtension(FileName);
+  {$ELSE}
+  Result := ExtractFilePath(Filename);
+  {$ENDIF}
 end;
 
 function UnixToWindowsPath(const UnixPath: string): string;
 begin
-  Result:=StringReplace(UnixPath, '/', '\',[rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(UnixPath, '/', '\',[rfReplaceAll, rfIgnoreCase]);
 end;
 
 function WindowsToUnixPath(const WindowsPath: string): string;
 begin
-  Result:=StringReplace(WindowsPath, '\', '/',[rfReplaceAll, rfIgnoreCase]);
+  Result := StringReplace(WindowsPath, '\', '/',[rfReplaceAll, rfIgnoreCase]);
+end;
+
+function CorrectURLPath(cUrl : string) : string;
+var
+  nurl : string;
+begin
+  nurl := WindowsToUnixPath(cUrl);
+  nurl := StringReplace(nurl,'//','/',[rfReplaceAll]);
+  Result := StringReplace(nurl,' ','%20',[rfReplaceAll]);
+  //TNetEncoding.Url.Encode()
 end;
 
 {$IFDEF MSWINDOWS}
 procedure GetEnvironmentPaths;
 begin
   //gets path
+  {$IFNDEF FPC}
   path.EXEPATH := TPath.GetDirectoryName(ParamStr(0));
   path.WINDOWS := GetEnvironmentVariable('windir');
   path.PROGRAMFILES := GetEnvironmentVariable('ProgramFiles');
@@ -350,23 +417,32 @@ begin
   path.USERPROFILE := GetEnvironmentVariable('USERPROFILE');
   path.PROGRAMDATA := GetEnvironmentVariable('ProgramData');
   path.ALLUSERSPROFILE := GetEnvironmentVariable('AllUsersProfile');
-  path.INSTDRIVE := path.HOMEDRIVE;
   path.TEMP := GetEnvironmentVariable('TEMP');
+  {$ELSE}
+  path.EXEPATH:=ExtractFileDir(ParamStr(0));
+  path.WINDOWS := Sysutils.GetEnvironmentVariable('windir');
+  path.PROGRAMFILES := Sysutils.GetEnvironmentVariable('ProgramFiles');
+  path.COMMONFILES := Sysutils.GetEnvironmentVariable('CommonProgramFiles(x86)');
+  path.HOMEDRIVE := Sysutils.GetEnvironmentVariable('SystemDrive');
+  path.USERPROFILE := Sysutils.GetEnvironmentVariable('USERPROFILE');
+  path.PROGRAMDATA := Sysutils.GetEnvironmentVariable('ProgramData');
+  path.ALLUSERSPROFILE := Sysutils.GetEnvironmentVariable('AllUsersProfile');
+  path.TEMP := Sysutils.GetEnvironmentVariable('TEMP');
+  {$ENDIF}
+  path.INSTDRIVE := path.HOMEDRIVE;
   path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
-  path.DESKTOP := GetSpecialFolderPath(CSIDL_DESKTOP);
-  try
-    path.DESKTOP_ALLUSERS := GetSpecialFolderPath(CSIDL_COMMON_DESKTOPDIRECTORY);
-  except
-    path.DESKTOP_ALLUSERS := path.DESKTOP;
-  end;
-  path.STARTMENU:=GetSpecialFolderPath(CSIDL_PROGRAMS);
-  try
-    path.STARTMENU_ALLUSERS:=GetSpecialFolderPath(CSIDL_COMMON_PROGRAMS);
-  except
-    path.STARTMENU_ALLUSERS := path.STARTMENU;
-  end;
-  path.STARTUP:=GetSpecialFolderPath(CSIDL_STARTUP);
   path.APPDATA:=GetSpecialFolderPath(CSIDL_APPDATA);
+  //these paths fail if user is SYSTEM
+  try
+    path.DESKTOP := GetSpecialFolderPath(CSIDL_DESKTOP);
+    path.DESKTOP_ALLUSERS := GetSpecialFolderPath(CSIDL_COMMON_DESKTOPDIRECTORY);
+    path.STARTMENU:=GetSpecialFolderPath(CSIDL_PROGRAMS);
+    path.STARTMENU_ALLUSERS:=GetSpecialFolderPath(CSIDL_COMMON_PROGRAMS);
+    path.STARTMENU_ALLUSERS := path.STARTMENU;
+    path.STARTUP:=GetSpecialFolderPath(CSIDL_STARTUP);
+  except
+    //
+  end;
 end;
 
 function GetSpecialFolderPath(folderID : Integer) : string;
@@ -377,7 +453,7 @@ begin
   SetLength(Result, MAX_PATH);
   if not SHGetPathFromIDList(ppidl, PChar(Result)) then
   begin
-    raise exception.create(Format('GetSpecialFolderPath Error: Invalid PIPL (%d)',[folderID]));
+    raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
   end;
   SetLength(Result, lStrLen(PChar(Result)));
 end;
@@ -444,7 +520,11 @@ begin
     dmPelsHeight := Height;
     dmFields := DM_PELSWIDTH or DM_PELSHEIGHT;
   end;
+  {$IFNDEF FPC}
   Result := ChangeDisplaySettings(DeviceMode, CDS_UPDATEREGISTRY);
+  {$ELSE}
+  Result := Windows.ChangeDisplaySettings(DeviceMode, CDS_UPDATEREGISTRY);
+  {$ENDIF}
 end;
 {$ENDIF MSWINDOWS}
 
@@ -453,9 +533,15 @@ begin
   Result := EncodeDate(YearOf(Now),MonthOf(Now), DaysInMonth(Now));
 end;
 
+function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
+begin
+  //Test: Result := MinutesBetween(cBefore,cNow) < 1;
+  Result := DateTimeInRange(cNow,StartOfTheDay(cBefore),EndOfTheDay(cBefore),True);
+end;
+
 function FillStr(const C : Char; const Count : Byte) : string;
 var
-    i   : Byte;
+  i   : Byte;
 begin
   Result := '';
   for i := 1 to Count do Result := Result + C;
@@ -544,8 +630,13 @@ function Capitalize(s: string): string;
 begin
   Result := '';
   if s.Length = 0 then Exit;
+  {$IFNDEF FPC}
   s := LowerCase(s,loUserLocale);
   Result := UpperCase(s[1],loUserLocale) + Trim(Copy(s, 2, s.Length));
+  {$ELSE}
+  s := LowerCase(s);
+  Result := UpperCase(s[1]) + Trim(Copy(s, 2, s.Length));
+  {$ENDIF}
 end;
 
 function CapitalizeWords(s: string): string;
@@ -554,7 +645,11 @@ var
 begin
   Result := '';
   if s.Length = 0 then Exit;
+  {$IFNDEF FPC}
   s := LowerCase(s,loUserLocale);
+  {$ELSE}
+  s := LowerCase(s);
+  {$ENDIF}
   for cword in s.Split([' ']) do
   begin
     if Result = '' then Result := Capitalize(cword)
@@ -562,6 +657,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 function GetLoggedUserName : string;
 const
   cnMaxUserNameLen = 254;
@@ -585,6 +681,7 @@ begin
   if not Windows.GetComputerName(pchar(result), dwLength) then Result := 'Not detected!';
   Result := pchar(result);
 end;
+{$ENDIF}
 
 function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
 begin
@@ -628,9 +725,16 @@ end;
 
 function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
 begin
+  {$IFNDEF FPC}
   Result := FindCmdLineSwitch(Switch,cvalue,True,[clstValueAppended]);
+  {$ELSE}
+  //Not result value in FPC :(
+  Result := FindCmdLineSwitch(Switch);
+  {$ENDIF}
 end;
 
+
+{$IFDEF MSWINDOWS}
 function GetAppVersionStr: string;
 var
   Rec: LongRec;
@@ -688,23 +792,195 @@ begin
      LongRec(FixedPtr.dwFileVersionLS).Lo]); //build
   end;
 end;
+{$ENDIF}
 
 function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
 begin
+  {$IFNDEF FPC}
   Result :=  TTimeZone.Local.ToLocalTime(GMTTime);
+  {$ELSE}
+  //TODO
+  raise ENotImplemented.Create('Not implemented yet');
+  {$ENDIF}
 end;
 
 function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
 begin
+  {$IFNDEF FPC}
   Result := TTimeZone.Local.ToUniversalTime(LocalTime);
+  {$ELSE}
+  //TODO
+  raise ENotImplemented.Create('Not implemented yet');  ;
+  {$ENDIF}
 end;
 
+function CountDigits(anInt: Cardinal): Cardinal; inline;
+var
+  cmp: Cardinal;
+begin
+  cmp := 10;
+  Result := 1;
+  while (Result < 10) and (cmp <= anInt) do
+  begin
+    cmp := cmp*10;
+    Inc(Result);
+  end;
+end;
+
+procedure SaveStreamToFile(stream : TStream; const filename : string);
+var
+  fs : TFileStream;
+begin
+  fs := TFileStream.Create(filename,fmCreate);
+  try
+    stream.Seek(0,soBeginning);
+    fs.CopyFrom(stream,stream.Size);
+  finally
+    fs.Free;
+  end;
+end;
+
+{ TCounter }
+
+procedure TCounter.Init(aMaxValue : Integer);
+begin
+  fMaxValue := aMaxValue;
+  fCurrentValue := 0;
+end;
+
+function TCounter.Count : Integer;
+begin
+  Result := fCurrentValue;
+end;
+
+function TCounter.CountIs(aValue : Integer) : Boolean;
+begin
+  Result := fCurrentValue = aValue;
+end;
+
+function TCounter.Check : Boolean;
+begin
+  if fCurrentValue = fMaxValue then
+  begin
+    Result := True;
+    Reset;
+  end
+  else
+  begin
+    Result := False;
+    Inc(fCurrentValue);
+  end;
+end;
+
+procedure TCounter.Reset;
+begin
+  fCurrentValue := fMaxValue;
+end;
+
+{ TimeCounter }
+
+procedure TTimeCounter.Init(MillisecondsToReach : Integer);
+begin
+  fDoneEvery := MillisecondsToReach;
+end;
+
+function TTimeCounter.Check : Boolean;
+begin
+  if MilliSecondsBetween(fCurrentTime,Now) > fDoneEvery then
+  begin
+    fCurrentTime := Now();
+    Result := True;
+  end
+  else Result := False;
+end;
+
+procedure TTimeCounter.Reset;
+begin
+  fCurrentTime := Now();
+end;
+
+{$IFDEF MSWINDOWS}
+procedure ProcessMessages;
+var
+  {$IFNDEF FPC}
+  Msg: TMsg;
+begin
+  while integer(PeekMessage(Msg, 0, 0, 0, PM_REMOVE)) <> 0 do
+  begin
+    TranslateMessage(Msg);
+    DispatchMessage(Msg);
+  end;
+  {$ELSE}
+  Msg: Windows.TMsg;
+begin
+  while integer(Windows.PeekMessage(Msg, 0, 0, 0, PM_REMOVE)) <> 0 do
+  begin
+    Windows.TranslateMessage(Msg);
+    Windows.DispatchMessage(Msg);
+  end;
+  {$ENDIF}
+end;
+
+function GetLastOSError: String;
+begin
+  Result := SysErrorMessage(Windows.GetLastError);
+end;
+
+{$ENDIF}
+
+{$IFDEF FPC}
+function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
+begin
+  if aInclusive then
+    Result := (AStartDateTime <= ADateTime) and (ADateTime <= AEndDateTime)
+  else
+    Result := (AStartDateTime < ADateTime) and (ADateTime < AEndDateTime);
+end;
+
+function TimeInRange(ATime: TTime; AStartTime, AEndTime: TTime; AInclusive: Boolean = True): Boolean;
+var
+  LTime, LStartTime, LEndTime: TTime;
+begin
+  LTime := TimeOf(ATime);
+  LStartTime := TimeOf(AStartTime);
+  LEndTime := TimeOF(AEndTime);
+
+  if LEndTime < LStartTime then
+    if AInclusive then
+      Result := (LStartTime <= LTime) or (LTime <= LEndTime)
+    else
+      Result := (LStartTime < LTime) or (LTime < LEndTime)
+  else
+    if AInclusive then
+      Result := (LStartTime <= LTime) and (LTime <= LEndTime)
+    else
+      Result := (LStartTime < LTime) and (LTime < LEndTime);
+end;
+
+function DateInRange(ADate: TDate; AStartDate, AEndDate: TDate; AInclusive: Boolean = True): Boolean;
+begin
+  if AInclusive then
+    Result := (DateOf(AStartDate) <= DateOf(ADate)) and (DateOf(ADate) <= DateOf(AEndDate))
+ else
+    Result := (DateOf(AStartDate) < DateOf(ADate)) and (DateOf(ADate) < DateOf(AEndDate));
+end;
+
+{$ENDIF}
 
 initialization
+{$IFDEF MSWINDOWS}
   try
     GetEnvironmentPaths;
   except
-    on E : Exception do if not IsService then raise Exception.Create(E.Message);
+    on E : Exception do
+    begin
+      if not IsService then
+      begin
+        if IsConsole then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
+          else raise EEnvironmentPath.Create(Format('Get environment path error: %s',[E.Message]));
+      end;
+    end;
   end;
+{$ENDIF}
 
 end.
