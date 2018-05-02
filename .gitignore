@@ -49,3 +49,5 @@ desktop.ini
 *.compiled
 
 lib/i386-win32/
+
+backup/
