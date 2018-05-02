@@ -5,9 +5,9 @@
   Unit        : Quick.Format
   Description : String Format functions
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 14/07/2017
-  Modified    : 14/03/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -29,10 +29,12 @@
 
 unit Quick.Format;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
-  System.SysUtils,
+  SysUtils,
   Math;
 
   //converts a number to thousand delimeter string

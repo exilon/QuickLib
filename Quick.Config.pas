@@ -5,9 +5,9 @@
   Unit        : Quick.Config
   Description : Load/Save config from/to JSON file
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 26/01/2017
-  Modified    : 12/02/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -31,16 +31,25 @@ unit Quick.Config;
 
 interface
 
+{$i QuickLib.inc}
+
 uses
-  System.Classes,
-  System.SysUtils,
-  System.Rtti,
-  {$IF CompilerVersion >= 32.0}
+  Classes,
+  SysUtils,
+  Rtti,
+  {$IFDEF DELPHIRX102_UP}
+    DBXJSON,
     JSON.Types,
     JSON.Serializers;
   {$ELSE}
+    {$IFDEF FPC}
+    fpjson,
+    fpjsonrtti;
+    {$ELSE}
+    DBXJSON,
     Rest.Json.Types,
     Rest.Json;
+    {$ENDIF}
   {$ENDIF}
 
 type
@@ -66,9 +75,15 @@ type
 
   TApplyConfigEvent = procedure of object;
 
-  [JsonSerialize(TJsonMemberSerialization.&Public)]
-  TAppConfig = class
+  {$IFDEF DELPHIXE2_UP}[JsonSerialize(TJsonMemberSerialization.&Public)]{$ENDIF}
+  TAppConfig = class{$IFDEF FPC}(TPersistent){$ENDIF}
   private
+    {$IFDEF FPC}
+    fOnApplyConfig : TApplyConfigEvent;
+    fDateTimeZone: TDateTimeZone;
+    fJsonIndent: Boolean;
+    fLastSaved : TDateTime;
+    {$ELSE}
     {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
     fOnApplyConfig : TApplyConfigEvent;
     {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
@@ -77,15 +92,16 @@ type
     fJsonIndent: Boolean;
     {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
     fLastSaved : TDateTime;
+    {$ENDIF}
   public
     constructor Create; virtual;
-    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property OnApplyConfig : TApplyConfigEvent read fOnApplyConfig write fOnApplyConfig;
-    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property DateTimeZone : TDateTimeZone read fDateTimeZone write fDateTimeZone;
-    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property JsonIndent : Boolean read fJsonIndent write fJsonIndent;
-    {$IF CompilerVersion >= 32.0}[JsonIgnoreAttribute]{$ENDIF}
+    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property LastSaved : TDateTime read fLastSaved write fLastSaved;
     procedure Apply;
     procedure DefaultValues; virtual;
@@ -127,7 +143,6 @@ function TAppConfigProviderBase<T>.InitObject : T;
 var
   AValue: TValue;
   ctx: TRttiContext;
-  f : TRttiField;
   rType: TRttiType;
   AMethCreate: TRttiMethod;
 begin
@@ -138,8 +153,12 @@ begin
     begin
       if (AMethCreate.IsConstructor) and (Length(AMethCreate.GetParameters) = 0) then
       begin
+        {$IFDEF FPC}
+        Result := T(GetClass(T.ClassName).Create);
+        {$ELSE}
         AValue := AMethCreate.Invoke(rType.AsInstance.AsInstance.MetaclassType,[]);
         Result := AValue.AsType<T>;
+        {$ENDIF}
         Break;
       end;
     end;
@@ -169,14 +188,18 @@ end;
 
 
 function TAppConfig.ToJSON : string;
-{$IF CompilerVersion >= 32.0}
-  var
-    Serializer : TJsonSerializer;
-  {$ENDIF}
+{$IFDEF DELPHIRX102_UP}
+var
+  Serializer : TJsonSerializer;
+{$ENDIF}
+{$IFDEF FPC}
+var
+  streamer : TJsonStreamer;
+{$ENDIF}
 begin
   Result := '';
   try
-    {$IF CompilerVersion >= 32.0}
+    {$IFDEF DELPHIRX102_UP}
       Serializer := TJsonSerializer.Create;
       try
         Serializer.Formatting := TJsonFormatting.Indented;
@@ -192,7 +215,18 @@ begin
         Serializer.Free;
       end;
     {$ELSE}
+      {$IFDEF FPC}
+      streamer := TJsonStreamer.Create(nil);
+      try
+        Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+        Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+        Result := streamer.ObjectToJSON(Self).ToString;
+      finally
+        streamer.Free;
+      end;
+      {$ELSE}
       Result := TJson.ObjectToJsonString(Self);
+      {$ENDIF}
     {$ENDIF}
   except
     on e : Exception do raise Exception.Create(e.Message);
@@ -200,13 +234,17 @@ begin
 end;
 
 procedure TAppConfig.FromJSON(const json : string);
-{$IF CompilerVersion >= 32.0}
-  var
-    Serializer : TJsonSerializer;
-  {$ENDIF}
+{$IFDEF DELPHIRX102_UP}
+var
+  Serializer : TJsonSerializer;
+{$ENDIF}
+{$IFDEF FPC}
+var
+  streamer : TJSONDeStreamer;
+{$ENDIF}
 begin
   try
-    {$IF CompilerVersion >= 32.0}
+    {$IFDEF DELPHIRX102_UP}
       Serializer := TJsonSerializer.Create;
       try
         Serializer.Formatting := TJsonFormatting.Indented;
@@ -222,7 +260,18 @@ begin
         Serializer.Free;
       end;
     {$ELSE}
-      TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json.Text)));
+      {$IFDEF FPC}
+      streamer := TJSONDeStreamer.Create(nil);
+      try
+        //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
+        Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+        Streamer.JsonToObject(json,Self);
+      finally
+        Streamer.Free;
+      end;
+      {$ELSE}
+      TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json)));
+      {$ENDIF}
     {$ENDIF}
   except
     on e : Exception do raise Exception.Create(e.Message);

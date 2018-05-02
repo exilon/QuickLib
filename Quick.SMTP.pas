@@ -31,9 +31,11 @@ unit Quick.SMTP;
 
 interface
 
+{$i QuickLib.inc}
+
 uses
   Classes,
-  System.SysUtils,
+  SysUtils,
   IdGlobal,
   IdSMTP,
   IdMessage,

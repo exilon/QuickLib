@@ -5,9 +5,9 @@
   Unit        : Quick.Log
   Description : Threadsafe Log
   Author      : Kike Pérez
-  Version     : 1.17
+  Version     : 1.18
   Created     : 10/04/2016
-  Modified    : 18/01/2018
+  Modified    : 08/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -29,14 +29,20 @@
 
 unit Quick.Log;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
   Windows,
   Classes,
   Quick.Commons,
-  System.SysUtils,
-  System.IOUtils;
+  {$ifndef FPC}
+  System.IOUtils,
+  {$else}
+  Quick.Files,
+  {$endif}
+  SysUtils;
 
 type
 
@@ -79,8 +85,8 @@ type
     constructor Create;
     destructor Destroy; override;
     function SetLog(logname : string; AddCurrentDateToFileName : Boolean; LimitSizeInMB : Integer = 0) : Boolean;
-    procedure Add(const cMsg : string; cEventType : TLogEventType = etInfo); overload;
-    procedure Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = etInfo); overload;
+    procedure Add(const cMsg : string; cEventType : TLogEventType = TLogEventType.etInfo); overload;
+    procedure Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = TLogEventType.etInfo); overload;
   end;
 
 var
@@ -145,6 +151,13 @@ begin
   else Result := fLogFileName;
 end;
 
+{$IFDEF FPC}
+function OSVersion: String;
+begin
+  Result:={$I %FPCTARGETOS%}+'-'+{$I %FPCTARGETCPU%};
+end;
+{$ENDIF}
+
 function TQuickLog.SetLog(logname : string; AddCurrentDateToFileName : Boolean; LimitSizeInMB : Integer = 0) : Boolean;
 begin
   if logname = '' then logname := TPath.GetDirectoryName(ParamStr(0)) + '\' + TPath.GetFileNameWithoutExtension(ParamStr(0)) + '.log';
@@ -154,7 +167,7 @@ begin
   fLogFileName := logname;
   //Checks if logfile is too big and deletes
   fLimitLogSize := LimitSizeInMB * 1024 * 1024;
-  if (fLimitLogSize > 0) and (TFile.Exists(logname,True)) then
+  if (fLimitLogSize > 0) and (TFile.Exists(logname)) then
   begin
     try
       fCurrentLogSize := TFile.GetSize(logname);
@@ -174,7 +187,7 @@ begin
       Self.WriteLog(Format('Application : %s %s',[ExtractFilenameWithoutExt(ParamStr(0)),GetAppVersionFullStr]));
       Self.WriteLog(Format('Path        : %s',[ExtractFilePath(ParamStr(0))]));
       Self.WriteLog(Format('CPU cores   : %d',[CPUCount]));
-      Self.WriteLog(Format('OS version  : %s',[TOSVersion.ToString]));
+      Self.WriteLog(Format('OS version  : %s',{$IFDEF FPC}[OSVersion]{$ELSE}[TOSVersion.ToString]{$ENDIF}));
       Self.WriteLog(Format('Host        : %s',[GetComputerName]));
       Self.WriteLog(Format('Username    : %s',[Trim(GetLoggedUserName)]));
       Self.WriteLog(Format('Started     : %s',[NowStr]));
@@ -190,7 +203,7 @@ begin
   Result := True;
 end;
 
-procedure TQuickLog.Add(const cMsg : string; cEventType : TLogEventType = etInfo);
+procedure TQuickLog.Add(const cMsg : string; cEventType : TLogEventType = TLogEventType.etInfo);
 begin
   //Check Log Verbose level
   if cEventType in fVerbose then
@@ -222,7 +235,7 @@ begin
     LBuffer := LEncoding.Convert(LEncoding, DestEncoding, LBuffer,
                                   LOffset, Length(LBuffer) - LOffset);
 
-    if TFile.Exists(logname,True) then
+    if TFile.Exists(logname) then
     begin
       stream := TFileStream.Create(logname, fmOpenReadWrite or fmShareDenyWrite);
       stream.Position := stream.Size;
@@ -261,7 +274,7 @@ begin
   end;
 end;
 
-procedure TQuickLog.Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = etInfo);
+procedure TQuickLog.Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = TLogEventType.etInfo);
 begin
   Self.Add(Format(cFormat,cParams),cEventType);
 end;

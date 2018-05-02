@@ -29,13 +29,15 @@
 
 unit Quick.Console;
 
+{$i QuickLib.inc}
+
 {$IFDEF CONDITIONALEXPRESSIONS}
   {$ifndef VER140}
     {$ifndef LINUX}
       {$define WITHUXTHEME}
     {$endif}
   {$endif}
-  {$IF CompilerVersion >= 17.0}
+  {$IFDEF DELPHI2005_UP}
     {$DEFINE INLINES}
   {$ENDIF}
   {$IF RTLVersion >= 14.0}
@@ -48,8 +50,8 @@ interface
 uses
   Classes,
   Windows,
-  Winapi.Messages,
-  System.SysUtils,
+  Messages,
+  SysUtils,
   Quick.Commons,
   Quick.Log;
 
@@ -79,8 +81,13 @@ type
     Log : TQuickLog;
   end;
 
+  {$IFNDEF FPC}
   TOutputProc<T> = reference to procedure(const aLine : T);
   TExecuteProc = reference to procedure;
+  {$ELSE}
+  TOutputProc<T> = procedure(const aLine : T) of object;
+  TExecuteProc = procedure of object;
+  {$ENDIF}
 
   TConsoleMenuOption = record
   private
@@ -165,7 +172,9 @@ var
   FmtSets : TFormatSettings;
 begin
   try
+    {$IFNDEF FPC}
     FmtSets := TFormatSettings.Create;
+    {$ENDIF}
     FmtSets.ThousandSeparator := '.';
     FmtSets.DecimalSeparator := ',';
     cout(FormatFloat('0,',cMsg,FmtSets),cEventType);
@@ -179,7 +188,9 @@ var
   FmtSets : TFormatSettings;
 begin
   try
+    {$IFNDEF FPC}
     FmtSets := TFormatSettings.Create;
+    {$ENDIF}
     FmtSets.ThousandSeparator := '.';
     FmtSets.DecimalSeparator := ',';
     cout(FormatFloat('.0###,',cMsg,FmtSets),cEventType);
@@ -499,6 +510,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 procedure ConsoleWaitForEnterKey;
 var
   msg: TMsg;
@@ -506,7 +518,16 @@ begin
   while not ConsoleKeyPressed(VK_RETURN) do
   begin
     {$ifndef LVCL}
-    if GetCurrentThreadID=MainThreadID then CheckSynchronize{$ifdef WITHUXTHEME}(1000){$endif}  else
+      {$IFDEF FPC}
+      if GetCurrentThreadID = MainThreadID then
+      begin
+        CheckSynchronize;
+        Sleep(1);
+      end
+      else
+      {$ELSE}
+      if GetCurrentThreadID = MainThreadID then CheckSynchronize{$IFDEF DELPHI7_UP}(1000){$ENDIF}  else
+      {$ENDIF}
     {$endif}
     WaitMessage;
     while PeekMessage(msg,0,0,0,PM_REMOVE) do
@@ -520,6 +541,12 @@ begin
     end;
   end;
 end;
+{$ELSE}
+procedure ConsoleWaitForEnterKey;
+begin
+  ReadLn;
+end;
+{$ENDIF}
 
 procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
 const
@@ -604,7 +631,9 @@ begin
   {$ENDIF}
   if not GetConsoleScreenBufferInfo(hStdOut, BufferInfo) then
   begin
+    {$IFNDEF FPC}
     SetInOutRes(GetLastError);
+    {$ENDIF}
     Exit;
   end;
   ConsoleRect.Left := 0;
@@ -625,7 +654,7 @@ begin
   conmenu.Caption := cMenuCaption;
   conmenu.Key := cMenuKey;
   conmenu.OnKeyPressed := MenuAction;
-  {$IF CompilerVersion > 27}
+  {$IFDEF DELPHIXE7_UP}
   fConsoleMenu := fConsoleMenu + [conmenu];
   {$ELSE}
   SetLength(fConsoleMenu,High(fConsoleMenu)+1);
@@ -635,7 +664,7 @@ end;
 
 procedure TConsoleMenu.AddMenu(MenuOption: TConsoleMenuOption);
 begin
-  {$IF CompilerVersion > 27}
+  {$IFDEF DELPHIXE7_UP}
   fConsoleMenu := fConsoleMenu + [MenuOption];
   {$ELSE}
   SetLength(fConsoleMenu,High(fConsoleMenu)+1);

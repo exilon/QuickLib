@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2018 Kike Pérez
 
   Unit        : Quick.FileMonitor
   Description : Watch for single file changes
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 11/09/2017
-  Modified    : 16/09/2017
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -31,11 +31,17 @@ unit Quick.FileMonitor;
 
 interface
 
+{$i QuickLib.inc}
+
 uses
   Classes,
   Windows,
-  System.SysUtils,
+  SysUtils,
+  {$IFDEF FPC}
+  Quick.Files;
+  {$ELSE}
   System.IOUtils;
+  {$ENDIF}
 
 type
 

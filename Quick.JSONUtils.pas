@@ -34,7 +34,7 @@ interface
 uses
   Classes,
   System.SysUtils,
-  {$IF CompilerVersion >= 32.0}
+  {$IFDEF DELPHIRX102_UP}
     JSON.Types,
     REST.Json,
     System.JSON,
@@ -62,14 +62,14 @@ type
 implementation
 
 function TObjectHelper.ToJSON : string;
-{$IF CompilerVersion >= 32.0}
+{$IFDEF DELPHIRX102_UP}
 var
     Serializer : TJsonSerializer;
   {$ENDIF}
 begin
   Result := '';
   try
-    {$IF CompilerVersion >= 32.0}
+    {$IFDEF DELPHIRX102_UP}
       Serializer := TJsonSerializer.Create;
       try
         Serializer.Formatting := TJsonFormatting.Indented;

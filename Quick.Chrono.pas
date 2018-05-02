@@ -5,9 +5,9 @@
   Unit        : Quick.Chrono
   Description : Chronometers time elapsed and estimated time to do a task
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 20/03/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -31,8 +31,16 @@ unit Quick.Chrono;
 
 interface
 
+{$i QuickLib.inc}
+
 uses
+  {$IF defined(MSWINDOWS)}
   Windows,
+  {$ELSEIF defined(MACOS)}
+  Macapi.Mach,
+  {$ELSEIF defined(POSIX)}
+  Posix.Time,
+  {$ENDIF}
   SysUtils,
   DateUtils;
 
@@ -52,6 +60,10 @@ resourcestring
 
 type
 
+  {$IFDEF ANDROID}
+  TLargeInteger = Int64;
+  {$ENDIF}
+
   TTimeValue = (utDay, utHour, utMinute, utSecond, utMillisecond,utMicrosecond,utNanosecond);
   TTimeFmt = (tfHoursAndMinutes, tfMinutesAndSeconds);
   TPrecissionFormat = (pfFloat, pfRound, pfTruncate);
@@ -61,6 +73,10 @@ const
   UnitLongTime : array[utDay..utNanosecond] of string = (strDAY,strHOUR,strMINUTE,strSECOND,strMILLISECOND,strMICROSECOND,strNANOSECOND);
   FmtShortTime : array[tfHoursAndMinutes..tfMinutesAndSeconds] of string = (strFMTSHORT_HOURS_MINUTES,strFMTSHORT_MINUTES_SECONDS);
   FmtLongTime : array[tfHoursAndMinutes..tfMinutesAndSeconds] of string = (strFMTLONG_HOURS_MINUTES,strFMTLONG_MINUTES_SECONDS);
+
+  {$IFDEF FPC}
+  SecsPerHour = 3600;
+  {$ENDIF}
 
 type
 

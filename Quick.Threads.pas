@@ -5,9 +5,9 @@
   Unit        : Quick.Threads
   Description : Thread safe collections
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.2
   Created     : 09/03/2018
-  Modified    : 12/03/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -29,14 +29,24 @@
 
 unit Quick.Threads;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
   Classes,
   Types,
+  //Quick.Chrono,
+  {$IFNDEF FPC}
   System.RTLConsts,
   System.Generics.Collections,
   System.SyncObjs;
+  {$ELSE}
+  RtlConsts,
+  Generics.Collections,
+  syncobjs,
+  SysUtils;
+  {$ENDIF}
 
 type
 
@@ -45,7 +55,11 @@ type
     FQueue: array of T;
     FQueueSize, FQueueOffset: Integer;
     FQueueLock: TCriticalSection;
+    {$IFDEF FPC}
+    FQueueCondVar : TEventObject;
+    {$ELSE}
     FQueueCondVar: TConditionVariableCS;
+    {$ENDIF}
     FShutDown: Boolean;
     FPushTimeout, FPopTimeout: Cardinal;
     FTotalItemsPushed, FTotalItemsPopped: Cardinal;
@@ -73,7 +87,11 @@ type
     fQueue : TQueue<T>;
     fQueueSize : Integer;
     fQueueLock : TCriticalSection;
-    fQueueCondVar: TConditionVariableCS;
+    {$IFDEF FPC}
+    FQueueCondVar : TSimpleEvent;
+    {$ELSE}
+    FQueueCondVar: TConditionVariableCS;
+    {$ENDIF}
     fShutDown : Boolean;
     fPushTimeout : Cardinal;
     fPopTimeout : Cardinal;
@@ -117,6 +135,7 @@ type
     procedure Start;
   end;
 
+  {$IFNDEF FPC}
   TThreadObjectList<T: class> = class(TList<T>)
     private
       fList: TObjectList<T>;
@@ -136,6 +155,7 @@ type
       procedure UnlockList; inline;
       property Duplicates: TDuplicates read fDuplicates write fDuplicates;
   end;
+  {$ENDIF}
 
 implementation
 
@@ -146,7 +166,11 @@ begin
   inherited Create;
   SetLength(FQueue, AQueueDepth);
   FQueueLock := TCriticalSection.Create;
+  {$IFDEF FPC}
+  FQueueCondVar := TEventObject.Create(nil, True, False, 'TQCS');
+  {$ELSE}
   FQueueCondVar := TConditionVariableCS.Create;
+  {$ENDIF}
   FPushTimeout := PushTimeout;
   FPopTimeout := PopTimeout;
 end;
@@ -167,7 +191,11 @@ begin
   finally
     FQueueLock.Leave;
   end;
+  {$IFDEF FPC}
+  FQueueCondVar.SetEvent;
+  {$ELSE}
   FQueueCondVar.ReleaseAll;
+  {$ENDIF}
 end;
 
 function TThreadedQueueCS<T>.PopItem: T;
@@ -185,7 +213,11 @@ begin
     Result := wrSignaled;
     while (Result = wrSignaled) and (FQueueSize = 0) and not FShutDown do
     begin
+      {$IFDEF FPC}
+      Result := FQueueCondVar.WaitFor(FPopTimeout);
+      {$ELSE}
       Result := FQueueCondVar.WaitFor(FQueueLock, FPopTimeout);
+      {$ENDIF}
     end;
 
     if (FShutDown and (FQueueSize = 0)) or (Result <> wrSignaled) then Exit;
@@ -194,7 +226,14 @@ begin
 
     FQueue[FQueueOffset] := Default(T);
 
-    if FQueueSize = Length(FQueue) then FQueueCondVar.ReleaseAll;
+    if FQueueSize = Length(FQueue) then
+    begin
+      {$IFDEF FPC}
+      FQueueCondVar.SetEvent;
+      {$ELSE}
+      FQueueCondVar.ReleaseAll;
+      {$ENDIF}
+    end;
 
     Dec(FQueueSize);
     Inc(FQueueOffset);
@@ -233,12 +272,23 @@ begin
     Result := wrSignaled;
     while (Result = wrSignaled) and (FQueueSize = Length(FQueue)) and not FShutDown do
     begin
+      {$IFDEF FPC}
+      Result := FQueueCondVar.WaitFor(FPushTimeout);
+      {$ELSE}
       Result := FQueueCondVar.WaitFor(FQueueLock, FPushTimeout);
+      {$ENDIF}
     end;
 
     if FShutDown or (Result <> wrSignaled) then Exit;
 
-    if FQueueSize = 0 then FQueueCondVar.ReleaseAll;
+    if FQueueSize = 0 then
+    begin
+      {$IFDEF FPC}
+      FQueueCondVar.SetEvent;
+      {$ELSE}
+      FQueueCondVar.ReleaseAll;
+      {$ENDIF}
+    end;
 
     FQueue[(FQueueOffset + FQueueSize) mod Length(FQueue)] := AItem;
     Inc(FQueueSize);
@@ -252,7 +302,11 @@ end;
 procedure TThreadedQueueCS<T>.DoShutDown;
 begin
   FShutDown := True;
+  {$IFDEF FPC}
+  FQueueCondVar.SetEvent;
+  {$ELSE}
   FQueueCondVar.ReleaseAll;
+  {$ENDIF}
 end;
 
 { TThreadedQueueList<T> }
@@ -264,7 +318,11 @@ begin
   fQueue.Capacity := AQueueDepth;
   fQueueSize := 0;
   fQueueLock := TCriticalSection.Create;
+  {$IFDEF FPC}
+  FQueueCondVar := TSimpleEvent.Create; //TEventObject.Create(nil, False, False, 'TQL');
+  {$ELSE}
   fQueueCondVar := TConditionVariableCS.Create;
+  {$ENDIF}
   fPushTimeout := PushTimeout;
   fPopTimeout := PopTimeout;
 end;
@@ -286,7 +344,11 @@ begin
   finally
     fQueueLock.Leave;
   end;
-  fQueueCondVar.ReleaseAll;
+  {$IFDEF FPC}
+  FQueueCondVar.SetEvent;
+  {$ELSE}
+  FQueueCondVar.ReleaseAll;
+  {$ENDIF}
 end;
 
 function TThreadedQueueList<T>.PopItem: T;
@@ -296,6 +358,42 @@ begin
   PopItem(LQueueSize, Result);
 end;
 
+{$IFDEF FPC}
+function TThreadedQueueList<T>.PopItem(var AQueueSize: Integer; var AItem: T): TWaitResult;
+//var
+  //crono : TChronometer;
+begin
+  AItem := Default(T);
+  //crono := TChronometer.Create(False);
+  try
+    Result := wrSignaled;
+    //writeln('popitem');
+    //crono.Start;
+    while (Result = wrSignaled) and (fQueueSize = 0) and not fShutDown do
+    begin
+      //crono.Start;
+      Result := FQueueCondVar.WaitFor(FPopTimeout);
+      //crono.Stop;
+      //writeln('in: '  + crono.ElapsedTime);
+      //if result = twaitresult.wrError then result := twaitresult.wrError;
+    end;
+    //crono.Stop;
+    //writeln('out: ' + crono.ElapsedTime);
+
+    fQueueLock.Enter;
+    try
+      if (FShutDown and (fQueueSize = 0)) or (Result <> wrSignaled) then Exit;
+      AItem := fQueue.Extract;
+      Dec(FQueueSize);
+      Inc(fTotalItemsPopped);
+    finally
+      fQueueLock.Leave;
+    end;
+  finally
+    AQueueSize := fQueueSize;
+  end;
+end;
+{$ELSE}
 function TThreadedQueueList<T>.PopItem(var AQueueSize: Integer; var AItem: T): TWaitResult;
 begin
   AItem := Default(T);
@@ -304,14 +402,17 @@ begin
     Result := wrSignaled;
     while (Result = wrSignaled) and (fQueueSize = 0) and not fShutDown do
     begin
-      Result := fQueueCondVar.WaitFor(fQueueLock, fPopTimeout);
+      Result := FQueueCondVar.WaitFor(FQueueLock, FPopTimeout);
     end;
 
     if (FShutDown and (fQueueSize = 0)) or (Result <> wrSignaled) then Exit;
 
     AItem := fQueue.Extract;
 
-    if fQueueSize = fQueue.Count then fQueueCondVar.ReleaseAll;
+    if fQueueSize = fQueue.Count then
+    begin
+      FQueueCondVar.ReleaseAll;
+    end;
 
     Dec(FQueueSize);
     Inc(fTotalItemsPopped);
@@ -320,6 +421,7 @@ begin
     fQueueLock.Leave;
   end;
 end;
+{$ENDIF}
 
 function TThreadedQueueList<T>.PopItem(var AItem: T): TWaitResult;
 var
@@ -340,6 +442,7 @@ begin
   Result := PushItem(AItem, LQueueSize);
 end;
 
+{$IFDEF FPC}
 function TThreadedQueueList<T>.PushItem(const AItem: T; var AQueueSize: Integer): TWaitResult;
 begin
   FQueueLock.Enter;
@@ -352,7 +455,34 @@ begin
 
     if fShutDown or (Result <> wrSignaled) then Exit;
 
-    if fQueueSize = 0 then fQueueCondVar.ReleaseAll;
+    //if fQueueSize = 0 then
+    //begin
+    //  FQueueCondVar.SetEvent;
+    //end;
+
+    fQueue.Enqueue(AItem);
+    Inc(FQueueSize);
+    Inc(fTotalItemsPushed);
+  finally
+    AQueueSize := fQueueSize;
+    FQueueLock.Leave;
+    //FQueueCondVar.SetEvent;
+  end;
+end;
+{$ELSE}
+function TThreadedQueueList<T>.PushItem(const AItem: T; var AQueueSize: Integer): TWaitResult;
+begin
+  FQueueLock.Enter;
+  try
+    Result := wrSignaled;
+    //while (Result = wrSignaled) and (fQueueSize = fQueue.Count) and not fShutDown do
+    //begin
+    //  Result := fQueueCondVar.WaitFor(fQueueLock, fPushTimeout);
+    //end;
+
+    if fShutDown or (Result <> wrSignaled) then Exit;
+
+    if fQueueSize = 0 then FQueueCondVar.ReleaseAll;
 
     fQueue.Enqueue(AItem);
     Inc(FQueueSize);
@@ -363,10 +493,16 @@ begin
   end;
 end;
 
+{$ENDIF}
+
 procedure TThreadedQueueList<T>.DoShutDown;
 begin
   fShutDown := True;
-  fQueueCondVar.ReleaseAll;
+  {$IFDEF FPC}
+  FQueueCondVar.SetEvent;
+  {$ELSE}
+  FQueueCondVar.ReleaseAll;
+  {$ENDIF}
 end;
 
 { TThreadTask<T> }
@@ -407,17 +543,15 @@ begin
   fTaskQueue := TThreadedQueueCS<T>.Create(fMaxQueue,fInsertTimeout,fExtractTimeout);
 end;
 
+{$IFNDEF FPC}
 { TThreadObjectList<T> }
 
 procedure TThreadObjectList<T>.Add(const Item: T);
 begin
   LockList;
   try
-    if (Duplicates = dupAccept) or
-       (fList.IndexOf(Item) = -1) then
-      fList.Add(Item)
-    else if Duplicates = dupError then
-      raise EListError.CreateFmt(SDuplicateItem, [fList.ItemValue(Item)]);
+    if (Duplicates = dupAccept) or (fList.IndexOf(Item) = -1) then fList.Add(Item)
+    else if Duplicates = dupError then raise EListError.CreateFmt(SDuplicateItem, [fList.ItemValue(Item)]);
   finally
     UnlockList;
   end;
@@ -498,5 +632,6 @@ procedure TThreadObjectList<T>.UnlockList;
 begin
   System.TMonitor.Exit(fLock);
 end;
+{$ENDIF}
 
 end.

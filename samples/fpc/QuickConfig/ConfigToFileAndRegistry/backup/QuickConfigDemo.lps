@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="11"/>
+    <BuildModes Active="Default"/>
+    <Units Count="10">
+      <Unit0>
+        <Filename Value="QuickConfigDemo.dpr"/>
+        <IsPartOfProject Value="True"/>
+        <CursorPos X="26" Y="10"/>
+        <UsageCount Value="25"/>
+        <Loaded Value="True"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="Main.pas"/>
+        <IsPartOfProject Value="True"/>
+        <HasResources Value="True"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="37"/>
+        <CursorPos X="3" Y="44"/>
+        <UsageCount Value="25"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="..\..\..\..\Quick.Config.pas"/>
+        <EditorIndex Value="1"/>
+        <TopLine Value="65"/>
+        <CursorPos X="21" Y="79"/>
+        <UsageCount Value="13"/>
+        <Loaded Value="True"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="D:\Lazarus\fpcsrc\packages\fcl-json\src\fpjsonrtti.pp"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="8"/>
+        <TopLine Value="837"/>
+        <CursorPos Y="844"/>
+        <UsageCount Value="13"/>
+        <Loaded Value="True"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="D:\Lazarus\fpcsrc\packages\rtl-objpas\src\inc\rtti.pp"/>
+        <UnitName Value="Rtti"/>
+        <EditorIndex Value="7"/>
+        <TopLine Value="81"/>
+        <CursorPos X="13" Y="95"/>
+        <UsageCount Value="13"/>
+        <Loaded Value="True"/>
+      </Unit4>
+      <Unit5>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <EditorIndex Value="3"/>
+        <TopLine Value="152"/>
+        <CursorPos Y="181"/>
+        <UsageCount Value="12"/>
+        <Loaded Value="True"/>
+      </Unit5>
+      <Unit6>
+        <Filename Value="..\..\..\..\Quick.Files.pas"/>
+        <EditorIndex Value="6"/>
+        <TopLine Value="284"/>
+        <CursorPos X="15" Y="297"/>
+        <UsageCount Value="12"/>
+        <Loaded Value="True"/>
+      </Unit6>
+      <Unit7>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Registry.pas"/>
+        <EditorIndex Value="4"/>
+        <TopLine Value="329"/>
+        <CursorPos X="26" Y="196"/>
+        <UsageCount Value="12"/>
+        <Loaded Value="True"/>
+      </Unit7>
+      <Unit8>
+        <Filename Value="D:\Lazarus\fpcsrc\packages\fcl-json\src\fpjson.pp"/>
+        <EditorIndex Value="5"/>
+        <TopLine Value="494"/>
+        <CursorPos X="25" Y="518"/>
+        <UsageCount Value="12"/>
+        <Loaded Value="True"/>
+      </Unit8>
+      <Unit9>
+        <Filename Value="umain.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form1"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="uMain"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="77"/>
+        <CursorPos Y="97"/>
+        <UsageCount Value="22"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit9>
+    </Units>
+    <JumpHistory Count="30" HistoryIndex="29">
+      <Position1>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="160" TopLine="147"/>
+      </Position1>
+      <Position2>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="161" TopLine="147"/>
+      </Position2>
+      <Position3>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="178" TopLine="147"/>
+      </Position3>
+      <Position4>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="179" TopLine="147"/>
+      </Position4>
+      <Position5>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="180" TopLine="148"/>
+      </Position5>
+      <Position6>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="181" TopLine="149"/>
+      </Position6>
+      <Position7>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="152" Column="25" TopLine="150"/>
+      </Position7>
+      <Position8>
+        <Filename Value="umain.pas"/>
+        <Caret Line="97" TopLine="77"/>
+      </Position8>
+      <Position9>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="155" TopLine="148"/>
+      </Position9>
+      <Position10>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="157" TopLine="148"/>
+      </Position10>
+      <Position11>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="159" TopLine="148"/>
+      </Position11>
+      <Position12>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="160" TopLine="148"/>
+      </Position12>
+      <Position13>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="161" TopLine="148"/>
+      </Position13>
+      <Position14>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="178" TopLine="148"/>
+      </Position14>
+      <Position15>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="179" TopLine="148"/>
+      </Position15>
+      <Position16>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="180" TopLine="148"/>
+      </Position16>
+      <Position17>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="181" TopLine="149"/>
+      </Position17>
+      <Position18>
+        <Filename Value="..\..\..\..\Quick.Config.pas"/>
+        <Caret Line="79" Column="21" TopLine="65"/>
+      </Position18>
+      <Position19>
+        <Filename Value="umain.pas"/>
+        <Caret Line="97" TopLine="77"/>
+      </Position19>
+      <Position20>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="154" TopLine="147"/>
+      </Position20>
+      <Position21>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="157" TopLine="158"/>
+      </Position21>
+      <Position22>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="159" TopLine="152"/>
+      </Position22>
+      <Position23>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="160" TopLine="152"/>
+      </Position23>
+      <Position24>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="161" TopLine="152"/>
+      </Position24>
+      <Position25>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="178" TopLine="152"/>
+      </Position25>
+      <Position26>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="179" TopLine="152"/>
+      </Position26>
+      <Position27>
+        <Filename Value="..\..\..\..\Quick.Config.Provider.Json.pas"/>
+        <Caret Line="180" TopLine="152"/>
+      </Position27>
+      <Position28>
+        <Filename Value="D:\Lazarus\fpcsrc\packages\fcl-json\src\fpjsonrtti.pp"/>
+        <Caret Line="71" Column="26" TopLine="57"/>
+      </Position28>
+      <Position29>
+        <Filename Value="D:\Lazarus\fpcsrc\packages\fcl-json\src\fpjsonrtti.pp"/>
+        <Caret Line="736" TopLine="718"/>
+      </Position29>
+      <Position30>
+        <Filename Value="D:\Lazarus\fpcsrc\packages\fcl-json\src\fpjsonrtti.pp"/>
+        <Caret Line="90" Column="32" TopLine="61"/>
+      </Position30>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes Count="0" ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+  <Debugging>
+    <BreakPoints Count="3">
+      <Item1>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="umain.pas"/>
+        <Line Value="97"/>
+      </Item1>
+      <Item2>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="D:\Lazarus\fpcsrc\packages\fcl-json\src\fpjsonrtti.pp"/>
+        <Line Value="736"/>
+      </Item2>
+      <Item3>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="D:\Lazarus\fpcsrc\packages\fcl-json\src\fpjsonrtti.pp"/>
+        <Line Value="844"/>
+      </Item3>
+    </BreakPoints>
+  </Debugging>
+</CONFIG>

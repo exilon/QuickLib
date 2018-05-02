@@ -5,9 +5,9 @@
   Unit        : Quick.Base64
   Description : Log Api Redis Provider
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 08/11/2017
-  Modified    : 08/11/2017
+  Modified    : 07/05/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -29,6 +29,8 @@
 unit Quick.Base64;
 
 interface
+
+{$i QuickLib.inc}
 
 uses
   IdCoderMIME,

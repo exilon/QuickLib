@@ -5,9 +5,9 @@
   Unit        : Quick.Config.Provider.Json
   Description : Save config to JSON file
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 21/10/2017
-  Modified    : 12/02/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -28,20 +28,31 @@
  *************************************************************************** }
 unit Quick.Config.Provider.Json;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
   Classes,
-  System.SysUtils,
-  System.IOUtils,
-  System.Rtti,
-  {$IF CompilerVersion >= 32.0}
+  SysUtils,
+  {$IFDEF DELPHIXE_UP}
+  IOUtils,
+  {$ELSE}
+  Quick.Files,
+  {$ENDIF}
+  Rtti,
+  {$IFDEF DELPHIRX102_UP}
     System.JSON.Types,
     System.JSON.Serializers,
   {$ELSE}
+    {$IFDEF FPC}
+    fpjson,
+    fpjsonrtti,
+    {$ELSE}
     Rest.Json.Types,
     System.JSON,
     Rest.Json,
+    {$ENDIF}
   {$ENDIF}
   Quick.Config;
 
@@ -70,8 +81,11 @@ end;
 procedure TAppConfigJsonProvider<T>.Load(var cConfig : T);
 var
   json : TStrings;
-  {$IF CompilerVersion >= 32.0}
+  {$IFDEF DELPHIRX102_UP}
     Serializer : TJsonSerializer;
+  {$ENDIF}
+  {$IFDEF FPC}
+    streamer : TJSONDeStreamer;
   {$ENDIF}
   NewObj : T;
 begin
@@ -88,7 +102,7 @@ begin
     json := TStringList.Create;
     try
       json.LoadFromFile(fFilename);
-      {$IF CompilerVersion >= 32.0}
+      {$IFDEF DELPHIRX102_UP}
         Serializer := TJsonSerializer.Create;
         try
           if TAppConfig(cConfig).DateTimeZone = TDateTimeZone.tzLocal then
@@ -102,7 +116,18 @@ begin
           Serializer.Free;
         end;
       {$ELSE}
-        TJson.JsonToObject(cConfig,TJSONObject(TJSONObject.ParseJSONValue(json.Text)));
+        {$IFDEF FPC}
+        streamer := TJSONDeStreamer.Create(nil);
+        try
+          //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
+          Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+          Streamer.JsonToObject(json.Text,NewObj);
+        finally
+          Streamer.Free;
+        end;
+        {$ELSE}
+        TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json)));
+        {$ENDIF}
       {$ENDIF}
       if Assigned(cConfig) then cConfig.Free;
       cConfig := NewObj;
@@ -117,8 +142,11 @@ end;
 procedure TAppConfigJsonProvider<T>.Save(var cConfig : T);
 var
   json : TStrings;
-  {$IF CompilerVersion >= 32.0}
+  {$IFDEF DELPHIRX102_UP}
     Serializer : TJsonSerializer;
+  {$ENDIF}
+  {$IFDEF FPC}
+  streamer : TJsonStreamer;
   {$ENDIF}
   ctx : TRttiContext;
   rprop : TRttiProperty;
@@ -129,7 +157,7 @@ begin
   try
     json := TStringList.Create;
     try
-      {$IF CompilerVersion >= 32.0}
+      {$IFDEF DELPHIRX102_UP}
         Serializer := TJsonSerializer.Create;
         try
           if TAppConfig(cConfig).JsonIndent then Serializer.Formatting := TJsonFormatting.Indented;
@@ -144,9 +172,23 @@ begin
           Serializer.Free;
         end;
       {$ELSE}
-        json.Text := TJson.ObjectToJsonString(cConfig);
+        {$IFDEF FPC}
+        streamer := TJsonStreamer.Create(nil);
+        try
+          Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+          Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+          json.Text := streamer.ObjectToJSONString(cConfig);
+        finally
+          streamer.Free;
+        end;
+        {$ELSE}
+          json.Text := TJson.ObjectToJsonString(cConfig);
+        {$ENDIF}
       {$ENDIF}
       json.SaveToFile(fFilename);
+      {$IFDEF FPC}
+      //TAppConfig(cConfig).LastSaved := Now;
+      {$ELSE}
       ctx := TRttiContext.Create;
       try
         rprop := ctx.GetType(TypeInfo(T)).GetProperty('LastSaved');
@@ -154,6 +196,7 @@ begin
       finally
         ctx.Free;
       end;
+      {$ENDIF}
     finally
       json.Free;
     end;

@@ -29,18 +29,25 @@
 
 unit Quick.Commons;
 
+{$i QuickLib.inc}
+
 interface
+
   uses
     Classes,
-    System.SysUtils,
-    System.Types,
+    SysUtils,
+    Types,
     {$IFDEF MSWINDOWS}
       Windows,
-      Winapi.ShlObj,
-      System.Win.Registry,
+      ShlObj,
+      Registry,
     {$ENDIF MSWINDOWS}
-    System.IOUtils,
-    System.DateUtils;
+    {$IFDEF FPC}
+    Quick.Files,
+    {$ELSE}
+    IOUtils,
+    {$ENDIF}
+    DateUtils;
 
 type
 
@@ -53,7 +60,7 @@ const
   LOG_TRACE = [etInfo,etError,etWarning,etTrace];
   LOG_ALL = [etInfo,etSuccess,etWarning,etError,etTrace];
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
-  {$IF CompilerVersion > 27}
+  {$IFDEF DELPHIXE7_UP}
   EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','TRACE'];
   {$ELSE}
   EventStr : array[0..5] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','TRACE');
@@ -83,6 +90,7 @@ type
   end;
   {$ENDIF MSWINDOWS}
 
+  {$IFNDEF FPC}
   TFileHelper = record helper for TFile
     {$IFDEF MSWINDOWS}
     class function IsInUse(const FileName : string) : Boolean; static;
@@ -93,6 +101,21 @@ type
   TDirectoryHelper = record helper for TDirectory
     class function GetSize(const Path: String): Int64; static;
   end;
+  {$ENDIF}
+
+  {$IFDEF FPC}
+  PLASTINPUTINFO = ^LASTINPUTINFO;
+  tagLASTINPUTINFO = record
+    cbSize: UINT;
+    dwTime: DWORD;
+  end;
+  LASTINPUTINFO = tagLASTINPUTINFO;
+  TLastInputInfo = LASTINPUTINFO;
+
+  type
+  TCmdLineSwitchType = (clstValueNextParam, clstValueAppended);
+  TCmdLineSwitchTypes = set of TCmdLineSwitchType;
+  {$ENDIF}
 
   TCounter = record
   private
@@ -152,6 +175,9 @@ type
   {$ENDIF MSWINDOWS}
   //returns last day of current month
   function LastDayCurrentMonth: TDateTime;
+  {$IFDEF FPC}
+  function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
+  {$ENDIF}
   //checks if two datetimes are in same day
   function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
   //returns n times a char
@@ -205,6 +231,9 @@ type
   //get last error message
   function GetLastOSError : String;
   {$ENDIF}
+  {$IFDEF FPC}
+  function GetLastInputInfo(var plii: TLastInputInfo): BOOL;stdcall; external 'user32' name 'GetLastInputInfo';
+  {$ENDIF}
 
 {$IFDEF MSWINDOWS}
 var
@@ -215,6 +244,7 @@ implementation
 
 {TFileHelper}
 
+{$IFNDEF FPC}
 {$IFDEF MSWINDOWS}
 class function TFileHelper.IsInUse(const FileName : string) : Boolean;
 var
@@ -273,6 +303,7 @@ begin
     Result := Result + TFile.GetSize(filename);
   end;
 end;
+{$ENDIF}
 
 {other functions}
 
@@ -347,15 +378,15 @@ procedure GetEnvironmentPaths;
 begin
   //gets path
   path.EXEPATH := TPath.GetDirectoryName(ParamStr(0));
-  path.WINDOWS := GetEnvironmentVariable('windir');
-  path.PROGRAMFILES := GetEnvironmentVariable('ProgramFiles');
-  path.COMMONFILES := GetEnvironmentVariable('CommonProgramFiles(x86)');
-  path.HOMEDRIVE := GetEnvironmentVariable('SystemDrive');
-  path.USERPROFILE := GetEnvironmentVariable('USERPROFILE');
-  path.PROGRAMDATA := GetEnvironmentVariable('ProgramData');
-  path.ALLUSERSPROFILE := GetEnvironmentVariable('AllUsersProfile');
+  path.WINDOWS := SysUtils.GetEnvironmentVariable('windir');
+  path.PROGRAMFILES := SysUtils.GetEnvironmentVariable('ProgramFiles');
+  path.COMMONFILES := SysUtils.GetEnvironmentVariable('CommonProgramFiles(x86)');
+  path.HOMEDRIVE := SysUtils.GetEnvironmentVariable('SystemDrive');
+  path.USERPROFILE := SysUtils.GetEnvironmentVariable('USERPROFILE');
+  path.PROGRAMDATA := SysUtils.GetEnvironmentVariable('ProgramData');
+  path.ALLUSERSPROFILE := SysUtils.GetEnvironmentVariable('AllUsersProfile');
   path.INSTDRIVE := path.HOMEDRIVE;
-  path.TEMP := GetEnvironmentVariable('TEMP');
+  path.TEMP := SysUtils.GetEnvironmentVariable('TEMP');
   path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
   path.APPDATA:=GetSpecialFolderPath(CSIDL_APPDATA);
   //these paths fail if user is SYSTEM
@@ -377,11 +408,11 @@ var
 begin
   SHGetSpecialFolderLocation(0, folderID, ppidl);
   SetLength(Result, MAX_PATH);
-  if not SHGetPathFromIDList(ppidl, PChar(Result)) then
+  if not SHGetPathFromIDList(ppidl,{$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}) then
   begin
     raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
   end;
-  SetLength(Result, lStrLen(PChar(Result)));
+  SetLength(Result, lStrLen({$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}));
 end;
 
 function Is64bitOS : Boolean;
@@ -454,6 +485,16 @@ function LastDayCurrentMonth: TDateTime;
 begin
   Result := EncodeDate(YearOf(Now),MonthOf(Now), DaysInMonth(Now));
 end;
+
+{$IFDEF FPC}
+function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
+begin
+  if aInclusive then
+    Result := (AStartDateTime <= ADateTime) and (ADateTime <= AEndDateTime)
+  else
+    Result := (AStartDateTime < ADateTime) and (ADateTime < AEndDateTime);
+end;
+{$ENDIF}
 
 function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
 begin
@@ -636,6 +677,52 @@ begin
   Result := FindCmdLineSwitch(Switch,['-', '/'],True);
 end;
 
+{$IFDEF FPC}
+function FindCmdLineSwitch(const Switch: string; var Value: string; IgnoreCase: Boolean = True;
+  const SwitchTypes: TCmdLineSwitchTypes = [clstValueNextParam, clstValueAppended]): Boolean; overload;
+type
+  TCompareProc = function(const S1, S2: string): Boolean;
+var
+  Param: string;
+  I, ValueOfs,
+  SwitchLen, ParamLen: Integer;
+  SameSwitch: TCompareProc;
+begin
+  Result := False;
+  Value := '';
+  if IgnoreCase then
+    SameSwitch := SameText else
+    SameSwitch := SameStr;
+  SwitchLen := Switch.Length;
+
+  for I := 1 to ParamCount do
+  begin
+    Param := ParamStr(I);
+    if CharInSet(Param.Chars[0], SwitchChars) and SameSwitch(Param.SubString(1,SwitchLen), Switch) then
+    begin
+      ParamLen := Param.Length;
+      // Look for an appended value if the param is longer than the switch
+      if (ParamLen > SwitchLen + 1) then
+      begin
+        // If not looking for appended value switches then this is not a matching switch
+        if not (clstValueAppended in SwitchTypes) then
+          Continue;
+        ValueOfs := SwitchLen + 1;
+        if Param.Chars[ValueOfs] = ':' then
+          Inc(ValueOfs);
+        Value := Param.SubString(ValueOfs, MaxInt);
+      end
+      // If the next param is not a switch, then treat it as the value
+      else if (clstValueNextParam in SwitchTypes) and (I < ParamCount) and
+              not CharInSet(ParamStr(I+1).Chars[0], SwitchChars) then
+        Value := ParamStr(I+1);
+      Result := True;
+      Break;
+    end;
+  end;
+end;
+{$ENDIF}
+
 function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
 begin
   Result := FindCmdLineSwitch(Switch,cvalue,True,[clstValueAppended]);
@@ -704,12 +791,20 @@ end;
 
 function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
 begin
+  {$IFDEF FPC}
+  Result := LocalTimeToUniversal(GMTTime);
+  {$ELSE}
   Result :=  TTimeZone.Local.ToLocalTime(GMTTime);
+  {$ENDIF}
 end;
 
 function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
 begin
+  {$IFDEF FPC}
+  Result := UniversalTimeToLocal(Localtime);
+  {$ELSE}
   Result := TTimeZone.Local.ToUniversalTime(LocalTime);
+  {$ENDIF}
 end;
 
 function CountDigits(anInt: Cardinal): Cardinal; inline;

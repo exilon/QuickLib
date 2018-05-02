@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2018 Kike Pérez
 
   Unit        : Quick.Config.Provider.Registry
   Description : Save config to Windows Registry
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 21/10/2017
-  Modified    : 11/11/2017
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -28,26 +28,35 @@
  *************************************************************************** }
 unit Quick.Config.Provider.Registry;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
   Classes,
   Windows,
-  System.SysUtils,
-  System.Win.Registry,
-  {$IF CompilerVersion >= 32.0}
+  SysUtils,
+  Registry,
+  {$IFDEF DELPHIRX102_UP}
     System.Json,
     System.JSON.Types,
     System.JSON.Serializers,
   {$ELSE}
+    {$IFDEF FPC}
+    fpjson,   jsonparser,
+    fpjsonrtti,
+    {$ELSE}
     Rest.Json.Types,
     System.JSON,
     Rest.Json,
+    {$ENDIF}
   {$ENDIF}
   Quick.Commons,
   Quick.Config;
 
 type
+
+  TJSONValue = TJSONData;
 
   TAppConfigRegistryProvider<T : class> = class(TAppConfigProviderBase<T>)
   private
@@ -99,8 +108,11 @@ end;
 
 procedure TAppConfigRegistryProvider<T>.Load(var cConfig : T);
 var
-  {$IF CompilerVersion >= 32.0}
+  {$IFDEF DELPHIRX102_UP}
     Serializer: TJsonSerializer;
+  {$ENDIF}
+  {$IFDEF FPC}
+    streamer : TJSONDeStreamer;
   {$ENDIF}
   json : string;
   newObj : T;
@@ -113,7 +125,7 @@ begin
     Save(cConfig);
   end;
   RegistryToJson(json);
-  {$IF CompilerVersion >= 32.0}
+  {$IFDEF DELPHIRX102_UP}
     Serializer := TJsonSerializer.Create;
     try
       Serializer.Formatting := TJsonFormatting.Indented;
@@ -128,7 +140,18 @@ begin
       Serializer.Free;
     end;
   {$ELSE}
-    TJson.JsonToObject(cConfig,TJSONObject(TJSONObject.ParseJSONValue(json)));
+    {$IFDEF FPC}
+    streamer := TJSONDeStreamer.Create(nil);
+    try
+      //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
+      Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+      Streamer.JsonToObject(json,NewObj);
+    finally
+      Streamer.Free;
+    end;
+    {$ELSE}
+    TJson.JsonToObject(newObj,TJSONObject(TJSONObject.ParseJSONValue(json)));
+    {$ENDIF}
   {$ENDIF}
   if Assigned(cConfig) then cConfig.Free;
   cConfig := newObj;

@@ -5,9 +5,9 @@
   Unit        : Quick.Process
   Description : Process functions
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 14/07/2017
-  Modified    : 22/01/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -29,6 +29,8 @@
 
 unit Quick.Process;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
@@ -38,11 +40,16 @@ uses
   Vcl.Forms,
   VCL.Controls,
   {$ENDIF}
-  System.DateUtils,
+  DateUtils,
+  {$IFNDEF FPC}
   TlHelp32,
   psapi,
-  System.SysUtils,
-  Winapi.ShellAPI,
+  {$ELSE}
+  JwaTlHelp32,
+  Process,
+  {$ENDIF}
+  SysUtils,
+  ShellAPI,
   Quick.Commons;
 
 
@@ -65,12 +72,14 @@ uses
   //executes an aplication and wait for terminate
   function ExecuteAndWait(const aFilename, aCommandLine: string): Boolean;
   function ShellExecuteAndWait(const aOperation, aFileName, aParameter, aDirectory : string; aShowMode : Word; aWaitForTerminate: Boolean) : LongInt;
+  {$IFNDEF FPC}
   //execute an application and return handle
   function ShellExecuteReturnHandle(const aOperation, aFileName, aParameters, aWorkingDir : string; aShowMode: Integer) : THandle;
+  {$ENDIF}
   //find an open main window handle
   function FindMainWindow(PID: DWord): DWord;
   //wait for a time period to find an opened main window handle
-  function FindMainWindowTimeout(ProcHND : THandle; TimeoutSecs : Integer = 20) : THandle; overload
+  function FindMainWindowTimeout(ProcHND : THandle; TimeoutSecs : Integer = 20) : THandle; overload;
   //wait for a time period to find an opened window handle
   function FindWindowTimeout(const aWindowsName : string; TimeoutMSecs : Integer = 1000) : THandle;
   {$IFNDEF CONSOLE}
@@ -106,6 +115,7 @@ begin
   if not Result then einfo.HWND := hwnd;
 end;
 
+{$IFNDEF FPC}
 function CreateWin9xProcessList : TStringList;
 var
   hSnapShot: THandle;
@@ -166,6 +176,25 @@ begin
     VER_PLATFORM_WIN32_NT : Result := CreateWinNTProcessList;
   end
 end;
+{$ELSE}
+function GetProcessList : TStringList;
+var
+  pr : THandle;
+  pe: TProcessEntry32;
+begin
+  Result := TStringList.Create;
+  pr := CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
+  try
+    pe.dwSize := SizeOf(pe);
+    if Process32First(pr,pe) then
+    begin
+      while Process32Next(pr,pe) do Result.Add(pe.szExeFile);
+    end;
+  finally
+    CloseHandle(pr);
+  end;
+end;
+{$ENDIF}
 
 function KillProcess(const aFileName: string): Integer;
 const
@@ -221,7 +250,11 @@ begin
   shinfo.lpFile := PChar(aFilename);
   if aParameters <> '' then shinfo.lpParameters := PChar(aParameters);
   shinfo.nShow := SW_SHOWNORMAL;
+  {$IFDEF FPC}
+  Result := ShellExecuteExW(@shinfo);
+  {$ELSE}
   Result := ShellExecuteEx(@shinfo);
+  {$ENDIF}
 end;
 
 procedure RemoveDeadIcons;
@@ -393,7 +426,11 @@ begin
   shinfo.lpParameters := PChar(aParameter);
   shinfo.lpDirectory := PChar(aDirectory);
   shinfo.nShow := aShowMode;
+  {$IFDEF FPC}
+  done := Boolean(ShellExecuteExW(@shinfo));
+  {$ELSE}
   done := Boolean(ShellExecuteEx(@shinfo));
+  {$ENDIF}
   if done then
   begin
     if aWaitForTerminate then
@@ -413,6 +450,7 @@ begin
   if not done then Result := -1;
 end;
 
+{$IFNDEF FPC}
 function ShellExecuteReturnHandle(const aOperation, aFileName, aParameters, aWorkingDir : string; aShowMode: Integer) : THandle;
 var
   exInfo: TShellExecuteInfo;
@@ -432,8 +470,9 @@ begin
     nShow := aShowMode;
   end;
   if ShellExecuteEx(@exInfo) then Ph := exInfo.hProcess;
-  Result := Winapi.Windows.GetProcessId(exInfo.hProcess);
+  Result := Windows.GetProcessId(exInfo.hProcess);
 End;
+{$ENDIF}
 
 function FindMainWindow(PID : DWord): DWORD;
 var
@@ -468,7 +507,7 @@ var
 begin
   startime := Now();
   repeat
-    Result := FindWindow(0,PWideChar(aWindowsName));
+    Result := FindWindow(0,{$IFDEF FPC}PChar{$ELSE}PWideChar{$ENDIF}(aWindowsName));
     {$IFDEF CONSOLE}
     ProcessMessages;
     {$ELSE}

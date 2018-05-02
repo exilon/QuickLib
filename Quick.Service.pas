@@ -5,9 +5,9 @@
   Unit        : Quick.Service
   Description : Service functions
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 14/07/2017
-  Modified    : 14/03/2018
+  Modified    : 07/04/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -30,12 +30,18 @@ unit Quick.Service;
 
 interface
 
+{$i QuickLib.inc}
+
 uses
-  System.SysUtils,
-  Winapi.Windows,
-  Winapi.WinSvc,
-  Winapi.Messages,
+  SysUtils,
+  Windows,
+  {$IFNDEF FPC}
+  Messages,
+  WinSvc,
   System.IOUtils,
+  {$ELSE}
+  Quick.Files,
+  {$ENDIF}
   Quick.Commons,
   Quick.Process;
 
@@ -121,7 +127,11 @@ var
   smanHnd : SC_HANDLE;
   svcHnd : SC_HANDLE;
   svcStatus : TServiceStatus;
+  {$IFDEF FPC}
+  psTemp : LPPCSTR;
+  {$ELSE}
   psTemp : PChar;
+  {$ENDIF}
   dwChkP : DWord;
 begin
   svcStatus.dwCurrentState := 0;
@@ -208,7 +218,11 @@ begin
       if svchnd > 0 then
       begin
         try
-          Winapi.WinSVC.DeleteService(svchnd);
+          {$IFDEF FPC}
+          DeleteServiceEx(aServiceName);
+          {$ELSE}
+          WinSVC.DeleteService(svchnd);
+          {$ENDIF}
           Result := True;
         finally
           CloseServiceHandle(svchnd);
