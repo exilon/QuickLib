@@ -6,7 +6,9 @@
 
 
 
-Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development.
+Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development. 
+
+* NEW: Improved Linux compatibility.
 
 ----------
 **Quick.AppService:** Allow a console app to run as console mode or service mode with same code simplifying debug tasks.

@@ -4,15 +4,36 @@
     <PathDelim Value="\"/>
     <Version Value="11"/>
     <BuildModes Active="Default"/>
-    <Units Count="1">
+    <Units Count="4">
       <Unit0>
         <Filename Value="ConsoleOut.pas"/>
         <IsPartOfProject Value="True"/>
         <IsVisibleTab Value="True"/>
         <EditorIndex Value="-1"/>
-        <CursorPos Y="4"/>
-        <UsageCount Value="20"/>
+        <CursorPos X="25" Y="10"/>
+        <UsageCount Value="25"/>
       </Unit0>
+      <Unit1>
+        <Filename Value="..\..\..\..\Quick.AppService.pas"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="40"/>
+        <CursorPos X="29" Y="60"/>
+        <UsageCount Value="12"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="..\..\..\..\Quick.Console.pas"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="372"/>
+        <CursorPos Y="372"/>
+        <UsageCount Value="13"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="D:\Lazarus\fpcsrc\packages\rtl-console\src\inc\crth.inc"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="63"/>
+        <CursorPos X="11" Y="90"/>
+        <UsageCount Value="11"/>
+      </Unit3>
     </Units>
     <JumpHistory HistoryIndex="-1"/>
     <RunParams>

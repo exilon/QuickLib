@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 14/07/2017
-  Modified    : 29/03/2018
+  Modified    : 16/05/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -44,6 +44,9 @@ interface
     {$ENDIF MSWINDOWS}
     {$IFDEF FPC}
     Quick.Files,
+      {$IFDEF LINUX}
+      FileInfo,
+      {$ENDIF}
     {$ELSE}
     IOUtils,
     {$ENDIF}
@@ -104,6 +107,9 @@ type
   {$ENDIF}
 
   {$IFDEF FPC}
+    {$IFDEF LINUX}
+    UINT = cardinal;
+    {$ENDIF}
   PLASTINPUTINFO = ^LASTINPUTINFO;
   tagLASTINPUTINFO = record
     cbSize: UINT;
@@ -163,7 +169,9 @@ type
   //checks if is a console app
   function IsConsole : Boolean;
   //checks if compiled in debug mode
+  {$ENDIF}
   function IsDebug : Boolean;
+  {$IFDEF MSWINDOWS}
   //checks if running as a service
   function IsService : Boolean;
   //gets number of seconds without user interaction (mouse, keyboard)
@@ -197,12 +205,10 @@ type
   //Upper case for first letter
   function Capitalize(s: string): string;
   function CapitalizeWords(s: string): string;
-  {$IFDEF MSWINDOWS}
   //returns current logged user
   function GetLoggedUserName : string;
   //returns computer name
   function GetComputerName : string;
-  {$ENDIF}
   //Changes incorrect delims in path
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
   //Removes last segment of a path
@@ -211,16 +217,18 @@ type
   function ParamFindSwitch(const Switch : string) : Boolean;
   //gets value for a switch if exists
   function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
-  {$IFDEF MSWINDOWS}
+  //returns app name (filename based)
+  function GetAppName : string;
   //returns app version (major & minor)
   function GetAppVersionStr: string;
   //returns app version full (major, minor, release & compiled)
   function GetAppVersionFullStr: string;
-  {$ENDIF}
   //UTC DateTime to Local DateTime
   function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
   //Local DateTime to UTC DateTime
   function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
+  //return GTM time string
+  function DateTimeToGMT(aDate : TDateTime) : string;
   //count number of digits of a Integer
   function CountDigits(anInt: Cardinal): Cardinal; inline;
   //save stream to file
@@ -231,7 +239,7 @@ type
   //get last error message
   function GetLastOSError : String;
   {$ENDIF}
-  {$IFDEF FPC}
+  {$IF DEFINED(FPC) AND DEFINED(MSWINDOWS)}
   function GetLastInputInfo(var plii: TLastInputInfo): BOOL;stdcall; external 'user32' name 'GetLastInputInfo';
   {$ENDIF}
 
@@ -432,6 +440,7 @@ begin
     Result := False;
   {$ENDIF CONSOLE}
 end;
+{$ENDIF}
 
 function IsDebug: Boolean;
 begin
@@ -442,6 +451,7 @@ begin
   {$ENDIF DEBUG}
 end;
 
+{$IFDEF MSWINDOWS}
 function IsService : Boolean;
 begin
   //only working with my Quick.AppService unit
@@ -550,7 +560,6 @@ var
   match : Boolean;
   wildcard : Boolean;
   CurrentPattern : Char;
-  aux : string;
 begin
   Result := False;
   wildcard := False;
@@ -572,7 +581,6 @@ begin
 
     if wildcard then
     begin
-      aux := Copy(Pattern,i+1,Pattern.Length);
       n := Pos(Copy(Pattern,i+1,Pattern.Length),cText);
       if (n > i) or (Pattern.Length = i) then
       begin
@@ -611,8 +619,8 @@ begin
   end;
 end;
 
-{$IFDEF MSWINDOWS}
 function GetLoggedUserName : string;
+{$IFDEF MSWINDOWS}
 const
   cnMaxUserNameLen = 254;
 var
@@ -625,8 +633,16 @@ begin
   SetLength( sUserName, dwUserNameLen );
   Result := sUserName;
 end;
+{$ENDIF}
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+begin
+  Result := GetEnvironmentVariable('USERNAME');
+end;
+
+{$ENDIF}
 
 function GetComputerName : string;
+{$IFDEF MSWINDOWS}
 var
   dwLength: dword;
 begin
@@ -635,6 +651,12 @@ begin
   if not Windows.GetComputerName(pchar(result), dwLength) then Result := 'Not detected!';
   Result := pchar(result);
 end;
+{$ENDIF}
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+begin
+  Result := GetEnvironmentVariable('COMPUTERNAME');
+end;
+
 {$ENDIF}
 
 function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
@@ -729,8 +751,13 @@ begin
 end;
 
 
-{$IFDEF MSWINDOWS}
+function GetAppName : string;
+begin
+  Result := ExtractFilenameWithoutExt(ParamStr(0));
+end;
+
 function GetAppVersionStr: string;
+{$IFDEF MSWINDOWS}
 var
   Rec: LongRec;
   ver : Cardinal;
@@ -743,8 +770,18 @@ begin
   end
   else Result := '';
 end;
+{$ENDIF}
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+var
+  version : TProgramVersion;
+begin
+  if GetProgramVersion(version) then Result := Format('%d.%d', [version.Major, version.Minor])
+    else Result := '';
+end;
+{$ENDIF}
 
 function GetAppVersionFullStr: string;
+{$IFDEF MSWINDOWS}
 var
   Exe: string;
   Size, Handle: DWORD;
@@ -788,6 +825,14 @@ begin
   end;
 end;
 {$ENDIF}
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+var
+  version : TProgramVersion;
+begin
+  if GetProgramVersion(version) then Result := Format('%d.%d.%d.%d', [version.Major, version.Minor, version.Revision, version.Build])
+    else Result := '';
+end;
+{$ENDIF}
 
 function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
 begin
@@ -805,6 +850,16 @@ begin
   {$ELSE}
   Result := TTimeZone.Local.ToUniversalTime(LocalTime);
   {$ENDIF}
+end;
+
+function DateTimeToGMT(aDate : TDateTime) : string;
+var
+  FmtSettings : TFormatSettings;
+begin
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ" GMT"';
+  Result := DateTimeToStr(aDate,FmtSettings);
 end;
 
 function CountDigits(anInt: Cardinal): Cardinal; inline;

@@ -34,14 +34,19 @@ unit Quick.Log;
 interface
 
 uses
+  {$IFDEF MSWINDOWS}
   Windows,
+  {$ENDIF}
   Classes,
   Quick.Commons,
-  {$ifndef FPC}
+  {$IFNDEF FPC}
   System.IOUtils,
-  {$else}
+  {$ELSE}
   Quick.Files,
-  {$endif}
+    {$IFDEF LINUX}
+    syncObjs,
+    {$ENDIF}
+  {$ENDIF}
   SysUtils;
 
 type
@@ -191,9 +196,10 @@ begin
       Self.WriteLog(Format('Host        : %s',[GetComputerName]));
       Self.WriteLog(Format('Username    : %s',[Trim(GetLoggedUserName)]));
       Self.WriteLog(Format('Started     : %s',[NowStr]));
+      {$IFDEF MSWINDOWS}
       if IsService then Self.WriteLog('AppType     : Service')
         else if System.IsConsole then Self.WriteLog('AppType     : Console');
-
+      {$ENDIF}
       if IsDebug then Self.WriteLog('Debug mode  : On');
       Self.WriteLog(FillStr('-',70));
     except
@@ -280,9 +286,17 @@ begin
 end;
 
 initialization
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+InitCriticalSection(CS);
+{$ELSE}
 InitializeCriticalSection(CS);
+{$ENDIF}
 
 finalization
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+DoneCriticalsection(CS);
+{$ELSE}
 DeleteCriticalSection(CS);
+{$ENDIF}
 
 end.

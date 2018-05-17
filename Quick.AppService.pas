@@ -41,7 +41,9 @@ interface
 {$ENDIF}
 
 uses
+  {$IFDEF MSWINDOWS}
   Windows,
+  {$ENDIF}
   SysUtils,
   {$IFNDEF FPC}
   WinSvc,

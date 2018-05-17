@@ -36,11 +36,16 @@ interface
 uses
   Classes,
   SysUtils,
+  {$IFDEF MSWINDOWS}
+  WindowS,
+  {$ENDIF}
   {$IFDEF FPC}
   strutils,
-  DateUtils,
+    {$IFDEF LINUX}
+    baseunix,
+    {$ENDIF}
+    DateUtils;
   {$ENDIF}
-  Windows;
 
 {$IFDEF FPC}
 resourcestring
@@ -82,6 +87,10 @@ type
       procedure Close;
       property EOF: Boolean read GetEOF;
   end;
+  {$ELSE}
+    {$IFDEF LINUX}
+    TFILETIME = LongInt;
+    {$ENDIF}
   {$ENDIF}
 
   {$IFDEF FPC}
@@ -154,7 +163,6 @@ type
     procedure WriteLine(Value: Single); overload; virtual; abstract;
     procedure WriteLine(const Value: string); overload; virtual; abstract;
     procedure WriteLine(const aFormat: string; Args: array of const); overload; virtual; abstract;
-    procedure WriteLine(const Value: TCharArray; Index, Count: Integer); overload; virtual; abstract;
   end;
 
   TStreamWriter = class(TTextWriter)
@@ -279,7 +287,11 @@ end;
 constructor EFileStreamError.Create(ResStringRec: PResStringRec;
   const FileName: string);
 begin
+  {$IFNDEF LINUX}
   inherited CreateResFmt(ResStringRec, [ExpandFileName(FileName), SysErrorMessage(GetLastError)]);
+  {$ELSE}
+  inherited CreateResFmt(ResStringRec, [ExpandFileName(FileName), SysErrorMessage(errno)]);
+  {$ENDIF}
 end;
 
 { TPath }
@@ -363,13 +375,18 @@ end;
 
 class function TFile.Move(const SourceFileName, DestFileName: string) : Boolean;
 begin
+  {$IFNDEF LINUX}
   Result := MoveFile(PChar(SourceFileName),PChar(DestFileName));
+  {$ELSE}
+  Result := RenameFile(PChar(SourceFileName),PChar(DestFileName));
+  {$ENDIF}
 end;
 
 class function TFile.IsInUse(const Path : string) : Boolean;
 begin
   Result := IsFileInUse(Path);
 end;
+
 
 class function TFile.GetSize(const Path : string) : Int64;
 var
@@ -726,6 +743,7 @@ begin
 end;
 
 function IsFileInUse(const aFileName : string) : Boolean;
+{$IFNDEF LINUX}
 var
   HFileRes: HFILE;
 begin
@@ -749,6 +767,20 @@ begin
     Result := True;
   end;
 end;
+{$ELSE}
+var
+  fs : TFileStream;
+begin
+  try
+    fs := TFileStream.Create(aFileName, fmOpenReadWrite, fmShareExclusive);
+    Result := True;
+    fs.Free;
+  except
+    Result := False;
+  end;
+
+end;
+{$ENDIF}
 
 procedure FileReplaceText(const aFileName, aSearchText, AReplaceText : string);
 var
@@ -852,6 +884,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 function GetLastAccessTime(const aFileName: string): TDateTime;
 var
   ffd: TWin32FindData;
@@ -914,6 +947,40 @@ begin
     Result := FileDateToDateTime(dft);
   end;
 end;
+{$ELSE}
+function GetLastAccessTime(const aFileName: string): TDateTime;
+var
+  info : stat;
+begin
+  Result := 0;
+  if fpstat(aFileName,info) <> 0 then
+  begin
+    Result := info.st_atime;
+  end;
+end;
+
+function GetCreationTime(const aFilename : string): TDateTime;
+var
+  info : stat;
+begin
+  Result := 0;
+  if fpstat(aFileName,info) <> 0 then
+  begin
+    Result := info.st_ctime;
+  end;
+end;
+
+function GetLastWriteTime(const aFileName : string): TDateTime;
+var
+  info : stat;
+begin
+  Result := 0;
+  if fpstat(aFileName,info) <> 0 then
+  begin
+    Result := info.st_mtime;
+  end;
+end;
+{$ENDIF}
 
 {$IFDEF FPC}
 function FindDelimiter(const Delimiters, S: string; StartIdx: Integer = 1): Integer;
@@ -952,6 +1019,16 @@ begin
       LocalFileTimeToFileTime(LFileTime, Result)
     else
       Result := LFileTime;
+end;
+{$ENDIF}
+{$If Defined(FPC) AND Defined(LINUX)}
+function ConvertDateTimeToFileTime(const DateTime: TDateTime; const UseLocalTimeZone: Boolean): TFileTime;
+begin
+  { Use the time zone if necessary }
+  if not UseLocalTimeZone then
+    Result := DateTimeToFileDate(DateTime)
+  else
+    Result := DateTimeToFileDate(DateTime);
 end;
 {$ENDIF}
 {$IFDEF POSIX}
@@ -1070,6 +1147,10 @@ begin
     on E: EConvertError do // May rise in ConvertDateTimeToFileTime
       raise EArgumentOutOfRangeException.Create(E.Message);
   end;
+end;
+{$ENDIF}
+{$if Defined(FPC) AND Defined(LINUX)}
+begin
 end;
 {$ENDIF}
 

@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 27/01/2017
-  Modified    : 13/02/2018
+  Modified    : 09/05/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -28,6 +28,8 @@
  *************************************************************************** }
 
 unit Quick.JSONUtils;
+
+{$i QuickLib.inc}
 
 interface
 
@@ -58,6 +60,9 @@ type
   function IncludeJsonBraces(const json : string) : string;
   function RemoveJsonBraces(const json : string) : string;
 
+var
+  GlobalJsonIdenter : Boolean = True;
+
 
 implementation
 
@@ -72,7 +77,7 @@ begin
     {$IFDEF DELPHIRX102_UP}
       Serializer := TJsonSerializer.Create;
       try
-        Serializer.Formatting := TJsonFormatting.Indented;
+        if GlobalJsonIdenter then Serializer.Formatting := TJsonFormatting.Indented;
         Result := Serializer.Serialize<TObject>(Self);
       finally
         Serializer.Free;

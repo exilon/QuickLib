@@ -49,8 +49,14 @@ interface
 
 uses
   Classes,
+  {$IFDEF MSWINDOWS}
   Windows,
   Messages,
+  {$ELSE}
+    {$IFDEF FPC}
+    crt,
+    {$ENDIF}
+  {$ENDIF}
   SysUtils,
   Quick.Commons,
   Quick.Log;
@@ -87,8 +93,22 @@ type
   {$ELSE}
   TOutputProc<T> = procedure(const aLine : T) of object;
   TExecuteProc = procedure of object;
+    {$IFDEF LINUX}
+    TCoord = record
+      X : tcrtcoord;
+      Y : tcrtcoord;
+    end;
+
+    TSmallRect = record
+      Left : Byte;
+      Top : Byte;
+      Right : Byte;
+      Bottom : Byte;
+    end;
+    {$ENDIF}
   {$ENDIF}
 
+  {$IFDEF MSWINDOWS}
   TConsoleMenuOption = record
   private
     fCaption : string;
@@ -116,6 +136,7 @@ type
     procedure Refresh(aClearScreen : Boolean = False);
     procedure WaitForKeys;
   end;
+  {$ENDIF}
 
   procedure cout(const cMsg : Integer; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : Double; cEventType : TLogEventType); overload;
@@ -136,7 +157,9 @@ type
   procedure TextBackground(Color: TConsoleColor); overload;
   procedure TextBackground(Color: Byte); overload;
   procedure ResetColors;
+  {$IFDEF MSWINDOWS}
   procedure ConsoleResize(Width, Height : Integer);
+  {$ENDIF}
   procedure ClearScreen;
   procedure ClearLine; overload;
   procedure ClearLine(Y : Integer); overload;
@@ -145,11 +168,16 @@ type
   function GetCursorX: Integer; {$IFDEF INLINES}inline;{$ENDIF}
   function GetCursorY: Integer; {$IFDEF INLINES}inline;{$ENDIF}
   function GetCursorMaxBottom : Integer;
-  procedure SetCursorPos(NewCoord : TCoord);
+  procedure SetCursorPos(NewCoord : TCoord); overload;
+  procedure SetCursorPos(x ,y : Integer); overload;
+  {$IFDEF MSWINDOWS}
   procedure ProcessMessages;
+  {$ENDIF}
   procedure ConsoleWaitForEnterKey;
+  {$IFDEF MSWINDOWS}
   procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
   procedure InitConsole;
+  {$ENDIF}
 
 
 var
@@ -161,8 +189,10 @@ var
   hStdOut: THandle;
   hStdErr: THandle;
   ConsoleRect: TSmallRect;
+  {$IFDEF MSWINDOWS}
   ScreenBufInfo : TConsoleScreenBufferInfo;
   CursorInfo : TConsoleCursorInfo;
+  {$ENDIF}
 
 implementation
 
@@ -205,7 +235,9 @@ begin
   begin
     EnterCriticalSection(CSConsole);
     try
+      {$IFDEF MSWINDOWS}
       if hStdOut <> 0 then
+      {$ENDIF}
       begin
         case cEventType of
           etError : TextColor(ccLightRed);
@@ -216,7 +248,7 @@ begin
           etTrace : TextColor(ccLightMagenta);
           else TextColor(ccWhite);
         end;
-        Writeln(cMsg);
+        Writeln(cMsg{$IFDEF LINUX} +#13{$ENDIF});
         TextColor(LastMode);
       end;
     finally
@@ -230,10 +262,12 @@ procedure cout(const cMsg : string; cColor : TConsoleColor);
 begin
   EnterCriticalSection(CSConsole);
   try
-    if hStdOut <> 0 then
+    {$IFDEF MSWINDOWS}
+      if hStdOut <> 0 then
+    {$ENDIF}
     begin
       TextColor(cColor);
-      Writeln(cMsg);
+      Writeln(cMsg{$IFDEF LINUX} +#13{$ENDIF});
       TextColor(LastMode);
     end;
   finally
@@ -247,32 +281,63 @@ begin
 end;
 
 function GetCursorX: Integer; {$IFDEF INLINES}inline;{$ENDIF}
+{$IFDEF MSWINDOWS}
 var
   BufferInfo: TConsoleScreenBufferInfo;
 begin
   GetConsoleSCreenBufferInfo(hStdOut, BufferInfo);
   Result := BufferInfo.dwCursorPosition.X;
 end;
+{$ELSE}
+begin
+  Result := WhereX;
+end;
+{$ENDIF}
 
 function GetCursorY: Integer; {$IFDEF INLINES}inline;{$ENDIF}
+{$IFDEF MSWINDOWS}
 var
   BufferInfo: TConsoleScreenBufferInfo;
 begin
   GetConsoleSCreenBufferInfo(hStdOut, BufferInfo);
   Result := BufferInfo.dwCursorPosition.Y;
 end;
+{$ELSE}
+begin
+  Result := WhereY;
+end;
+{$ENDIF}
 
 function GetCursorMaxBottom : Integer;
+{$IFDEF MSWINDOWS}
 var
   BufferInfo: TConsoleScreenBufferInfo;
 begin
   GetConsoleSCreenBufferInfo(hStdOut, BufferInfo);
   Result := BufferInfo.srWindow.Bottom;
 end;
+{$ELSE}
+begin
+  Result := 80;
+end;
+{$ENDIF}
 
 procedure SetCursorPos(NewCoord : TCoord);
 begin
+  {$IFDEF MSWINDOWS}
   SetConsoleCursorPosition(hStdOut, NewCoord);
+  {$ELSE}
+  GotoXY(NewCoord.X,NewCoord.Y);
+  {$ENDIF}
+end;
+
+procedure SetCursorPos(x ,y : Integer);
+var
+  NewCoord : TCoord;
+begin
+  NewCoord.X := x;
+  NewCoord.Y := y;
+  SetCursorPos(NewCoord);
 end;
 
 procedure coutXY(x,y : Integer; const cMsg : string; cEventType : TLogEventType);
@@ -280,7 +345,9 @@ var
  NewCoord : TCoord;
  LastCoord : TCoord;
 begin
+  {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
+  {$ENDIF}
   LastCoord.X := GetCursorX;
   LastCoord.Y := GetCursorY;
   NewCoord.X := x;
@@ -299,7 +366,9 @@ var
  NewCoord : TCoord;
  LastCoord : TCoord;
 begin
+  {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
+  {$ENDIF}
   LastCoord.X := GetCursorX;
   LastCoord.Y := GetCursorY;
   NewCoord.X := x;
@@ -355,10 +424,14 @@ end;
 
 procedure TextColor(Color: Byte);
 begin
+  {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
   LastMode := TextAttr;
   TextAttr := (TextAttr and $F0) or (Color and $0F);
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
+  {$ELSE}
+  crt.TextColor(Color);
+  {$ENDIF}
 end;
 
 procedure TextBackground(Color: TConsoleColor);
@@ -368,18 +441,28 @@ end;
 
 procedure TextBackground(Color: Byte);
 begin
+  {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
   LastMode := TextAttr;
   TextAttr := (TextAttr and $0F) or ((Color shl 4) and $F0);
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
+  {$ELSE}
+  crt.TextBackground(Color);
+  {$ENDIF}
 end;
 
 procedure ResetColors;
 begin
+  {$IFDEF MSWINDOWS}
   SetConsoleTextAttribute(hStdOut, DefConsoleColor);
   TextAttr := DefConsoleColor;
+  {$ELSE}
+  TextColor(DefConsoleColor);
+  TextBackground(ccBlack);
+  {$ENDIF}
 end;
 
+{$IFDEF MSWINDOWS}
 procedure ConsoleResize(Width, Height : Integer);
 var
   Rect: TSmallRect;
@@ -394,8 +477,10 @@ begin
   SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), Coord);
   SetConsoleWindowInfo(GetStdHandle(STD_OUTPUT_HANDLE), True, Rect);
 end;
+{$ENDIF}
 
 procedure ClearScreen;
+{$IFDEF MSWINDOWS}
 var
   stdout: THandle;
   bufinfo: TConsoleScreenBufferInfo;
@@ -415,6 +500,11 @@ begin
     SetConsoleCursorPosition(stdout, Origin);
   end;
 end;
+{$ELSE}
+begin
+  ClrScr;
+end;
+{$ENDIF}
 
 procedure ClearLine;
 begin
@@ -422,6 +512,7 @@ begin
 end;
 
 procedure ClearLine(Y : Integer);
+{$IFDEF MSWINDOWS}
 var
  dwWriteCoord: TCoord;
  dwCount, dwSize: DWord;
@@ -433,22 +524,38 @@ begin
   FillConsoleOutputAttribute(hStdOut, TextAttr, dwSize, dwWriteCoord, dwCount);
   FillConsoleOutputCharacter(hStdOut, ' ', dwSize, dwWriteCoord, dwCount);
 end;
+{$ELSE}
+begin
+  GotoXY(1,Y);
+  DelLine;
+  GotoXY(1,Y);
+end;
+{$ENDIF}
 
 procedure ShowCursor;
 begin
+  {$IFDEF MSWINDOWS}
   GetConsoleCursorInfo(hStdOut,CursorInfo);
   CursorInfo.bVisible := True;
   SetConsoleCursorInfo(hStdOut,CursorInfo);
+  {$ELSE}
+  CursorOn;
+  {$ENDIF}
 end;
 
 procedure HideCursor;
 begin
+  {$IFDEF MSWINDOWS}
   GetConsoleCursorInfo(hStdOut,CursorInfo);
   CursorInfo.bVisible := False;
   SetConsoleCursorInfo(hStdOut,CursorInfo);
+  {$ELSE}
+  CursorOff;
+  {$ENDIF}
 end;
 
 function ConsoleKeyPressed(ExpectedKey: Word): Boolean;
+{$IFDEF MSWINDOWS}
 var
   lpNumberOfEvents: DWORD;
   lpBuffer: TInputRecord;
@@ -473,8 +580,19 @@ begin
     end;
   end;
 end;
+{$ELSE}
+var
+  kp : Char;
+begin
+  repeat
+    kp := Readkey;
+  until kp = Char(ExpectedKey);
+  Result := True;
+end;
+{$ENDIF}
 
 function GetConsoleKeyPressed : Word;
+{$IFDEF MSWINDOWS}
 var
   lpNumberOfEvents: DWORD;
   lpBuffer: TInputRecord;
@@ -499,7 +617,13 @@ begin
     end;
   end;
 end;
+{$ELSE}
+begin
+  Result := Ord(ReadKey);
+end;
+{$ENDIF}
 
+{$IFDEF MSWINDOWS}
 procedure ProcessMessages;
 var
   Msg: TMsg;
@@ -509,6 +633,7 @@ begin
     DispatchMessage(Msg);
   end;
 end;
+{$ENDIF}
 
 {$IFDEF MSWINDOWS}
 procedure ConsoleWaitForEnterKey;
@@ -548,6 +673,7 @@ begin
 end;
 {$ENDIF}
 
+{$IFDEF MSWINDOWS}
 procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
 const
   CReadBuffer = 2400;
@@ -615,6 +741,9 @@ begin
   end
   else raise Exception.Create('Can''t create pipe!');
 end;
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
 
 procedure InitConsole;
 var
@@ -644,9 +773,15 @@ begin
   DefConsoleColor := TextAttr;
   LastMode := 3; //CO80;
 end;
+{$ELSE}
+  //AssignCrt(stderr);
+  //Rewrite(stderr);
+{$ENDIF}
+
 
 { TConsoleMenu }
 
+{$IFDEF MSWINDOWS}
 procedure TConsoleMenu.AddMenu(const cMenuCaption: string; const cMenuKey: Word; MenuAction: TExecuteProc);
 var
   conmenu : TConsoleMenuOption;
@@ -798,13 +933,23 @@ procedure TConsoleMenuOption.DoKeyPressed;
 begin
   if Assigned(fOnKeyPressed) then fOnKeyPressed;
 end;
+{$ENDIF}
 
 initialization
+
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+InitCriticalSection(CSConsole);
+{$ELSE}
 InitializeCriticalSection(CSConsole);
 //init stdout if not a service
 if GetStdHandle(STD_OUTPUT_HANDLE) <> 0 then InitConsole;
+{$ENDIF}
 
 finalization
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+DoneCriticalsection(CSConsole);
+{$ELSE}
 DeleteCriticalSection(CSConsole);
+{$ENDIF}
 
 end.
