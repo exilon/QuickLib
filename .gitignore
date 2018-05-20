@@ -51,3 +51,5 @@ desktop.ini
 lib/i386-win32/
 
 backup/
+
+*.rsj

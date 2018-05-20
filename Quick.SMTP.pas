@@ -189,7 +189,7 @@ begin
       begin
         mBody := TIdText.Create(msg.MessageParts);
         mBody.ContentType := 'text/html';
-        mBody.Body.Add(fMail.Body);
+        mBody.Body.Text := fMail.Body;
       end;
       //add attachements if exists
       if fMail.Attachments.Count > 0 then
