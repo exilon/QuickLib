@@ -190,6 +190,8 @@ type
   function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
   //returns n times a char
   function FillStr(const C : Char; const Count : Byte) : string;
+  //checks if string exists in array of string
+  function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
   //returns a number leading zero
   function Zeroes(const Number, Len : Int64) : string;
   //converts a number to thousand delimeter string
@@ -518,6 +520,18 @@ var
 begin
   Result := '';
   for i := 1 to Count do Result := Result + C;
+end;
+
+
+function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+var
+  s : string;
+begin
+  for s in aInArray do
+  begin
+    if s = aValue then Exit(True);
+  end;
+  Result := False;
 end;
 
 function Zeroes(const Number, Len : Int64) : string;
