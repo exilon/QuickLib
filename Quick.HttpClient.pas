@@ -1,3 +1,32 @@
+{ ***************************************************************************
+
+  Copyright (c) 2016-2018 Kike Pérez
+
+  Unit        : Quick.HttpClient
+  Description : Json Http Client
+  Author      : Kike Pérez
+  Version     : 1.1
+  Created     : 22/05/2018
+  Modified    : 27/05/2018
+
+  This file is part of QuickLib: https://github.com/exilon/QuickLib
+
+ ***************************************************************************
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+ *************************************************************************** }
+
 unit Quick.HttpClient;
 
 {$i QuickLib.inc}
@@ -6,6 +35,7 @@ interface
 
 uses
   Classes,
+  SysUtils,
   {$IFDEF DELPHIXE8_UP}
   System.Net.HttpClient,
   System.Net.URLClient,
@@ -13,6 +43,7 @@ uses
   System.JSON;
   {$ELSE}
   IdHTTP,
+  IdException,
     {$IFDEF FPC}
     fpjson;
     {$ELSE}
@@ -143,18 +174,26 @@ var
   responsecontent : TStringStream;
   postcontent : TStringStream;
 begin
-  postcontent := TStringStream.Create;
+  postcontent := TStringStream.Create(Utf8Encode(aInContent));
   try
-    postcontent.WriteString(aInContent);
+    //postcontent.WriteString(aInContent);
     responsecontent := TStringStream.Create;
     try
       {$IFDEF DELPHIXE8_UP}
-      resp := fHTTPClient.Post(aURL,postcontent,nil);
+      resp := fHTTPClient.Post(aURL,postcontent,responsecontent);
       {$ELSE}
         {$IFDEF FPC}
-        fHTTPClient.Post(aURL,postcontent,responsecontent);
+        try
+           fHTTPClient.Post(aURL,postcontent,responsecontent);
+           fHTTPClient.Disconnect(False);
+        except
+          on E : Exception do
+          begin
+            if e.ClassType <> EIdConnClosedGracefully then raise e;
+          end;
+        end;
         {$ELSE}
-        fHTTPClient.Post(aURL,postcontent,nil);
+        fHTTPClient.Post(aURL,postcontent,responsecontent);
         {$ENDIF}
       resp := fHTTPClient.Response;
       {$ENDIF}
@@ -170,7 +209,7 @@ end;
 function TJsonHttpClient.Post(const aURL : string; aJsonContent : TJsonObject) : IHttpRequestResponse;
 begin
   {$IFDEF DELPHIXE8_UP}
-   Result := Self.Post(aURL,aJsonContent.ToJson);
+   Result := Self.Post(aURL,aJsonContent.ToJSON);
   {$ELSE}
     {$IFDEF FPC}
      Result := Self.Post(aURL,aJsonContent.AsJson);
@@ -238,13 +277,25 @@ begin
   fStatusCode := aResponse.StatusCode;
   fStatusText := aResponse.StatusText;
   if aContent <> '' then fResponse := TJSONObject.ParseJSONValue(aContent) as TJSONObject;
+  //if response is not json, get as json result
+  if fResponse = nil then
+  begin
+    fResponse := TJSONObject.Create;
+    fResponse.AddPair('Result',aContent);
+  end;
 end;
 {$ELSE}
 constructor THttpRequestResponse.Create(aResponse : TIdHTTPResponse; const aContent : string);
 begin
   fStatusCode := aResponse.ResponseCode;
   fStatusText := aResponse.ResponseText;
-  fResponse := GetJSON(aContent) as TJsonObject;
+  if (aContent.Contains('{')) and (aContent.Contains('}')) then fResponse := GetJSON(aContent) as TJsonObject;
+  //if response is not json, get as json result
+  if fResponse = nil then
+  begin
+    fResponse := TJSONObject.Create;
+    fResponse.Add('Result',aContent);
+  end;
 end;
 {$ENDIF}
 
