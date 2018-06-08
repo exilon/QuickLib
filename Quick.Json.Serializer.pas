@@ -1,0 +1,627 @@
+{ ***************************************************************************
+
+  Copyright (c) 2015-2018 Kike Pérez
+
+  Unit        : Quick.JSON.Serializer
+  Description : Json Serializer
+  Author      : Kike Pérez
+  Version     : 1.0
+  Created     : 21/05/2018
+  Modified    : 08/06/2018
+
+  This file is part of QuickLib: https://github.com/exilon/QuickLib
+
+ ***************************************************************************
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+ *************************************************************************** }
+
+unit Quick.Json.Serializer;
+
+interface
+
+uses
+  System.Classes,
+  System.SysUtils,
+  System.Rtti,
+  System.TypInfo,
+  System.Json,
+  System.DateUtils,
+  Quick.Commons;
+
+type
+
+  EJsonSerializeError = class(Exception)
+  end;
+
+  TNotSerializableProperty = class(TCustomAttribute);
+
+  TCommentProperty = class(TCustomAttribute)
+  private
+    fComment : string;
+  public
+    constructor Create(const aComment: string);
+    property Comment : string read fComment;
+  end;
+
+  TCustomNameProperty = class(TCustomAttribute)
+  private
+    fName : string;
+  public
+    constructor Create(const aName: string);
+    property Name : string read fName;
+  end;
+
+  IJsonSerializer = interface
+  ['{CA26F7AE-F1FE-41BE-9C23-723A687F60D1}']
+    function JsonToObject(aType: TClass; const aJson: string): TObject; overload;
+    function JsonToObject(aObject: TObject; const aJson: string): TObject; overload;
+    function ObjectToJson(aObject: TObject): string;
+  end;
+
+
+  TJsonSerializer = class(TInterfacedObject,IJsonSerializer)
+  strict private
+    function GetValue(aAddr: Pointer; aType: TRTTIType): TValue;
+    procedure DeserializeDynArray(aProperty : TRttiProperty; aObject : TObject; const aJsonArray: TJSONArray);
+    function DeserializeRecord(aRecord : TRttiRecordType; aTypeInfo : PTypeInfo; aObject : TObject; const aJson : TJSONObject) : TValue;
+    function DeserializeClass(aType : TClass; const aJson : TJSONObject) : TObject;
+    function DeserializeObject(aObject : TObject; const aJson : TJSONObject) : TObject; overload;
+    function DeserializeObject(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject; overload;
+    function DeserializeType(aObject : TObject; aType : TTypeKind; aTypeInfo : PTypeInfo; const aValue: string) : TValue;
+    function Serialize(const aName : string; aValue : TValue) : TJSONPair; overload;
+    function Serialize(aObject : TObject) : TJSONObject; overload;
+  public
+    function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
+    function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
+    function ObjectToJson(aObject : TObject): string;
+  end;
+
+  PPByte = ^PByte;
+
+resourcestring
+  cNotSupportedDataType = 'Not supported "%s" data type "%s"';
+  cNotSerializable = 'Object is not serializable';
+
+implementation
+
+{ TqlJsonSerializer }
+
+procedure TJsonSerializer.DeserializeDynArray(aProperty: TRttiProperty; aObject: TObject; const aJsonArray: TJSONArray);
+var
+  rType: PTypeInfo;
+  len: NativeInt;
+  pArr: Pointer;
+  rValue : TValue;
+  rItemValue: TValue;
+  i: Integer;
+  objClass: TClass;
+  ctx : TRttiContext;
+  rRec : TRttiRecordType;
+  s : string;
+begin
+  if GetTypeData(aProperty.PropertyType.Handle).DynArrElType = nil then Exit;
+  len := aJsonArray.Count;
+  rType := GetTypeData(aProperty.PropertyType.Handle).DynArrElType^;
+  pArr := nil;
+  DynArraySetLength(pArr, aProperty.PropertyType.Handle, 1, @len);
+  try
+    TValue.Make(@pArr, aProperty.PropertyType.Handle, rValue);
+
+    for i := 0 to aJsonArray.Count - 1 do
+    begin
+      rItemValue := nil;
+      case rType.Kind of
+        tkClass :
+          begin
+            if aJsonArray.Items[i] is TJSONObject then
+            begin
+              objClass := rType.TypeData.ClassType;
+              rItemValue := DeserializeClass(objClass, TJSONObject(aJsonArray.Items[i]));
+            end;
+          end;
+        tkRecord :
+          begin
+            {rRec := ctx.GetType(rType).AsRecord;
+            try
+              rItemValue := DeserializeRecord(rRec,aObject,TJSONObject(aJsonArray.Items[i]));
+            finally
+              ctx.Free;
+            end;}
+          end;
+        tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
+          begin
+            //skip these properties
+          end
+      else
+        begin
+          //raise EJsonSerializeError.Create(Format(cNotSupportedDataType,[aProperty.Name,GetTypeName(rType)]));
+          rItemValue := DeserializeType(aObject,rType.Kind,aProperty.GetValue(aObject).TypeInfo,aJsonArray.Items[i].Value);
+        end;
+      end;
+      if not rItemValue.IsEmpty then rValue.SetArrayElement(i,rItemValue);
+    end;
+    aProperty.SetValue(aObject,rValue);
+  finally
+    DynArrayClear(pArr, aProperty.PropertyType.Handle);
+  end;
+end;
+
+function TJsonSerializer.DeserializeRecord(aRecord : TRttiRecordType; aTypeInfo : PTypeInfo; aObject : TObject; const aJson : TJSONObject) : TValue;
+var
+  rField : TRttiField;
+  rValue : TValue;
+  member : TJSONPair;
+  s : string;
+begin
+  TValue.Make(@aRecord,aTypeInfo,Result);
+  for rField in aRecord.GetFields do
+  begin
+    member := TJSONPair(aJson.GetValue(rField.Name));
+    if member <> nil then
+    case rField.FieldType.TypeKind of
+      tkDynArray :
+        begin
+          {jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+          try
+            DeserializeDynArray(aProp,Result,jArray);
+          finally
+            jArray.Free;
+          end;}
+        end;
+      tkClass :
+        begin
+          //if (member.JsonValue is TJSONObject) then
+          {begin
+            objClass := aProp.PropertyType.Handle^.TypeData.ClassType;
+            rValue := DeserializeClass(objClass, TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject);
+            //aProp.SetValue(Result, rValue);
+          end;}
+        end;
+    else
+      begin
+        s := member.JsonString.ToString;
+        rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString);
+      end;
+    end;
+    rField.SetValue(@aRecord,rValue);
+  end;
+  //Result := aRecord;
+end;
+
+function TJsonSerializer.JsonToObject(aObject: TObject; const aJson: string): TObject;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
+  try
+    Result := DeserializeObject(aObject,json);
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.ParseJSONValue(aJson) as TJSONObject;
+  try
+    Result := DeserializeClass(aType,json);
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ObjectToJson(aObject: TObject): string;
+var
+  json: TJSONObject;
+begin
+  json := Serialize(aObject);
+  try
+    Result := json.ToJSON;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
+begin
+  Result := nil;
+  if aJson.Count = 0 then Exit;
+
+  Result := aType.Create;
+  try
+    Result := DeserializeObject(Result,aJson);
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+function TJsonSerializer.DeserializeObject(aObject: TObject; const aJson: TJSONObject): TObject;
+var
+  ctx: TRttiContext;
+  rType: TRttiType;
+  rProp: TRttiProperty;
+  attr: TCustomAttribute;
+  rValue: TValue;
+  NotSerializable: Boolean;
+  propertyname : string;
+begin
+  Result := aObject;
+
+  if (aJson.Count = 0) or (Result = nil) then Exit;
+
+  NotSerializable := True;
+
+  try
+    rType := ctx.GetType(aObject.ClassInfo);
+    try
+      for rProp in rType.GetProperties do
+      begin
+        if (rProp.PropertyType.IsPublicType) and (rProp.Name <> 'RefCount') then
+        begin
+          propertyname := rProp.Name;
+          for attr in rProp.GetAttributes do if attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
+
+          rValue := DeserializeObject(Result, propertyname, rProp, aJson);
+          //rProp.SetValue(Result,rValue);
+        end;
+        NotSerializable := False;
+      end;
+    finally
+      ctx.Free;
+    end;
+
+    if NotSerializable then
+    begin
+      raise EJsonSerializeError.Create(cNotSerializable);
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+
+function TJsonSerializer.DeserializeObject(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject;
+var
+  rType : PTypeInfo;
+  ctx : TRttiContext;
+  rValue : TValue;
+  member : TJSONPair;
+  NotSerializable : Boolean;
+  objClass: TClass;
+  jArray : TJSONArray;
+  rRec : TRttiRecordType;
+  rField : TRttiField;
+begin
+    Result := aObject;
+    member := TJSONPair(aJson.GetValue(aName));
+    if member <> nil then
+    begin
+      case aProperty.PropertyType.TypeKind of
+        tkDynArray :
+          begin
+            jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+            try
+              DeserializeDynArray(aProperty,Result,jArray);
+            finally
+              jArray.Free;
+            end;
+          end;
+        tkClass :
+          begin
+            //if (member.JsonValue is TJSONObject) then
+            begin
+              objClass := aProperty.PropertyType.Handle^.TypeData.ClassType;
+              rValue := DeserializeClass(objClass, TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject);
+            end
+          end;
+        tkRecord :
+          begin
+            {rRec := ctx.GetType(aProperty.PropertyType.Handle).AsRecord;
+            //rValue := GetValue(aProp.Handle,TRttiRecordType);
+            //TValue.Make(@rRec,aProp.PropertyType.Handle, rValue);
+            //rRec.GetField('IP').SetValue(@rRec,'127.0.0.2');
+            //rRec.GetField('MsgSize').SetValue(@rRec,1024);
+            try
+              rValue := DeserializeRecord(rRec,aProperty.GetValue(aObject).TypeInfo,aObject,TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject);
+            finally
+              ctx.Free;
+            end;}
+          end;
+      else
+        begin
+          rValue := DeserializeType(Result,aProperty.PropertyType.TypeKind,aProperty.GetValue(Result).TypeInfo,member.ToJSON);
+        end;
+      end;
+      if not rValue.IsEmpty then aProperty.SetValue(Result,rValue);
+    end;
+end;
+
+function TJsonSerializer.DeserializeType(aObject : TObject; aType : TTypeKind; aTypeInfo : PTypeInfo; const aValue: string) : TValue;
+var
+  i : Integer;
+  value : string;
+begin
+  value := AnsiDequotedStr(aValue,'"');
+  case aType of
+    tkString, tkLString, tkWString, tkUString :
+      begin
+        Result := value;
+      end;
+    tkChar, tkWChar :
+      begin
+        Result := value;
+      end;
+    tkInteger :
+      begin
+        Result := StrToInt(value);
+      end;
+    tkInt64 :
+      begin
+        Result := StrToInt64(value);
+      end;
+    tkFloat :
+      begin
+        if aTypeInfo = TypeInfo(TDateTime) then
+        begin
+          Result := JsonDateToDateTime(value);
+        end
+        else if aTypeInfo = TypeInfo(TDate) then
+        begin
+          Result := StrToDate(value);
+        end
+        else if aTypeInfo = TypeInfo(TTime) then
+        begin
+          Result := StrToTime(value);
+        end
+        else
+        begin
+          Result := StrToFloat(value);
+        end;
+      end;
+    tkEnumeration :
+      begin
+        if aTypeInfo = System.TypeInfo(Boolean) then
+        begin
+          Result := StrToBool(value);
+        end
+        else
+        begin
+          TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result);
+        end;
+      end;
+    tkSet :
+      begin
+        i := StringToSet(aTypeInfo,value);
+        TValue.Make(@i,aTypeInfo,Result);
+      end;
+  else
+      begin
+        //raise EclJsonSerializerError.Create('Not supported data type!');
+      end;
+  end;
+end;
+
+function TJsonSerializer.Serialize(aObject: TObject): TJSONObject;
+var
+  ctx: TRttiContext;
+  attr : TCustomAttribute;
+  rType: TRttiType;
+  rProp: TRttiProperty;
+  NotSerializable: Boolean;
+  jpair : TJSONPair;
+  ExcludeSerialize : Boolean;
+  comment : string;
+  propertyname : string;
+begin
+  if (aObject = nil) then
+  begin
+    Result := nil;
+    Exit;
+  end;
+
+  NotSerializable := True;
+
+  Result := TJSONObject.Create;
+  try
+    rType := ctx.GetType(aObject.ClassInfo);
+    try
+      //s := rType.ToString;
+      for rProp in rType.GetProperties do
+      begin
+        ExcludeSerialize := False;
+        comment := '';
+        propertyname := rProp.Name;
+        for attr in rProp.GetAttributes do
+        begin
+          if attr is TNotSerializableProperty then ExcludeSerialize := True
+          else if attr is TCommentProperty then comment := TCommentProperty(attr).Comment
+          else if  attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
+        end;
+
+        if (rProp.PropertyType.IsPublicType) and (rProp.Name <> 'RefCount') and (not ExcludeSerialize) then
+        begin
+          //add comment as pair
+          if comment <> '' then Result.AddPair(TJSONPair.Create('#Comment#->'+propertyname,Comment));
+          //s := rProp.Name;
+          jpair := Serialize(propertyname,rProp.GetValue(aObject));
+          //s := jpair.JsonValue.ToString;
+          if jpair <> nil then Result.AddPair(jpair)
+            else jpair.Free;
+          //Result.AddPair(Serialize(rProp.Name,rProp.GetValue(aObject)));
+          //s := Result.ToJSON;
+        end;
+        NotSerializable := False;
+      end;
+    finally
+      ctx.Free;
+    end;
+
+    if NotSerializable then
+    begin
+      raise EJsonSerializeError.Create(cNotSerializable);
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+function TJsonSerializer.GetValue(aAddr: Pointer; aType: TRTTIType): TValue;
+begin
+  TValue.Make(aAddr,aType.Handle,Result);
+end;
+
+function TJsonSerializer.Serialize(const aName : string; aValue : TValue): TJSONPair;
+var
+  ctx: TRttiContext;
+  rRec : TRttiRecordType;
+  rField : TRttiField;
+  rDynArray : TRTTIDynamicArrayType;
+  json : TJSONObject;
+  jArray : TJSONArray;
+  jPair : TJSONPair;
+  jValue : TJSONValue;
+  i : Integer;
+begin
+  Result := TJSONPair.Create(aName,nil);
+  //Result.JsonString := TJSONString(aName);
+  try
+    case aValue.Kind of
+      tkDynArray :
+        begin
+          jArray := TJSONArray.Create;
+          rDynArray := ctx.GetType(aValue.TypeInfo) as TRTTIDynamicArrayType;
+          try
+            for i := 0 to aValue.GetArrayLength - 1 do
+            begin
+              jPair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
+              try
+                //jValue := TJsonValue(jPair.JsonValue.Clone);
+                jValue := jPair.JsonValue;
+                jArray.AddElement(jValue);
+                jPair.JsonValue.Owned := False;
+              finally
+                jPair.Free;
+                jValue.Owned := True;
+              end;
+            end;
+            Result.JsonValue := jArray;
+          finally
+            ctx.Free;
+          end;
+        end;
+      tkClass :
+        begin
+           Result.JsonValue := TJSONValue(Serialize(aValue.AsObject));
+        end;
+      tkString, tkLString, tkWString, tkUString :
+        begin
+          Result.JsonValue := TJSONString.Create(aValue.AsString);
+        end;
+      tkChar, tkWChar :
+        begin
+          Result.JsonValue := TJSONString.Create(aValue.AsString);
+        end;
+      tkInteger :
+        begin
+          Result.JsonValue := TJSONNumber.Create(aValue.AsInteger);
+        end;
+      tkInt64 :
+        begin
+          Result.JsonValue := TJSONNumber.Create(aValue.AsInt64);
+        end;
+      tkFloat :
+        begin
+          if aValue.TypeInfo = TypeInfo(TDateTime) then
+          begin
+            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
+          end
+          else if aValue.TypeInfo = TypeInfo(TDate) then
+          begin
+            Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
+          end
+          else if aValue.TypeInfo = TypeInfo(TTime) then
+          begin
+            Result.JsonValue := TJSONString.Create(TimeToStr(aValue.AsExtended));
+          end
+          else Result.JsonValue := TJSONNumber.Create(aValue.AsExtended);
+        end;
+      tkEnumeration :
+        begin
+          if (aValue.TypeInfo = System.TypeInfo(Boolean)) then
+          begin
+            Result.JsonValue := TJSONBool.Create(aValue.AsBoolean);
+          end
+          else
+          begin
+            Result.JsonValue := TJSONString.Create(GetEnumName(aValue.TypeInfo,aValue.AsOrdinal));
+            //Result.JsonValue := TJSONString.Create(aValue.ToString);
+          end;
+        end;
+      tkSet :
+        begin
+          Result.JsonValue := TJSONString.Create(aValue.ToString);
+        end;
+      tkRecord :
+        begin
+          rRec := ctx.GetType(aValue.TypeInfo).AsRecord;
+          try
+            json := TJSONObject.Create;
+            for rField in rRec.GetFields do
+            begin
+              json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
+            end;
+            Result.JsonValue := json;
+          finally
+            ctx.Free;
+          end;
+        end;
+      tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
+        begin
+          //skip these properties
+          FreeAndNil(Result);
+        end
+    else
+      begin
+        raise EJsonSerializeError.Create(Format(cNotSupportedDataType,[aName,GetTypeName(aValue.TypeInfo)]));
+      end;
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+
+{ TCommentProperty }
+
+constructor TCommentProperty.Create(const aComment: string);
+begin
+  fComment := aComment;
+end;
+
+{ TCustomNameProperty }
+
+constructor TCustomNameProperty.Create(const aName: string);
+begin
+  fName := aName;
+end;
+
+end.
+
