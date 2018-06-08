@@ -225,12 +225,18 @@ type
   function GetAppVersionStr: string;
   //returns app version full (major, minor, release & compiled)
   function GetAppVersionFullStr: string;
-  //UTC DateTime to Local DateTime
+  //convert UTC DateTime to Local DateTime
   function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
-  //Local DateTime to UTC DateTime
+  //convert Local DateTime to UTC DateTime
   function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
-  //return GTM time string
+  //convert DateTime to GTM Time string
   function DateTimeToGMT(aDate : TDateTime) : string;
+  //convert GMT Time string to DateTime
+  function GMTToDateTime(aDate : string) : TDateTime;
+  //convert DateTime to Json Date format
+  function DateTimeToJsonDate(aDateTime : TDateTime) : string;
+  //convert Json Date format to DateTime
+  function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
   //count number of digits of a Integer
   function CountDigits(anInt: Cardinal): Cardinal; inline;
   //save stream to file
@@ -874,6 +880,48 @@ begin
   FmtSettings.TimeSeparator := ':';
   FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ" GMT"';
   Result := DateTimeToStr(aDate,FmtSettings);
+end;
+
+function GMTToDateTime(aDate : string) : TDateTime;
+var
+  FmtSettings : TFormatSettings;
+begin
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ" GMT"';
+  Result := StrToDateTime(aDate,FmtSettings);
+end;
+
+function DateTimeToJsonDate(aDateTime : TDateTime) : string;
+{$IFNDEF DELPHIXE7_UP}
+var
+  FmtSettings : TFormatSettings;
+{$ENDIF}
+begin
+  {$IFDEF DELPHIXE7_UP}
+  Result := DateToISO8601(aDateTime);
+  {$ELSE}
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ"Z"';
+  Result := DateTimeToStr(aDate,FmtSettings);
+  {$ENDIF}
+end;
+
+function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
+{$IFNDEF DELPHIXE7_UP}
+var
+  FmtSettings : TFormatSettings;
+{$ENDIF}
+begin
+  {$IFDEF DELPHIXE7_UP}
+  Result := ISO8601ToDate(aJsonDate);
+  {$ELSE}
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ"Z"';
+  Result := StrToDateTime(aJsonDate,FmtSettings);
+  {$ENDIF}
 end;
 
 function CountDigits(anInt: Cardinal): Cardinal; inline;
