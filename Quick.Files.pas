@@ -5,9 +5,9 @@
   Unit        : Quick.Files
   Description : Files functions
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 09/03/2018
-  Modified    : 07/04/2018
+  Modified    : 29/05/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,15 +37,15 @@ uses
   Classes,
   SysUtils,
   {$IFDEF MSWINDOWS}
-  WindowS,
+  Windows,
   {$ENDIF}
   {$IFDEF FPC}
   strutils,
     {$IFDEF LINUX}
     baseunix,
     {$ENDIF}
-    DateUtils;
   {$ENDIF}
+  DateUtils;
 
 {$IFDEF FPC}
 resourcestring
