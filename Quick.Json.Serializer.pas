@@ -75,7 +75,7 @@ type
   strict private
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue;
     procedure DeserializeDynArray(aProperty : TRttiProperty; aObject : TObject; const aJsonArray: TJSONArray);
-    function DeserializeRecord(aRecord : TRttiRecordType; aTypeInfo : PTypeInfo; aObject : TObject; const aJson : TJSONObject) : TValue;
+    function DeserializeRecord(aRecord : TValue; aObject : TObject; const aJson : TJSONObject) : TValue;
     function DeserializeClass(aType : TClass; const aJson : TJSONObject) : TObject;
     function DeserializeObject(aObject : TObject; const aJson : TJSONObject) : TObject; overload;
     function DeserializeObject(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject; overload;
@@ -109,7 +109,8 @@ var
   objClass: TClass;
   ctx : TRttiContext;
   rRec : TRttiRecordType;
-  s : string;
+  json : TJSONObject;
+  rDynArray : TRttiDynamicArrayType;
 begin
   if GetTypeData(aProperty.PropertyType.Handle).DynArrElType = nil then Exit;
   len := aJsonArray.Count;
@@ -118,6 +119,7 @@ begin
   DynArraySetLength(pArr, aProperty.PropertyType.Handle, 1, @len);
   try
     TValue.Make(@pArr, aProperty.PropertyType.Handle, rValue);
+    rDynArray := ctx.GetType(rValue.TypeInfo) as TRTTIDynamicArrayType;
 
     for i := 0 to aJsonArray.Count - 1 do
     begin
@@ -133,12 +135,9 @@ begin
           end;
         tkRecord :
           begin
-            {rRec := ctx.GetType(rType).AsRecord;
-            try
-              rItemValue := DeserializeRecord(rRec,aObject,TJSONObject(aJsonArray.Items[i]));
-            finally
-              ctx.Free;
-            end;}
+            json := TJSONObject(aJsonArray.Items[i]);
+            rItemValue := DeserializeRecord(GetValue(PPByte(rValue.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i,
+                                            rDynArray.ElementType),aObject,json);
           end;
         tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
           begin
@@ -158,15 +157,16 @@ begin
   end;
 end;
 
-function TJsonSerializer.DeserializeRecord(aRecord : TRttiRecordType; aTypeInfo : PTypeInfo; aObject : TObject; const aJson : TJSONObject) : TValue;
+function TJsonSerializer.DeserializeRecord(aRecord : TValue; aObject : TObject; const aJson : TJSONObject) : TValue;
 var
+  ctx : TRttiContext;
+  rRec : TRttiRecordType;
   rField : TRttiField;
   rValue : TValue;
   member : TJSONPair;
-  s : string;
 begin
-  TValue.Make(@aRecord,aTypeInfo,Result);
-  for rField in aRecord.GetFields do
+  rRec := ctx.GetType(aRecord.TypeInfo).AsRecord;
+  for rField in rRec.GetFields do
   begin
     member := TJSONPair(aJson.GetValue(rField.Name));
     if member <> nil then
@@ -191,13 +191,12 @@ begin
         end;
     else
       begin
-        s := member.JsonString.ToString;
         rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString);
       end;
     end;
-    rField.SetValue(@aRecord,rValue);
+    if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
   end;
-  //Result := aRecord;
+  Result := aRecord;
 end;
 
 function TJsonSerializer.JsonToObject(aObject: TObject; const aJson: string): TObject;
@@ -277,7 +276,6 @@ begin
           for attr in rProp.GetAttributes do if attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
 
           rValue := DeserializeObject(Result, propertyname, rProp, aJson);
-          //rProp.SetValue(Result,rValue);
         end;
         NotSerializable := False;
       end;
@@ -307,6 +305,7 @@ var
   jArray : TJSONArray;
   rRec : TRttiRecordType;
   rField : TRttiField;
+  json : TJSONObject;
 begin
     Result := aObject;
     member := TJSONPair(aJson.GetValue(aName));
@@ -332,16 +331,12 @@ begin
           end;
         tkRecord :
           begin
-            {rRec := ctx.GetType(aProperty.PropertyType.Handle).AsRecord;
-            //rValue := GetValue(aProp.Handle,TRttiRecordType);
-            //TValue.Make(@rRec,aProp.PropertyType.Handle, rValue);
-            //rRec.GetField('IP').SetValue(@rRec,'127.0.0.2');
-            //rRec.GetField('MsgSize').SetValue(@rRec,1024);
+            json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
             try
-              rValue := DeserializeRecord(rRec,aProperty.GetValue(aObject).TypeInfo,aObject,TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject);
+              rValue := DeserializeRecord(aProperty.GetValue(aObject),aObject,json);
             finally
-              ctx.Free;
-            end;}
+              json.Free;
+            end;
           end;
       else
         begin
