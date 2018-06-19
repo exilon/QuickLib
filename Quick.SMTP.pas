@@ -5,9 +5,9 @@
   Unit        : Quick.SMTP
   Description : Send Emails
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 07/04/2018
+  Modified    : 19/06/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -88,7 +88,8 @@ type
     property UseSSL: Boolean read fUseSSL write fUseSSL;
     property Mail : TMailMessage read fMail write fMail;
     function SendMail: Boolean; overload;
-    function SendEmail(const cFrom,cSubject,cTo,cBody : string) : Boolean; overload;
+    function SendMail(aMail : TMailMessage) : Boolean; overload;
+    function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean; overload;
   end;
 
 implementation
@@ -147,18 +148,31 @@ begin
   inherited;
 end;
 
-function TSMTP.SendEmail(const cFrom,cSubject,cTo,cBody : string) : Boolean;
+function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean;
+var
+  mail : TMailMessage;
 begin
-  fMail.From := cFrom;
-  fMail.Subject := cSubject;
-  fMail.Body := cBody;
-  fMail.Recipient := cTo;
-  fMail.CC := '';
-  fMail.BCC := '';
-  Result := Self.SendMail;
+  mail := TMailMessage.Create;
+  try
+    Mail.From := fMail.fFrom;
+    Mail.SenderName := aFromName;
+    Mail.Subject := aSubject;
+    Mail.Body := aBody;
+    Mail.Recipient := aTo;
+    Mail.CC := aCC;
+    Mail.BCC := aBC;
+    Result := Self.SendMail(mail);
+  finally
+    mail.Free;
+  end;
 end;
 
 function TSMTP.SendMail: Boolean;
+begin
+  Result := SendMail(fMail);
+end;
+
+function TSMTP.SendMail(aMail : TMailMessage) : Boolean;
 var
   msg : TIdMessage;
   SSLHandler : TIdSSLIOHandlerSocketOpenSSL;
@@ -175,26 +189,26 @@ begin
       //create mail msg
       idattach := nil;
       mBody := nil;
-      msg.From.Address := fMail.From;
-      if fMail.SenderName <> '' then msg.From.Name := fMail.SenderName;
-      msg.Subject := fMail.Subject;
-      for email in fMail.Recipient.Split([',']) do msg.Recipients.Add.Address := email;
-      for email in fMail.CC.Split([',']) do msg.CCList.Add.Address := email;
-      for email in fMail.BCC.Split([',']) do msg.BCCList.Add.Address := email;
-      if fMail.fBodyFromFile then
+      msg.From.Address := aMail.From;
+      if aMail.SenderName <> '' then msg.From.Name := aMail.SenderName;
+      msg.Subject := aMail.Subject;
+      for email in aMail.Recipient.Split([',']) do msg.Recipients.Add.Address := email;
+      for email in aMail.CC.Split([',']) do msg.CCList.Add.Address := email;
+      for email in aMail.BCC.Split([',']) do msg.BCCList.Add.Address := email;
+      if aMail.fBodyFromFile then
       begin
-        msg.Body.LoadFromFile(fMail.Body);
+        msg.Body.LoadFromFile(aMail.Body);
       end
       else
       begin
         mBody := TIdText.Create(msg.MessageParts);
         mBody.ContentType := 'text/html';
-        mBody.Body.Text := fMail.Body;
+        mBody.Body.Text := aMail.Body;
       end;
       //add attachements if exists
-      if fMail.Attachments.Count > 0 then
+      if aMail.Attachments.Count > 0 then
       begin
-        for filename in fMail.Attachments do
+        for filename in aMail.Attachments do
         begin
           idattach := TIdAttachmentFile.Create(msg.MessageParts,filename);
         end;
