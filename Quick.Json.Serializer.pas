@@ -5,9 +5,9 @@
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 21/05/2018
-  Modified    : 08/06/2018
+  Modified    : 20/06/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -42,8 +42,8 @@ uses
 
 type
 
-  EJsonSerializeError = class(Exception)
-  end;
+  EJsonSerializeError = class(Exception);
+  EJsonDeserializeError = class(Exception);
 
   TNotSerializableProperty = class(TCustomAttribute);
 
@@ -109,7 +109,6 @@ var
   i: Integer;
   objClass: TClass;
   ctx : TRttiContext;
-  rRec : TRttiRecordType;
   json : TJSONObject;
   rDynArray : TRttiDynamicArrayType;
   propObj : TObject;
@@ -268,14 +267,17 @@ end;
 function TJsonSerializer.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
 begin
   Result := nil;
-  if aJson.Count = 0 then Exit;
+  if (aJson = nil) or (aJson.Count = 0) then Exit;
 
   Result := aType.Create;
   try
     Result := DeserializeObject(Result,aJson);
   except
-    Result.Free;
-    raise;
+    on E : Exception do
+    begin
+      Result.Free;
+      raise EJsonDeserializeError.CreateFmt('Deserialize error class "%s" : %s',[aType.ClassName,e.Message]);
+    end;
   end;
 end;
 
@@ -285,12 +287,11 @@ var
   rType: TRttiType;
   rProp: TRttiProperty;
   attr: TCustomAttribute;
-  rValue: TValue;
   propertyname : string;
 begin
   Result := aObject;
 
-  if (aJson.Count = 0) or (Result = nil) then Exit;
+  if (aJson = nil) or (aJson.Count = 0) or (Result = nil) then Exit;
   try
     rType := ctx.GetType(aObject.ClassInfo);
     try
@@ -307,23 +308,21 @@ begin
       ctx.Free;
     end;
   except
-    Result.Free;
-    raise;
+    on E : Exception do
+    begin
+      Result.Free;
+      raise EJsonDeserializeError.CreateFmt('Deserialize error for object "%s" : %s',[aObject.ClassName,e.Message]);
+    end;
   end;
 end;
 
 
 function TJsonSerializer.DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject;
 var
-  rType : PTypeInfo;
-  ctx : TRttiContext;
   rValue : TValue;
   member : TJSONPair;
-  NotSerializable : Boolean;
   objClass: TClass;
   jArray : TJSONArray;
-  rRec : TRttiRecordType;
-  rField : TRttiField;
   json : TJSONObject;
 begin
     Result := aObject;
@@ -384,63 +383,70 @@ var
   i : Integer;
   value : string;
 begin
-  value := AnsiDequotedStr(aValue,'"');
-  case aType of
-    tkString, tkLString, tkWString, tkUString :
-      begin
-        Result := value;
-      end;
-    tkChar, tkWChar :
-      begin
-        Result := value;
-      end;
-    tkInteger :
-      begin
-        Result := StrToInt(value);
-      end;
-    tkInt64 :
-      begin
-        Result := StrToInt64(value);
-      end;
-    tkFloat :
-      begin
-        if aTypeInfo = TypeInfo(TDateTime) then
+  try
+    value := AnsiDequotedStr(aValue,'"');
+    case aType of
+      tkString, tkLString, tkWString, tkUString :
         begin
-          Result := JsonDateToDateTime(value);
-        end
-        else if aTypeInfo = TypeInfo(TDate) then
-        begin
-          Result := StrToDate(value);
-        end
-        else if aTypeInfo = TypeInfo(TTime) then
-        begin
-          Result := StrToTime(value);
-        end
-        else
-        begin
-          Result := StrToFloat(value);
+          Result := value;
         end;
-      end;
-    tkEnumeration :
-      begin
-        if aTypeInfo = System.TypeInfo(Boolean) then
+      tkChar, tkWChar :
         begin
-          Result := StrToBool(value);
-        end
-        else
-        begin
-          TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result);
+          Result := value;
         end;
-      end;
-    tkSet :
-      begin
-        i := StringToSet(aTypeInfo,value);
-        TValue.Make(@i,aTypeInfo,Result);
-      end;
-  else
-      begin
-        //raise EclJsonSerializerError.Create('Not supported data type!');
-      end;
+      tkInteger :
+        begin
+          Result := StrToInt(value);
+        end;
+      tkInt64 :
+        begin
+          Result := StrToInt64(value);
+        end;
+      tkFloat :
+        begin
+          if aTypeInfo = TypeInfo(TDateTime) then
+          begin
+            Result := JsonDateToDateTime(value);
+          end
+          else if aTypeInfo = TypeInfo(TDate) then
+          begin
+            Result := StrToDate(value);
+          end
+          else if aTypeInfo = TypeInfo(TTime) then
+          begin
+            Result := StrToTime(value);
+          end
+          else
+          begin
+            Result := StrToFloat(value);
+          end;
+        end;
+      tkEnumeration :
+        begin
+          if aTypeInfo = System.TypeInfo(Boolean) then
+          begin
+            Result := StrToBool(value);
+          end
+          else
+          begin
+            TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result);
+          end;
+        end;
+      tkSet :
+        begin
+          i := StringToSet(aTypeInfo,value);
+          TValue.Make(@i,aTypeInfo,Result);
+        end;
+    else
+        begin
+          //raise EclJsonSerializerError.Create('Not supported data type!');
+        end;
+    end;
+  except
+    on E : Exception do
+    begin
+      raise EJsonDeserializeError.CreateFmt('Deserialize error type "%s.%s" : %s',[aObject.ClassName,GetTypeName(aTypeInfo),e.Message]);
+    end;
   end;
 end;
 
@@ -508,8 +514,11 @@ begin
       ctx.Free;
     end;
   except
-    Result.Free;
-    raise;
+    on E : Exception do
+    begin
+      Result.Free;
+      raise EJsonSerializeError.CreateFmt('Serialize error object "%s" : %s',[aObject.ClassName,e.Message]);
+    end;
   end;
 end;
 
@@ -634,8 +643,11 @@ begin
       end;
     end;
   except
-    Result.Free;
-    raise;
+    on E : Exception do
+    begin
+      Result.Free;
+      raise EJsonSerializeError.CreateFmt('Serialize error class "%s.%s" : %s',[aName,aValue.ToString,e.Message]);
+    end;
   end;
 end;
 
