@@ -904,7 +904,7 @@ begin
   FmtSettings.DateSeparator := '-';
   FmtSettings.TimeSeparator := ':';
   FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ"Z"';
-  Result := DateTimeToStr(aDate,FmtSettings);
+  Result := DateTimeToStr(aDateTime,FmtSettings);
   {$ENDIF}
 end;
 
