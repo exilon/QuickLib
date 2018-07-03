@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 19/06/2018
+  Modified    : 22/06/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -192,9 +192,9 @@ begin
       msg.From.Address := aMail.From;
       if aMail.SenderName <> '' then msg.From.Name := aMail.SenderName;
       msg.Subject := aMail.Subject;
-      for email in aMail.Recipient.Split([',']) do msg.Recipients.Add.Address := email;
-      for email in aMail.CC.Split([',']) do msg.CCList.Add.Address := email;
-      for email in aMail.BCC.Split([',']) do msg.BCCList.Add.Address := email;
+      for email in aMail.Recipient.Split([',',';']) do msg.Recipients.Add.Address := email;
+      for email in aMail.CC.Split([',',';']) do msg.CCList.Add.Address := email;
+      for email in aMail.BCC.Split([',',';']) do msg.BCCList.Add.Address := email;
       if aMail.fBodyFromFile then
       begin
         msg.Body.LoadFromFile(aMail.Body);
