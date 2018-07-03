@@ -126,7 +126,7 @@ begin
           Streamer.Free;
         end;
         {$ELSE}
-        TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json)));
+        TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json.Text)));
         {$ENDIF}
       {$ENDIF}
       if Assigned(cConfig) then cConfig.Free;

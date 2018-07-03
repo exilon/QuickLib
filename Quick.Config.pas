@@ -47,6 +47,7 @@ uses
     fpjsonrtti;
     {$ELSE}
     DBXJSON,
+    System.JSON,
     Rest.Json.Types,
     Rest.Json;
     {$ENDIF}
