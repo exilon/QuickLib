@@ -5,9 +5,9 @@
   Unit        : Quick.Process
   Description : Process functions
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 07/04/2018
+  Modified    : 04/07/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,8 +37,11 @@ uses
   Windows,
   Classes,
   {$IFNDEF CONSOLE}
-  Vcl.Forms,
-  VCL.Controls,
+  Controls,
+    {$IFNDEF FPC}
+    Vcl.Forms,
+    Winapi.Messages,
+    {$ENDIF}
   {$ENDIF}
   DateUtils,
   {$IFNDEF FPC}
