@@ -44,8 +44,11 @@ uses
   {$ELSE}
     {$IFDEF FPC}
     fpjson,
-    fpjsonrtti;
+    jsonparser,
+    fpjsonrtti,
+    Quick.Json.Serializer;
     {$ELSE}
+    Quick.Json.Serializer,
     DBXJSON,
     System.JSON,
     Rest.Json.Types,
@@ -63,12 +66,16 @@ type
     procedure Save(var cConfig : T);
   end;
 
+  TSerializeProperty = (spPublic, spPublished);
+
   TAppConfigProviderBase<T : class> = class(TInterfacedObject,IAppConfigProvider<T>)
   private
     fCreateIfNotExists : Boolean;
+    fSerializeLevel : TSerializeProperty;
   public
     constructor Create(var cConfig : T); virtual;
     property CreateIfNotExists : Boolean read fCreateIfNotExists write fCreateIfNotExists;
+    property SerializeLevel : TSerializeProperty read fSerializeLevel write fSerializeLevel;
     function InitObject : T;
     procedure Load(var cConfig : T); virtual; abstract;
     procedure Save(var cConfig : T); virtual; abstract;
@@ -77,7 +84,7 @@ type
   TApplyConfigEvent = procedure of object;
 
   {$IFDEF DELPHIXE2_UP}[JsonSerialize(TJsonMemberSerialization.&Public)]{$ENDIF}
-  TAppConfig = class{$IFDEF FPC}(TPersistent){$ENDIF}
+  TAppConfig = class
   private
     {$IFDEF FPC}
     fOnApplyConfig : TApplyConfigEvent;
@@ -110,14 +117,14 @@ type
     procedure FromJSON(const json : string);
   end;
 
-  {Usage: create a descend class from TAppConfig and add public properties to be loaded/saved
+  {Usage: create a descend class from TAppConfig and add published properties to be loaded/saved
 
   TMyConfig = class(TAppConfig)
   private
     fName : string;
     fSurname : string;
     fStatus : Integer;
-  public
+  published
     property Name : string read fName write fName;
     property SurName : string read fSurname write fSurname;
     property Status : Integer read fStatus write fStatus;
@@ -135,6 +142,7 @@ implementation
 constructor TAppConfigProviderBase<T>.Create(var cConfig : T);
 begin
   fCreateIfNotExists := True;
+  fSerializeLevel := spPublished;
   //create object with rtti
   if Assigned(cConfig) then cConfig.Free;
   cConfig := InitObject;
@@ -189,14 +197,8 @@ end;
 
 
 function TAppConfig.ToJSON : string;
-{$IFDEF DELPHIRX102_UP}
 var
   Serializer : TJsonSerializer;
-{$ENDIF}
-{$IFDEF FPC}
-var
-  streamer : TJsonStreamer;
-{$ENDIF}
 begin
   Result := '';
   try
@@ -216,18 +218,14 @@ begin
         Serializer.Free;
       end;
     {$ELSE}
-      {$IFDEF FPC}
-      streamer := TJsonStreamer.Create(nil);
+      serializer := TJsonSerializer.Create(slPublishedProperty);
       try
-        Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
-        Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        Result := streamer.ObjectToJSON(Self).ToString;
+        //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+        //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+        Result := serializer.ObjectToJSON(Self);
       finally
-        streamer.Free;
+        serializer.Free;
       end;
-      {$ELSE}
-      Result := TJson.ObjectToJsonString(Self);
-      {$ENDIF}
     {$ENDIF}
   except
     on e : Exception do raise Exception.Create(e.Message);
@@ -235,14 +233,8 @@ begin
 end;
 
 procedure TAppConfig.FromJSON(const json : string);
-{$IFDEF DELPHIRX102_UP}
 var
   Serializer : TJsonSerializer;
-{$ENDIF}
-{$IFDEF FPC}
-var
-  streamer : TJSONDeStreamer;
-{$ENDIF}
 begin
   try
     {$IFDEF DELPHIRX102_UP}
@@ -261,18 +253,14 @@ begin
         Serializer.Free;
       end;
     {$ELSE}
-      {$IFDEF FPC}
-      streamer := TJSONDeStreamer.Create(nil);
+      serializer := TJsonSerializer.Create(slPublishedProperty);
       try
         //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
-        Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        Streamer.JsonToObject(json,Self);
+        //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+        Self := TAppConfig(serializer.JsonToObject(Self,json));
       finally
-        Streamer.Free;
+        serializer.Free;
       end;
-      {$ELSE}
-      TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json)));
-      {$ENDIF}
     {$ENDIF}
   except
     on e : Exception do raise Exception.Create(e.Message);

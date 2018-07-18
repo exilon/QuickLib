@@ -45,13 +45,13 @@ uses
     System.JSON.Types,
     System.JSON.Serializers,
   {$ELSE}
+    Quick.Json.Serializer,
     {$IFDEF FPC}
     fpjson,
     fpjsonrtti,
     {$ELSE}
     Rest.Json.Types,
     System.JSON,
-    Rest.Json,
     {$ENDIF}
   {$ENDIF}
   Quick.Config;
@@ -81,12 +81,7 @@ end;
 procedure TAppConfigJsonProvider<T>.Load(var cConfig : T);
 var
   json : TStrings;
-  {$IFDEF DELPHIRX102_UP}
-    Serializer : TJsonSerializer;
-  {$ENDIF}
-  {$IFDEF FPC}
-    streamer : TJSONDeStreamer;
-  {$ENDIF}
+  Serializer : TJsonSerializer;
   NewObj : T;
 begin
   //create object with rtti if nil
@@ -116,18 +111,15 @@ begin
           Serializer.Free;
         end;
       {$ELSE}
-        {$IFDEF FPC}
-        streamer := TJSONDeStreamer.Create(nil);
+        serializer := TJsonSerializer.Create(slPublishedProperty);
         try
-          //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
-          Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-          Streamer.JsonToObject(json.Text,NewObj);
+          //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+          //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+          serializer.JsonToObject(cConfig,json.Text);
+          Exit;
         finally
-          Streamer.Free;
+          serializer.Free;
         end;
-        {$ELSE}
-        TJson.JsonToObject(Self,TJSONObject(TJSONObject.ParseJSONValue(json.Text)));
-        {$ENDIF}
       {$ENDIF}
       if Assigned(cConfig) then cConfig.Free;
       cConfig := NewObj;
@@ -142,12 +134,7 @@ end;
 procedure TAppConfigJsonProvider<T>.Save(var cConfig : T);
 var
   json : TStrings;
-  {$IFDEF DELPHIRX102_UP}
-    Serializer : TJsonSerializer;
-  {$ENDIF}
-  {$IFDEF FPC}
-  streamer : TJsonStreamer;
-  {$ENDIF}
+  Serializer : TJsonSerializer;
   ctx : TRttiContext;
   rprop : TRttiProperty;
 begin
@@ -172,18 +159,14 @@ begin
           Serializer.Free;
         end;
       {$ELSE}
-        {$IFDEF FPC}
-        streamer := TJsonStreamer.Create(nil);
+        serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
         try
-          Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
-          Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-          json.Text := streamer.ObjectToJSONString(cConfig);
+          //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+          //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+          json.Text := serializer.ObjectToJson(cConfig);
         finally
-          streamer.Free;
+          serializer.Free;
         end;
-        {$ELSE}
-          json.Text := TJson.ObjectToJsonString(cConfig);
-        {$ENDIF}
       {$ENDIF}
       json.SaveToFile(fFilename);
       {$IFDEF FPC}
