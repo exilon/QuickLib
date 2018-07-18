@@ -679,7 +679,7 @@ begin
         AzContainers := BlobService.ListContainers(cNextMarker,AzParams,CloudResponseInfo);
         try
           azResponseInfo := GetResponseInfo(CloudResponseInfo);
-          if (azResponseInfo.StatusCode = 200) and (Assigned(AzContainer)) then
+          if (azResponseInfo.StatusCode = 200) and (Assigned(AzContainers)) then
           begin
             for AzContainer in AzContainers do
             begin
