@@ -44,19 +44,27 @@ type
     fTitle : string;
     fHidden : Boolean;
     fSessionName: string;
+    fSizes : TArray<Integer>;
+    fLastFilename : string;
+    fWindowPos : TWinPos;
+    fHistory : TArray<TProcessType>;
+    fComplex : TProcessType;
+    fModifyDate : TDateTime;
+    fWorkList : TObjectList<TWorker>;
+  published
+    property Sizes : TArray<Integer> read fSizes write fSizes;
+    property LastFilename : string read fLastFilename write fLastFilename;
+    property WindowPos : TWinPos read fWindowPos write fWindowPos;
+    property History : TArray<TProcessType> read fHistory write fHistory;
+    property Complex : TProcessType read fComplex write fComplex;
+    property ModifyDate : TDateTime read fModifyDate write fModifyDate;
+    property Title : string read fTitle write fTitle;
+    property SessionName : string read fSessionName write fSessionName;
   public
-    Sizes : array of Integer;
-    LastFilename : string;
-    WindowPos : TWinPos;
-    History : array of TProcessType;
-    Complex : TProcessType;
-    ModifyDate : TDateTime;
-    WorkList : TObjectList<TWorker>;
+    property WorkList : TObjectList<TWorker> read fWorkList write fWorkList;
     constructor Create; override;
     destructor Destroy; override;
     procedure DefaultValues;
-    property Title : string read fTitle write fTitle;
-    property SessionName : string read fSessionName write fSessionName;
   end;
 
   TMainForm = class(TForm)
@@ -119,16 +127,19 @@ end;
 
 procedure TMainForm.SetConfig(cConfig : TMyConfig);
 var
+  winpos : TWinpos;
   protype : TProcessType;
   i : Integer;
   worker : TWorker;
 begin
   cConfig.LastFilename := 'library.txt';
   cConfig.Sizes := [23,11,554,12,34,29,77,30,48,59,773,221,98,3,22,983,122,231,433,12,31,987];
-  cConfig.WindowPos.PosX := 640;
-  cConfig.WindowPos.PosX := 480;
-  cConfig.Complex.Priority := msHigh;
-  cConfig.Complex.Redundant := False;
+  winpos.PosX := 640;
+  winpos.PosX := 480;
+  cConfig.WindowPos := winpos;
+  protype.Priority := msHigh;
+  protype.Redundant := False;
+  cConfig.Complex := protype;
   cConfig.Title := 'a fresh title';
   cConfig.SessionName := 'First Session';
   for I := 0 to 22 do

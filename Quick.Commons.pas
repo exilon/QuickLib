@@ -913,6 +913,10 @@ function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
 var
   FmtSettings : TFormatSettings;
 {$ENDIF}
+{$IFDEF FPC}
+var
+  jdate : string;
+{$ENDIF}
 begin
   {$IFDEF DELPHIXE7_UP}
   Result := ISO8601ToDate(aJsonDate);
@@ -920,7 +924,13 @@ begin
   FmtSettings.DateSeparator := '-';
   FmtSettings.TimeSeparator := ':';
   FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ"Z"';
-  Result := StrToDateTime(aJsonDate,FmtSettings);
+    {$IFDEF FPC}
+    jdate := StringReplace(aJsondate,'T',' ',[rfIgnoreCase]);
+    jdate := Copy(jdate,1,Pos('.',jdate)-1);
+    Result := StrToDateTime(jdate,FmtSettings);
+    {$ELSE}
+    Result := StrToDateTime(aJsonDate,FmtSettings);
+    {$ENDIF}
   {$ENDIF}
 end;
 
