@@ -6,7 +6,7 @@
     <General>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="QuickConfig"/>
+      <Title Value="JsonSerializer"/>
       <Scaled Value="True"/>
       <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
@@ -25,31 +25,26 @@
       <FormatVersion Value="2"/>
       <Modes Count="0"/>
     </RunParams>
-    <RequiredPackages Count="2">
+    <RequiredPackages Count="1">
       <Item1>
-        <PackageName Value="QuickLib"/>
-      </Item1>
-      <Item2>
         <PackageName Value="LCL"/>
-      </Item2>
+      </Item1>
     </RequiredPackages>
     <Units Count="3">
       <Unit0>
-        <Filename Value="QuickConfig.pas"/>
+        <Filename Value="JsonSerializer.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
       <Unit1>
-        <Filename Value="Main.pas"/>
-        <IsPartOfProject Value="True"/>
-        <HasResources Value="True"/>
-      </Unit1>
-      <Unit2>
-        <Filename Value="umain.pas"/>
+        <Filename Value="main.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="Form1"/>
-        <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uMain"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="..\..\..\quick.json.fpc.utils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Quick.Json.fpc.Utils"/>
       </Unit2>
     </Units>
   </ProjectOptions>
@@ -57,9 +52,12 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="QuickConfig"/>
+      <Filename Value="JsonSerializer"/>
     </Target>
     <SearchPaths>
+      <IncludeFiles Value="$(ProjOutDir)"/>
+      <Libraries Value="..\..\.."/>
+      <OtherUnitFiles Value="..\..\.."/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

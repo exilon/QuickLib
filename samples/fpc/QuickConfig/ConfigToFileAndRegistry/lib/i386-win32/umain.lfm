@@ -1,28 +1,28 @@
 object Form1: TForm1
   Left = 379
-  Height = 433
+  Height = 457
   Top = 229
   Width = 592
   Caption = 'Form1'
-  ClientHeight = 433
+  ClientHeight = 457
   ClientWidth = 592
   OnClose = FormClose
   OnCreate = FormCreate
   LCLVersion = '1.9.0.0'
   object btnSaveJson: TButton
-    Left = 456
+    Left = 448
     Height = 25
     Top = 384
-    Width = 107
+    Width = 120
     Caption = 'Save to Json'
     OnClick = btnSaveJsonClick
     TabOrder = 0
   end
   object btnLoadJson: TButton
-    Left = 336
+    Left = 312
     Height = 25
     Top = 384
-    Width = 107
+    Width = 123
     Caption = 'Load From Json'
     OnClick = btnLoadJsonClick
     TabOrder = 1
@@ -35,5 +35,23 @@ object Form1: TForm1
     ReadOnly = True
     ScrollBars = ssAutoBoth
     TabOrder = 2
+  end
+  object btnSaveRegistry: TButton
+    Left = 448
+    Height = 25
+    Top = 416
+    Width = 120
+    Caption = 'Save to Registry'
+    OnClick = btnSaveRegistryClick
+    TabOrder = 3
+  end
+  object btnLoadRegistry: TButton
+    Left = 312
+    Height = 25
+    Top = 416
+    Width = 123
+    Caption = 'Load From Registry'
+    OnClick = btnLoadRegistryClick
+    TabOrder = 4
   end
 end
