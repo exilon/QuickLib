@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 08/11/2017
-  Modified    : 07/05/2018
+  Modified    : 14/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -28,13 +28,17 @@
  *************************************************************************** }
 unit Quick.Base64;
 
-interface
-
 {$i QuickLib.inc}
 
+interface
+
 uses
+  {$IFDEF DELPHIXE7_UP}
+  System.NetEncoding;
+  {$ELSE}
   IdCoderMIME,
   IdGlobal;
+  {$ENDIF}
 
 function Base64Encode(const Input: string): string;
 function Base64Decode(const Input: string): string;
@@ -43,12 +47,21 @@ implementation
 
 function Base64Encode(const Input: string): string;
 begin
+  {$IFDEF DELPHIXE7_UP}
+  Result := TNetEncoding.Base64.Encode(Input);
+  {$ELSE}
   Result := TIdEncoderMIME.EncodeString(Input,IndyTextEncoding_OSDefault);
+  {$ENDIF}
 end;
 
 function Base64Decode(const Input: string): string;
 begin
+  {$IFDEF DELPHIXE7_UP}
+  Result := TNetEncoding.Base64.Decode(Input);
+  {$ELSE}
   Result := TIdDecoderMIME.DecodeString(Input,IndyTextEncoding_OSDefault);
+  {$ENDIF}
 end;
 
 end.
+
