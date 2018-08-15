@@ -5,9 +5,9 @@
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 16/05/2018
+  Modified    : 13/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -49,6 +49,12 @@ interface
       {$ENDIF}
     {$ELSE}
     IOUtils,
+    {$ENDIF}
+    {$IFDEF ANDROID}
+    Androidapi.JNI.Os,
+    Androidapi.Helpers,
+    Androidapi.JNI.JavaTypes,
+    Androidapi.JNI.GraphicsContentViewText,
     {$ENDIF}
     DateUtils;
 
@@ -641,42 +647,50 @@ end;
 
 function GetLoggedUserName : string;
 {$IFDEF MSWINDOWS}
-const
-  cnMaxUserNameLen = 254;
-var
-  sUserName     : string;
-  dwUserNameLen : DWord;
-begin
-  dwUserNameLen := cnMaxUserNameLen-1;
-  SetLength( sUserName, cnMaxUserNameLen );
-  GetUserName(PChar( sUserName ),dwUserNameLen );
-  SetLength( sUserName, dwUserNameLen );
-  Result := sUserName;
-end;
-{$ENDIF}
-{$IF DEFINED(FPC) AND DEFINED(LINUX)}
-begin
-  Result := GetEnvironmentVariable('USERNAME');
-end;
-
+  const
+    cnMaxUserNameLen = 254;
+  var
+    sUserName     : string;
+    dwUserNameLen : DWord;
+  begin
+    dwUserNameLen := cnMaxUserNameLen-1;
+    SetLength( sUserName, cnMaxUserNameLen );
+    GetUserName(PChar( sUserName ),dwUserNameLen );
+    SetLength( sUserName, dwUserNameLen );
+    Result := sUserName;
+  end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  begin
+    Result := GetEnvironmentVariable('USERNAME');
+  end;
+  {$ELSE}
+  begin
+    raise ENotImplemented.Create('Not Android GetLoggedUserName implemented!');
+  end;
+  {$ENDIF}
 {$ENDIF}
 
 function GetComputerName : string;
 {$IFDEF MSWINDOWS}
-var
-  dwLength: dword;
-begin
-  dwLength := 253;
-  SetLength(Result, dwLength+1);
-  if not Windows.GetComputerName(pchar(result), dwLength) then Result := 'Not detected!';
-  Result := pchar(result);
-end;
-{$ENDIF}
-{$IF DEFINED(FPC) AND DEFINED(LINUX)}
-begin
-  Result := GetEnvironmentVariable('COMPUTERNAME');
-end;
-
+  var
+    dwLength: dword;
+  begin
+    dwLength := 253;
+    SetLength(Result, dwLength+1);
+    if not Windows.GetComputerName(pchar(result), dwLength) then Result := 'Not detected!';
+    Result := pchar(result);
+  end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  begin
+    Result := GetEnvironmentVariable('COMPUTERNAME');
+  end;
+  {$ELSE} //Android gets model name
+  begin
+    Result := JStringToString(TJBuild.JavaClass.MODEL);
+  end;
+  {$ENDIF}
 {$ENDIF}
 
 function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
@@ -790,14 +804,22 @@ begin
   end
   else Result := '';
 end;
-{$ENDIF}
-{$IF DEFINED(FPC) AND DEFINED(LINUX)}
-var
-  version : TProgramVersion;
-begin
-  if GetProgramVersion(version) then Result := Format('%d.%d', [version.Major, version.Minor])
-    else Result := '';
-end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  var
+    version : TProgramVersion;
+  begin
+    if GetProgramVersion(version) then Result := Format('%d.%d', [version.Major, version.Minor])
+      else Result := '';
+  end;
+  {$ELSE}
+  var
+    PkgInfo : JPackageInfo;
+  begin
+    PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+    Result := IntToStr(PkgInfo.VersionCode);
+  end;
+  {$ENDIF}
 {$ENDIF}
 
 function GetAppVersionFullStr: string;
@@ -844,14 +866,22 @@ begin
      LongRec(FixedPtr.dwFileVersionLS).Lo]); //build
   end;
 end;
-{$ENDIF}
-{$IF DEFINED(FPC) AND DEFINED(LINUX)}
-var
-  version : TProgramVersion;
-begin
-  if GetProgramVersion(version) then Result := Format('%d.%d.%d.%d', [version.Major, version.Minor, version.Revision, version.Build])
-    else Result := '';
-end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  var
+    version : TProgramVersion;
+  begin
+    if GetProgramVersion(version) then Result := Format('%d.%d.%d.%d', [version.Major, version.Minor, version.Revision, version.Build])
+      else Result := '';
+  end;
+  {$ELSE}
+  var
+    PkgInfo : JPackageInfo;
+  begin
+    PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+    Result := JStringToString(PkgInfo.versionName);
+  end;
+  {$ENDIF}
 {$ENDIF}
 
 function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
@@ -1037,8 +1067,8 @@ begin
 end;
 {$ENDIF}
 
-initialization
 {$IFDEF MSWINDOWS}
+initialization
   try
     GetEnvironmentPaths;
   except
