@@ -58,6 +58,7 @@ constructor TJsonRecord.CreateFromJson(const aJson: string);
 var
   serializer : TJsonSerializer;
 begin
+  //inherited Create;
   {$IFNDEF FPC}
   serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
   {$ELSE}
