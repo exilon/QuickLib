@@ -3,7 +3,7 @@
   Copyright (c) 2016-2017 Kike Pérez
 
   Unit        : Quick.Base64
-  Description : Log Api Redis Provider
+  Description : Base64 functions
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 08/11/2017
