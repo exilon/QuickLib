@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 21/05/2018
-  Modified    : 12/08/2018
+  Modified    : 28/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -379,6 +379,9 @@ end;
 
 constructor TJsonSerializer.Create(aSerializeLevel: TSerializeLevel);
 begin
+  {$IFDEF FPC}
+  if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EJsonSerializeError.Create('FreePascal RTTI only supports published properties');
+  {$ENDIF}
   fSerializeLevel := aSerializeLevel;
 end;
 
