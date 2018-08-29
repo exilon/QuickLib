@@ -12,7 +12,7 @@ uses
   Quick.FileMonitor, Quick.Files, Quick.Format, Quick.Log, Quick.Network, 
   Quick.Process, Quick.Service, Quick.SMTP, Quick.Threads, Quick.Config, 
   Quick.Config.Provider.Json, Quick.Config.Provider.Registry, 
-  Quick.Json.fpc.Compatibility;
+  Quick.Json.fpc.Compatibility, Quick.JSONRecord;
 
 implementation
 
