@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 21/05/2018
-  Modified    : 08/07/2018
+  Modified    : 28/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -379,6 +379,9 @@ end;
 
 constructor TJsonSerializer.Create(aSerializeLevel: TSerializeLevel);
 begin
+  {$IFDEF FPC}
+  if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EJsonSerializeError.Create('FreePascal RTTI only supports published properties');
+  {$ENDIF}
   fSerializeLevel := aSerializeLevel;
 end;
 
@@ -587,7 +590,9 @@ begin
       else
         begin
           {$IFNDEF FPC}
-          rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToJSON);
+          //avoid return unicode escaped chars if string
+          if aProperty.PropertyType.TypeKind in [tkString, tkLString, tkWString, tkUString] then rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.JsonString.ToString)
+            else rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToJSON);
           {$ELSE}
           rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aName,member.ToJSON);
           if not rValue.IsEmpty then SetPropertyValue(aObject,aName,rValue);
@@ -791,11 +796,13 @@ begin
     tkFloat : Result := GetFloatProp(Instance,PropertyName);
     tkChar : Result := Char(GetOrdProp(Instance,PropertyName));
     {$IFDEF FPC}
+    tkWString : Result := GetWideStrProp(Instance,PropertyName);
     tkSString,
     tkAString,
+    {$ELSE}
+    tkWString,
     {$ENDIF}
     tkLString : Result := GetStrProp(Instance,pinfo);
-    tkWString : Result := GetWideStrProp(Instance,PropertyName);
     {$IFDEF FPC}
     tkEnumeration : Result := GetEnumName(pinfo.PropType,GetOrdProp(Instance,PropertyName));
     {$ELSE}
@@ -828,11 +835,13 @@ begin
     tkFloat : SetFloatProp(Instance,aPropInfo,aValue.AsExtended);
     tkChar : SetOrdProp(Instance,aPropInfo,aValue.AsOrdinal);
     {$IFDEF FPC}
+    tkWString : SetWideStrProp(Instance,aPropInfo,aValue.AsString);
     tkSString,
     tkAString,
+    {$ELSE}
+    tkWString,
     {$ENDIF}
     tkLString : SetStrProp(Instance,aPropInfo,aValue.AsString);
-    tkWString : SetWideStrProp(Instance,aPropInfo,aValue.AsString);
     {$IFDEF FPC}
     tkBool : SetOrdProp(Instance,aPropInfo,aValue.AsOrdinal);
     tkSet : LoadSetProperty(Instance,aPropInfo,aValue.AsString);

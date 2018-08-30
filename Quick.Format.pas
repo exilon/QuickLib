@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 14/07/2017
-  Modified    : 07/04/2018
+  Modified    : 19/07/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -60,12 +60,18 @@ const
 var
   i : Integer;
   bfmt : string;
+  cspace : Char;
 begin
   i := 0;
   while aBytes > Power(1024, i + 1) do Inc(i);
-  if Spaced then bfmt := '%.2f %s'
-    else bfmt := '%.2f%s';
-  Result := Format(bfmt,[aBytes / IntPower(1024, i),mesure[i]]);
+  if Spaced then cspace := Char(32)
+    else cspace := Char(0);
+    // bfmt := '%.2f %s'
+    //else bfmt := '%.2f%s';
+  if i < 2 then bfmt := '%.0f%s%s'
+    else bfmt := '%.2f%s%s';
+
+  Result := Format(bfmt,[aBytes / IntPower(1024, i),cspace,mesure[i]]);
 end;
 
 

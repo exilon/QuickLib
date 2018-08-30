@@ -24,7 +24,7 @@ type
 
   { TJsonArray }
 
-  TJsonArrayEx = class(fpjson.TJSONArray)
+  TJsonArray = class(fpjson.TJSONArray)
   public
     procedure AddElement(aValue : TJsonData);
   end;
@@ -65,7 +65,7 @@ implementation
 
 { TJsonArray }
 
-procedure TJsonArrayEx.AddElement(aValue: TJsonData);
+procedure TJsonArray.AddElement(aValue: TJsonData);
 begin
   Add(aValue);
 end;

@@ -16,7 +16,7 @@
       </Parsing>
     </CompilerOptions>
     <Version Major="1"/>
-    <Files Count="16">
+    <Files Count="19">
       <Item1>
         <Filename Value="Quick.Console.pas"/>
         <UnitName Value="Quick.Console"/>
@@ -81,6 +81,18 @@
         <Filename Value="Quick.Config.Provider.Json.pas"/>
         <UnitName Value="Quick.Config.Provider.Json"/>
       </Item16>
+      <Item17>
+        <Filename Value="Quick.Config.Provider.Registry.pas"/>
+        <UnitName Value="Quick.Config.Provider.Registry"/>
+      </Item17>
+      <Item18>
+        <Filename Value="Quick.Json.fpc.Compatibility.pas"/>
+        <UnitName Value="Quick.Json.fpc.Compatibility"/>
+      </Item18>
+      <Item19>
+        <Filename Value="Quick.JSONRecord.pas"/>
+        <UnitName Value="Quick.JSONRecord"/>
+      </Item19>
     </Files>
     <RequiredPkgs Count="3">
       <Item1>

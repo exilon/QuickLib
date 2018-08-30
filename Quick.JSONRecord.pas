@@ -5,9 +5,9 @@
   Unit        : Quick.JSONRecord
   Description : Serializable class
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 05/05/2018
-  Modified    : 08/07/2018
+  Modified    : 28/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,7 +34,7 @@ interface
 
 uses
   Quick.Json.Serializer,
-  Rest.Json.Types;
+  Quick.AutoMapper;
 
 type
 
@@ -42,12 +42,19 @@ type
   ['{AF71F59C-89A5-4BFB-8227-0CC3068B7671}']
     procedure FromJson(const aJson : string);
     function ToJson : string;
+    procedure MapTo(aTgtObj : TObject);
+    procedure MapFrom(aSrcObj : TObject);
   end;
 
   TJsonRecord = class(TInterfacedObject,IJsonable)
+  public
     constructor CreateFromJson(const aJson : string);
     procedure FromJson(const aJson : string);
     function ToJson : string;
+    function Map<T : class, constructor> : T;
+    procedure MapTo(aTgtObj : TObject);
+    procedure MapFrom(aSrcObj : TObject);
+    function Clone : TObject; virtual;
   end;
 
 implementation
@@ -58,11 +65,8 @@ constructor TJsonRecord.CreateFromJson(const aJson: string);
 var
   serializer : TJsonSerializer;
 begin
-  {$IFNDEF FPC}
+  //inherited Create;
   serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
-  {$ELSE}
-  serializer := TJsonSerializer.Create;
-  {$ENDIF}
   try
     serializer.JsonToObject(Self,aJson);
   finally
@@ -74,11 +78,7 @@ procedure TJsonRecord.FromJson(const aJson: string);
 var
   serializer : TJsonSerializer;
 begin
-  {$IFNDEF FPC}
   serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
-  {$ELSE}
-  serializer := TJsonSerializer.Create;
-  {$ENDIF}
   try
     serializer.JsonToObject(Self,aJson);
   finally
@@ -86,20 +86,37 @@ begin
   end;
 end;
 
+function TJsonRecord.Map<T> : T;
+begin
+  Result := TMapper<T>.Map(Self);
+end;
+
+procedure TJsonRecord.MapFrom(aSrcObj: TObject);
+begin
+  TObjMapper.Map(aSrcObj,Self);
+end;
+
+procedure TJsonRecord.MapTo(aTgtObj: TObject);
+begin
+  TObjMapper.Map(Self,aTgtObj);
+end;
+
 function TJsonRecord.ToJson: string;
 var
   serializer : TJsonSerializer;
 begin
-  {$IFNDEF FPC}
   serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
-  {$ELSE}
-  serializer := TJsonSerializer.Create;
-  {$ENDIF}
   try
     Result := serializer.ObjectToJson(Self);
   finally
     serializer.Free;
   end;
+end;
+
+function TJsonRecord.Clone : TObject;
+begin
+  Result := Self.ClassType.Create;
+  TObjMapper.Map(Self,Result);
 end;
 
 end.

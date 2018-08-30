@@ -1,0 +1,39 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Form1'
+  ClientHeight = 552
+  ClientWidth = 1182
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  OnClose = FormClose
+  DesignerMasterStyle = 0
+  object Memo1: TMemo
+    Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+    DataDetectorTypes = []
+    Position.X = 8.000000000000000000
+    Position.Y = 8.000000000000000000
+    Size.Width = 1169.000000000000000000
+    Size.Height = 497.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    Viewport.Width = 1165.000000000000000000
+    Viewport.Height = 493.000000000000000000
+  end
+  object btnToJson: TButton
+    Position.X = 544.000000000000000000
+    Position.Y = 520.000000000000000000
+    TabOrder = 2
+    Text = 'ToJson'
+    OnClick = btnToJsonClick
+  end
+  object btnFromJson: TButton
+    Position.X = 656.000000000000000000
+    Position.Y = 520.000000000000000000
+    TabOrder = 1
+    Text = 'FromJson'
+    OnClick = btnFromJsonClick
+  end
+end
