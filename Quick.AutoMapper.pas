@@ -29,6 +29,8 @@
 
 unit Quick.AutoMapper;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
