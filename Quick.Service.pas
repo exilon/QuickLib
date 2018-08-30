@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 14/07/2017
-  Modified    : 07/04/2018
+  Modified    : 30/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -147,7 +147,7 @@ begin
         begin
           if QueryServiceStatus(svcHnd,svcStatus) then
           begin
-            while svcStatus.dwCurrentState <> SERVICE_RUNNING do
+            while svcStatus.dwCurrentState = SERVICE_START_PENDING do
             begin
               dwChkP := svcStatus.dwCheckPoint;
               Sleep(svcStatus.dwWaitHint);
