@@ -5,9 +5,9 @@
   Unit        : Quick.SysInfo
   Description : System Info functions
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 17/05/2018
-  Modified    : 17/05/2018
+  Modified    : 08/09/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,6 +37,12 @@ interface
 
 uses
   SysUtils,
+  {$IFNDEF FPC}
+    {$IFDEF ANDROID}
+    System.IOUtils,
+    Androidapi.Helpers,
+    {$ENDIF}
+  {$ENDIF}
   Quick.Commons;
 
 type
@@ -71,9 +77,17 @@ implementation
 
 procedure TSystemInfo.GetInfo;
 begin
+  {$IFNDEF NEXTGEN}
   fAppName := ExtractFilenameWithoutExt(ParamStr(0));
+  {$ELSE}
+  fAppName := JStringToString(SharedActivityContext.getPackageName);
+  {$ENDIF}
   fAppVersion := GetAppVersionFullStr;
+  {$IFNDEF NEXTGEN}
   fAppPath := ExtractFilePath(ParamStr(0));
+  {$ELSE}
+  fAppPath := TPath.GetDocumentsPath;
+  {$ENDIf}
   fUserName := Trim(GetLoggedUserName);
   fHostName := GetComputerName;
   fOSVersion := GetOSVersion;
