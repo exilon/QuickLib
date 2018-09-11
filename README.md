@@ -284,9 +284,9 @@ FormatBytes(90000000) //shows 90MB
 json := '{"name":"Peter","age":30}';
 serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
 try
-	serializer.JsonToObject(user,json);
+   serializer.JsonToObject(user,json);
 finally
-	serializer.Free;
+   serializer.Free;
 end;
 ```
 
@@ -307,20 +307,20 @@ User2 := AutoMapper.Map(User);
 
 ```delphi
 type
-	TUser = class(TJsonRecord)
-	private
-		fName : string;
-		fAge : Integer;
-	published
-		property Name : string read fName write fName;
-		property Age : Integer read fAge write fAge;
-	end;
+   TUser = class(TJsonRecord)
+   private
+      fName : string;
+      fAge : Integer;
+   published
+      property Name : string read fName write fName;
+      property Age : Integer read fAge write fAge;
+   end;
 var
-	user, user2 : TUser;
+   user, user2 : TUser;
 begin
-	user := TUser.Create;
-	Writeln(user.ToJson);
-	user.Mapto(User2);
-	Writeln(user2.ToJson);
+   user := TUser.Create;
+   Writeln(user.ToJson);
+   user.Mapto(User2);
+   Writeln(user2.ToJson);
 end;
 ```
