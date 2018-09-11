@@ -35,7 +35,9 @@ interface
 
 uses
   Classes,
+  {$IFDEF MSWINDOWS}
   Windows,
+  {$ENDIF}
   SysUtils,
   {$IFDEF FPC}
   Quick.Files;
