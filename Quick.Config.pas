@@ -37,7 +37,7 @@ uses
   Classes,
   SysUtils,
   Rtti,
-  {$IFDEF DELPHIRX102_UP}
+  {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
     DBXJSON,
     JSON.Types,
     JSON.Serializers;
@@ -202,7 +202,7 @@ var
 begin
   Result := '';
   try
-    {$IFDEF DELPHIRX102_UP}
+    {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
       Serializer := TJsonSerializer.Create;
       try
         Serializer.Formatting := TJsonFormatting.Indented;
@@ -237,7 +237,7 @@ var
   Serializer : TJsonSerializer;
 begin
   try
-    {$IFDEF DELPHIRX102_UP}
+    {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
       Serializer := TJsonSerializer.Create;
       try
         Serializer.Formatting := TJsonFormatting.Indented;
@@ -257,7 +257,11 @@ begin
       try
         //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
         //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+        {$IF NOT DEFINED(FPC) AND DEFINED(ANDROID)}
+        serializer.JsonToObject(Self,json);
+        {$ELSE}
         Self := TAppConfig(serializer.JsonToObject(Self,json));
+        {$ENDIF}
       finally
         serializer.Free;
       end;
