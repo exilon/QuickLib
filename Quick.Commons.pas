@@ -666,7 +666,8 @@ function GetLoggedUserName : string;
   end;
   {$ELSE}
   begin
-    raise ENotImplemented.Create('Not Android GetLoggedUserName implemented!');
+    Result := 'N/A';
+    //raise ENotImplemented.Create('Not Android GetLoggedUserName implemented!');
   end;
   {$ENDIF}
 {$ENDIF}
