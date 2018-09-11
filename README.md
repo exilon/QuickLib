@@ -4,8 +4,11 @@
 **QuickLib**
 --------
 
-Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development. 
-
+Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support.
+* NEW: Improved firemonkey android compatibility.
+* NEW: JsonRecord
+* NEW: AutoMapper
+* NEW: JsonSerializer
 * NEW: Improved Linux compatibility.
 * NEW: Delphinus support
 
@@ -274,5 +277,50 @@ ServiceUninstall('MySvc');
 FormatBytes(50000) //shows 50KB
 FormatBytes(90000000) //shows 90MB
 ```
-	
 
+**Quick.JsonSerializer:** Serializes an object from/to json text. You can define if public or published will be processed (only Delphi, fpc rtti only supports published properties)	
+
+```delphi
+json := '{"name":"Peter","age":30}';
+serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
+try
+   serializer.JsonToObject(user,json);
+finally
+   serializer.Free;
+end;
+```
+
+**Quick.AutoMapper:** Map fields from one class to another class. Allows custom mappings to match different fields.	
+
+```delphi
+//Map values from User1 to User2
+TMapper<TUser2>.Map(User);
+
+//Map custom mappings
+AutoMapper := TAutoMapper<TUser,TUser2>.Create;
+AutoMapper.CustomMapping.AddMap('Cash','Money');
+AutoMapper.CustomMapping.AddMap('Id','IdUser');
+User2 := AutoMapper.Map(User);
+```
+
+**Quick.JsonRecord:** Used as a DTO class, with json serialize and mapping functions included.	
+
+```delphi
+type
+   TUser = class(TJsonRecord)
+   private
+      fName : string;
+      fAge : Integer;
+   published
+      property Name : string read fName write fName;
+      property Age : Integer read fAge write fAge;
+   end;
+var
+   user, user2 : TUser;
+begin
+   user := TUser.Create;
+   Writeln(user.ToJson);
+   user.Mapto(User2);
+   Writeln(user2.ToJson);
+end;
+```

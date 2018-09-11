@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 07/04/2018
+  Modified    : 31/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -31,15 +31,25 @@ unit Quick.Chrono;
 
 interface
 
+{$HPPEMIT LEGACYHPP}
+
 {$i QuickLib.inc}
 
 uses
+  Classes,
   {$IF defined(MSWINDOWS)}
   Windows,
   {$ELSEIF defined(MACOS)}
   Macapi.Mach,
   {$ELSEIF defined(POSIX)}
   Posix.Time,
+  {$ENDIF}
+  {$IFDEF FPC}
+    {$IFDEF LINUX}
+    unixtype, linux,
+    {$ENDIF}
+  {$ELSE}
+  System.TimeSpan,
   {$ENDIF}
   SysUtils,
   DateUtils;
@@ -60,7 +70,7 @@ resourcestring
 
 type
 
-  {$IFDEF ANDROID}
+  {$IF Defined(ANDROID) OR Defined(LINUX)}
   TLargeInteger = Int64;
   {$ENDIF}
 
@@ -83,7 +93,6 @@ type
   TChronometer = class
   private
     fFrequency: TLargeInteger;
-    fUnitsPerMiS : Int64;
     fIsRunning: Boolean;
     fIsHighResolution: Boolean;
     fStartCount, fStopCount: TLargeInteger;
@@ -153,14 +162,28 @@ constructor TChronometer.Create(const StartOnCreate: Boolean = false);
 begin
   inherited Create;
   fIsRunning := False;
-  fIsHighResolution := QueryPerformanceFrequency(fFrequency);
   fReportFormatPrecission := pfFloat;
   fStartCount := 0;
   fStopCount := 0;
   fStartBreakPoint := 0;
   fStopBreakPoint := 0;
-  if not fIsHighResolution then fFrequency := MSecsPerSec;
-  fUnitsPerMiS := fFrequency div 1000000;
+  {$IF Defined(MSWINDOWS)}
+    if not QueryPerformanceFrequency(fFrequency) then
+    begin
+      fIsHighResolution := False;
+      //fFrequency := TTimeSpan.TicksPerSecond;
+      fFrequency := MSecsPerSec;
+      //TickFrequency := 1.0;
+    end else
+    begin
+      fIsHighResolution := True;
+      //TickFrequency := 10000000.0 / fFrequency;
+    end;
+  {$ELSEIF Defined(POSIX) OR Defined(LINUX)}
+    fIsHighResolution := True;
+    fFrequency := 10000000;
+    //TickFrequency := 10000000.0 / fFrequency;
+  {$ENDIF}
   if StartOnCreate then Start;
 end;
 
@@ -170,9 +193,23 @@ begin
 end;
 
 procedure TChronometer.SetTickStamp(var lInt: TLargeInteger);
+{$IF Defined(POSIX) OR Defined(LINUX) AND NOT Defined(MACOS)}
+var
+  res: timespec;
+{$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   if fIsHighResolution then QueryPerformanceCounter(lInt)
     else lInt := MilliSecondOf(Now);
+  {$ELSE}
+    {$IFDEF MACOS}
+    lInt := Int64(AbsoluteToNanoseconds(mach_absolute_time) div 100);
+    {$ENDIF}
+    {$IF defined(POSIX) OR Defined(LINUX)}
+    clock_gettime(CLOCK_MONOTONIC, @res);
+    lInt := (Int64(1000000000) * res.tv_sec + res.tv_nsec) div 100;
+    {$ENDIF}
+  {$ENDIF}
 end;
 
 function TChronometer.ElapsedTime(LongFormat : Boolean = False) : string;

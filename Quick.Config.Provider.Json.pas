@@ -41,7 +41,7 @@ uses
   Quick.Files,
   {$ENDIF}
   Rtti,
-  {$IFDEF DELPHIRX102_UP}
+  {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
     System.JSON.Types,
     System.JSON.Serializers,
   {$ELSE}
@@ -97,7 +97,7 @@ begin
     json := TStringList.Create;
     try
       json.LoadFromFile(fFilename);
-      {$IFDEF DELPHIRX102_UP}
+      {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
         Serializer := TJsonSerializer.Create;
         try
           if TAppConfig(cConfig).DateTimeZone = TDateTimeZone.tzLocal then
@@ -144,7 +144,7 @@ begin
   try
     json := TStringList.Create;
     try
-      {$IFDEF DELPHIRX102_UP}
+      {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
         Serializer := TJsonSerializer.Create;
         try
           if TAppConfig(cConfig).JsonIndent then Serializer.Formatting := TJsonFormatting.Indented;
