@@ -185,7 +185,7 @@ begin
   User2.FromJson(Memo1.Text);
   //User2.CreateFromJson(Memo1.Text);
   Memo1.Lines.Add('User2 as json:');
-  Memo1.Lines.Add(User2.ToJson);
+  Memo1.Lines.Add(User2.ToJson(True));
   Memo1.Lines.Add(Format('Groups.OwnedObjects=%s',[BoolToStr(User2.Groups.OwnsObjects,True)]));
   Memo1.Lines.Add(Format('Groups.Count=%d',[User2.Groups.Count]));
   Memo1.Lines.Add(Format('Groups.Capacity=%d',[User2.Groups.Capacity]));
@@ -194,7 +194,7 @@ end;
 
 procedure TForm1.btnToJsonClick(Sender: TObject);
 begin
-  Memo1.Text := User.ToJson;
+  Memo1.Text := User.ToJson(True);
 end;
 
 procedure TForm1.FormClose(Sender: TObject; var Action: TCloseAction);

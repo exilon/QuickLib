@@ -23,6 +23,7 @@
       </Item1>
       <Item2>
         <Filename Value="Quick.AppService.pas"/>
+        <AddToUsesPkgSection Value="False"/>
         <UnitName Value="Quick.AppService"/>
       </Item2>
       <Item3>
@@ -31,6 +32,7 @@
       </Item3>
       <Item4>
         <Filename Value="Quick.Chrono.pas"/>
+        <AddToUsesPkgSection Value="False"/>
         <UnitName Value="Quick.Chrono"/>
       </Item4>
       <Item5>

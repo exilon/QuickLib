@@ -8,11 +8,11 @@ unit QuickLib;
 interface
 
 uses
-  Quick.Console, Quick.AppService, Quick.Base64, Quick.Chrono, Quick.Commons, 
-  Quick.FileMonitor, Quick.Files, Quick.Format, Quick.Log, Quick.Network, 
-  Quick.Process, Quick.Service, Quick.SMTP, Quick.Threads, Quick.Config, 
-  Quick.Config.Provider.Json, Quick.Config.Provider.Registry, 
-  Quick.Json.fpc.Compatibility, Quick.JSONRecord;
+  Quick.Console, Quick.Base64, Quick.Commons, Quick.FileMonitor, Quick.Files, 
+  Quick.Format, Quick.Log, Quick.Network, Quick.Process, Quick.Service, 
+  Quick.SMTP, Quick.Threads, Quick.Config, Quick.Config.Provider.Json, 
+  Quick.Config.Provider.Registry, Quick.Json.fpc.Compatibility, 
+  Quick.JSONRecord;
 
 implementation
 

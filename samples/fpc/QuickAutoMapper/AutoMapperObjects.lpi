@@ -43,10 +43,6 @@
       <OtherUnitFiles Value="..\..\.."/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
-    <CodeGeneration>
-      <TargetCPU Value="x86_64"/>
-      <TargetOS Value="linux"/>
-    </CodeGeneration>
   </CompilerOptions>
   <Debugging>
     <Exceptions Count="3">

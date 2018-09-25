@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 13/08/2018
+  Modified    : 19/09/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -101,7 +101,7 @@ type
 
   {$IFNDEF FPC}
   TFileHelper = record helper for TFile
-    {$IFDEF MSWINDOWS}
+    {$IF DEFINED(MSWINDOWS) OR DEFINED(DELPHILINUX)}
     class function IsInUse(const FileName : string) : Boolean; static;
     {$ENDIF}
     class function GetSize(const FileName: String): Int64; static;
@@ -198,6 +198,8 @@ type
   function FillStr(const C : Char; const Count : Byte) : string;
   //checks if string exists in array of string
   function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+  //checks if integer exists in array of integer
+  function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
   //returns a number leading zero
   function Zeroes(const Number, Len : Int64) : string;
   //converts a number to thousand delimeter string
@@ -247,6 +249,8 @@ type
   function CountDigits(anInt: Cardinal): Cardinal; inline;
   //save stream to file
   procedure SaveStreamToFile(stream : TStream; const filename : string);
+  //returns a real comma separated text from stringlist
+  function CommaText(aList : TStringList) : string;
   {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
@@ -256,6 +260,7 @@ type
   {$IF DEFINED(FPC) AND DEFINED(MSWINDOWS)}
   function GetLastInputInfo(var plii: TLastInputInfo): BOOL;stdcall; external 'user32' name 'GetLastInputInfo';
   {$ENDIF}
+  function RemoveLastChar(const aText : string) : string;
 
 {$IFDEF MSWINDOWS}
 var
@@ -291,6 +296,21 @@ begin
   except
     Result := True;
   end;
+end;
+{$ENDIF}
+{$IFDEF DELPHILINUX}
+class function TFileHelper.IsInUse(const FileName : string) : Boolean;
+var
+  fs : TFileStream;
+begin
+  try
+    fs := TFileStream.Create(FileName, fmOpenReadWrite, fmShareExclusive);
+    Result := True;
+    fs.Free;
+  except
+    Result := False;
+  end;
+
 end;
 {$ENDIF}
 
@@ -546,6 +566,17 @@ begin
   Result := False;
 end;
 
+function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
+var
+  i : Integer;
+begin
+  for i in aInArray do
+  begin
+    if i = aValue then Exit(True);
+  end;
+  Result := False;
+end;
+
 function Zeroes(const Number, Len : Int64) : string;
 begin
   if Len > Length(IntToStr(Number)) then Result := FillStr('0',Len - Length(IntToStr(Number))) + IntToStr(Number)
@@ -683,7 +714,7 @@ function GetComputerName : string;
     Result := pchar(result);
   end;
 {$ELSE}
-  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  {$IF DEFINED(FPC) OR DEFINED(LINUX)}
   begin
     Result := GetEnvironmentVariable('COMPUTERNAME');
   end;
@@ -814,12 +845,18 @@ end;
       else Result := '';
   end;
   {$ELSE}
-  var
-    PkgInfo : JPackageInfo;
-  begin
-    PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
-    Result := IntToStr(PkgInfo.VersionCode);
-  end;
+    {$IFDEF NEXTGEN}
+    var
+      PkgInfo : JPackageInfo;
+    begin
+      PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+      Result := IntToStr(PkgInfo.VersionCode);
+    end;
+    {$ELSE}
+    begin
+      Result := 'N/A';
+    end;
+    {$ENDIF}
   {$ENDIF}
 {$ENDIF}
 
@@ -876,12 +913,18 @@ end;
       else Result := '';
   end;
   {$ELSE}
-  var
-    PkgInfo : JPackageInfo;
-  begin
-    PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
-    Result := JStringToString(PkgInfo.versionName);
-  end;
+    {$IFDEF NEXTGEN}
+    var
+      PkgInfo : JPackageInfo;
+    begin
+      PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+      Result := JStringToString(PkgInfo.versionName);
+    end;
+    {$ELSE}
+    begin
+      Result := 'N/A';
+    end;
+    {$ENDIF}
   {$ENDIF}
 {$ENDIF}
 
@@ -991,6 +1034,25 @@ begin
   end;
 end;
 
+function CommaText(aList : TStringList) : string;
+var
+  value : string;
+  sb : TStringBuilder;
+begin
+  if aList.Text = '' then Exit;
+  sb := TStringBuilder.Create;
+  try
+    for value in aList do
+    begin
+      sb.Append(value);
+      sb.Append(',');
+    end;
+    if sb.Length > 1 then Result := sb.ToString(0, sb.Length - 1);
+  finally
+    sb.Free;
+  end;
+end;
+
 { TCounter }
 
 procedure TCounter.Init(aMaxValue : Integer);
@@ -1067,6 +1129,11 @@ begin
   Result := SysErrorMessage(Windows.GetLastError);
 end;
 {$ENDIF}
+
+function RemoveLastChar(const aText : string) : string;
+begin
+  Result := aText.Remove(aText.Length - 1);
+end;
 
 {$IFDEF MSWINDOWS}
 initialization
