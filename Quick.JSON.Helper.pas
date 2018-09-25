@@ -2,7 +2,7 @@
 
   Copyright (c) 2015-2018 Kike Pérez
 
-  Unit        : Quick.JSONUtils
+  Unit        : Quick.JSON.Helper
   Description : Utils for working with JSON
   Author      : Kike Pérez
   Version     : 1.1
@@ -27,7 +27,7 @@
 
  *************************************************************************** }
 
-unit Quick.JSONUtils;
+unit Quick.JSON.Helper;
 
 {$i QuickLib.inc}
 
@@ -40,12 +40,13 @@ uses
     JSON.Types,
     REST.Json,
     System.JSON,
-    JSON.Serializers;
+    JSON.Serializers,
   {$ELSE}
     System.JSON,
     REST.JSON,
-    Rest.Json.Types;
+    Rest.Json.Types,
   {$ENDIF}
+  Quick.Json.Utils;
 
 type
   TObjectHelper = class helper for TObject
@@ -56,9 +57,6 @@ type
   end;
 
   //only public properties will be cloned or gotten
-
-  function IncludeJsonBraces(const json : string) : string;
-  function RemoveJsonBraces(const json : string) : string;
 
 var
   GlobalJsonIdenter : Boolean = True;
@@ -109,18 +107,6 @@ end;
 procedure TObjectHelper.Clone(cObj : TObject);
 begin
   cObj.FromJson(Self.ToJson);
-end;
-
-function IncludeJsonBraces(const json : string) : string;
-begin
-  if (not json.StartsWith('{')) and (not json.EndsWith('}')) then Result := '{' + json + '}'
-    else Result := json;
-end;
-
-function RemoveJsonBraces(const json : string) : string;
-begin
-  if (json.StartsWith('{')) and (json.EndsWith('}')) then Result := Copy(json,2,Json.Length - 2)
-    else Result := json;
 end;
 
 
