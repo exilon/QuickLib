@@ -41,7 +41,7 @@ type
   IJsonable = interface
   ['{AF71F59C-89A5-4BFB-8227-0CC3068B7671}']
     procedure FromJson(const aJson : string);
-    function ToJson : string;
+    function ToJson(aIdent : Boolean = False) : string;
     procedure MapTo(aTgtObj : TObject);
     procedure MapFrom(aSrcObj : TObject);
   end;
@@ -50,7 +50,7 @@ type
   public
     constructor CreateFromJson(const aJson : string);
     procedure FromJson(const aJson : string);
-    function ToJson : string;
+    function ToJson(aIdent : Boolean = False) : string;
     function Map<T : class, constructor> : T;
     procedure MapTo(aTgtObj : TObject);
     procedure MapFrom(aSrcObj : TObject);
@@ -101,13 +101,13 @@ begin
   TObjMapper.Map(Self,aTgtObj);
 end;
 
-function TJsonRecord.ToJson: string;
+function TJsonRecord.ToJson(aIdent : Boolean = False) : string;
 var
   serializer : TJsonSerializer;
 begin
   serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
   try
-    Result := serializer.ObjectToJson(Self);
+    Result := serializer.ObjectToJson(Self,aIdent);
   finally
     serializer.Free;
   end;
