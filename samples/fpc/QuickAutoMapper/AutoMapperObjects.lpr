@@ -2,6 +2,7 @@ program AutoMapperObjects;
 
 uses
   SysUtils,
+  Generics.Collections,
   Quick.Commons,
   Quick.Console,
   Quick.JSONRecord,
@@ -22,6 +23,8 @@ type
 
   TCarType = (ctOil, ctDiesel);
 
+  TAgentStatus = (stActive, stIdle, stFail);
+
   TCar = class
   private
     fModel : string;
@@ -31,20 +34,37 @@ type
     property CarType : TCarType read fCarType write fCarType;
   end;
 
-  TArrayOfInteger = array of Integer;
+  TCarList = specialize TObjectList<TCar>;
+
+  TAgent = class
+  private
+    fName : string;
+    fStatus : TAgentStatus;
+  published
+    property Name : string read fName write fName;
+    property Status : TAgentStatus read fStatus write fStatus;
+  end;
+
+  TAgentList = specialize TList<TAgent>;
+
+  TArrayNumbers = array of Integer;
 
   TUserBase = class(TJsonRecord)
   private
     fName : string;
     fAge : Integer;
     fCreationDate : TDateTime;
-    fNumbers : TArrayOfInteger;
+    fNumbers : TArrayNumbers;
+    fAgent : TAgent;
   published
     property Name : string read fName write fName;
     property Age : Integer read fAge write fAge;
     property CreationDate : TDateTime read fCreationDate write fCreationDate;
-    property Numbers : TArrayOfInteger read fNumbers write fNumbers;
+    property Numbers : TArrayNumbers read fNumbers write fNumbers;
+    property Agent : TAgent read fAgent write fAgent;
   end;
+
+  TPointsList = specialize TList<Integer>;
 
   TUser = class(TUserBase)
   private
@@ -52,6 +72,9 @@ type
     fCash : Integer;
     fJob : TJob;
     fCar : TCar;
+    fCarList : TCarList;
+    fPoints : TPointsList;
+    fAgentList : TAgentList;
   public
     constructor Create;
     destructor Destroy; override;
@@ -60,6 +83,9 @@ type
     property Cash : Integer read fCash write fCash;
     property Job : TJob read fJob write fJob;
     property Car : TCar read fCar write fCar;
+    property CarList : TCarList read fCarList write fCarList;
+    property Points : TPointsList read fPoints write fPoints;
+    property AgentList : TAgentList read fAgentList write fAgentList;
   end;
 
   TUser2 = class(TUserBase)
@@ -68,6 +94,9 @@ type
     fJob : TJob;
     fMoney : Integer;
     fCar : TCar;
+    fCarList : TCarList;
+    fPoints : TPointsList;
+    fAgentList : TAgentList;
   public
     constructor Create;
     destructor Destroy; override;
@@ -76,12 +105,18 @@ type
     property Money : Integer read fMoney write fMoney;
     property Job : TJob read fJob write fJob;
     property Car : TCar read fCar write fCar;
+    property CarList : TCarList read fCarList write fCarList;
+    property Points : TPointsList read fPoints write fPoints;
+    property AgentList : TAgentList read fAgentList write fAgentList;
   end;
 
 var
   User : TUser;
   User2 : TUser2;
   AutoMapper : specialize TAutoMapper<TUser,TUser2>;
+  job : TJob;
+  car : TCar;
+  agent : TAgent;
 
 { TUser }
 
@@ -89,12 +124,20 @@ constructor TUser.Create;
 begin
   fCar := TCar.Create;
   fJob := TJob.Create;
+  fCarList := TCarList.Create(True);
+  fPoints := TPointsList.Create;
+  fAgent := TAgent.Create;
+  fAgentList := TAgentList.Create;
 end;
 
 destructor TUser.Destroy;
 begin
   fCar.Free;
   fJob.Free;
+  fCarList.Free;
+  fPoints.Free;
+  fAgent.Free;
+  fAgentList.Free;
   inherited;
 end;
 
@@ -104,12 +147,20 @@ constructor TUser2.Create;
 begin
   fCar := TCar.Create;
   fJob := TJob.Create;
+  fCarList := TCarList.Create(True);
+  fPoints := TPointsList.Create;
+  fAgent := TAgent.Create;
+  fAgentList := TAgentList.Create;
 end;
 
 destructor TUser2.Destroy;
 begin
   fCar.Free;
   fJob.Free;
+  fCarList.Free;
+  fPoints.Free;
+  fAgent.Free;
+  fAgentList.Free;
   inherited;
 end;
 
@@ -128,6 +179,27 @@ begin
     User.Job.DateTo := Now();
     User.Car.Model := 'Ferrari';
     User.Car.CarType := ctOil;
+    car := TCar.Create;
+    car.Model := 'Ford';
+    car.CarType := ctDiesel;
+    User.CarList.Add(car);
+    car := TCar.Create;
+    car.Model := 'Nissan';
+    car.CarType := ctDiesel;
+    User.CarList.Add(car);
+    User.Points.Add(77);
+    User.Points.Add(100);
+    User.Points.Add(30);
+    agent := TAgent.Create;
+    agent.Name := 'FirstAgent';
+    agent.Status := TAgentStatus.stIdle;
+    User.Agent.Name := 'John';
+    User.Agent.Status := TAgentStatus.stIdle;
+    User.AgentList.Add(agent);
+    agent := TAgent.Create;
+    agent.Name := 'SecondAgent';
+    agent.Status := TAgentStatus.stFail;
+    User.AgentList.Add(agent);
     //User2 := TMapper<TUser2>.Map(User);
     AutoMapper := specialize TAutoMapper<TUser,TUser2>.Create;
     try

@@ -6,7 +6,7 @@ uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   Quick.AutoMapper, Quick.JSONRecord, FMX.Controls.Presentation,
-  FMX.ScrollBox, FMX.Memo;
+  FMX.ScrollBox, FMX.Memo, System.Generics.Collections;
 
 type
   TForm1 = class(TForm)
@@ -18,13 +18,15 @@ type
     { Public declarations }
   end;
 
-TJob = record
+  TJob = record
     Name : string;
     DateFrom : TDateTime;
     DateTo : TDateTime;
   end;
 
   TCarType = (ctOil, ctDiesel);
+
+  TAgentStatus = (stActive, stIdle, stFail);
 
   TCar = class
   private
@@ -35,18 +37,31 @@ TJob = record
     property CarType : TCarType read fCarType write fCarType;
   end;
 
+  TCarList = TObjectList<TCar>;
+
+  TAgent = record
+    Name : string;
+    Status : TAgentStatus;
+  end;
+
+  TAgentList = TList<TAgent>;
+
   TUserBase = class(TJsonRecord)
   private
     fName : string;
     fAge : Integer;
     fCreationDate : TDateTime;
     fNumbers : TArray<Integer>;
+    fAgent : TAgent;
   published
     property Name : string read fName write fName;
     property Age : Integer read fAge write fAge;
     property CreationDate : TDateTime read fCreationDate write fCreationDate;
     property Numbers : TArray<Integer> read fNumbers write fNumbers;
+    property Agent : TAgent read fAgent write fAgent;
   end;
+
+  TPointsList = TList<Integer>;
 
   TUser = class(TUserBase)
   private
@@ -54,6 +69,9 @@ TJob = record
     fCash : Integer;
     fJob : TJob;
     fCar : TCar;
+    fCarList : TCarList;
+    fPoints : TPointsList;
+    fAgentList : TAgentList;
   public
     constructor Create;
     destructor Destroy; override;
@@ -62,6 +80,9 @@ TJob = record
     property Cash : Integer read fCash write fCash;
     property Job : TJob read fJob write fJob;
     property Car : TCar read fCar write fCar;
+    property CarList : TCarList read fCarList write fCarList;
+    property Points : TPointsList read fPoints write fPoints;
+    property AgentList : TAgentList read fAgentList write fAgentList;
   end;
 
   TUser2 = class(TUserBase)
@@ -70,6 +91,9 @@ TJob = record
     fJob : TJob;
     fMoney : Integer;
     fCar : TCar;
+    fCarList : TCarList;
+    fPoints : TPointsList;
+    fAgentList : TAgentList;
   public
     constructor Create;
     destructor Destroy; override;
@@ -78,6 +102,9 @@ TJob = record
     property Money : Integer read fMoney write fMoney;
     property Job : TJob read fJob write fJob;
     property Car : TCar read fCar write fCar;
+    property CarList : TCarList read fCarList write fCarList;
+    property Points : TPointsList read fPoints write fPoints;
+    property AgentList : TAgentList read fAgentList write fAgentList;
   end;
 
 var
@@ -86,6 +113,8 @@ var
   UserClone : TUser;
   job : TJob;
   AutoMapper : TAutoMapper<TUser,TUser2>;
+  car : TCar;
+  agent : TAgent;
 
 var
   Form1: TForm1;
@@ -99,11 +128,17 @@ implementation
 constructor TUser.Create;
 begin
   fCar := TCar.Create;
+  fCarList := TCarList.Create(True);
+  fPoints := TPointsList.Create;
+  fAgentList := TAgentList.Create;
 end;
 
 destructor TUser.Destroy;
 begin
   fCar.Free;
+  fCarList.Free;
+  fPoints.Free;
+  fAgentList.Free;
   inherited;
 end;
 
@@ -112,11 +147,17 @@ end;
 constructor TUser2.Create;
 begin
   fCar := TCar.Create;
+  fCarList := TCarList.Create(True);
+  fPoints := TPointsList.Create;
+  fAgentList := TAgentList.Create;
 end;
 
 destructor TUser2.Destroy;
 begin
   fCar.Free;
+  fCarList.Free;
+  fPoints.Free;
+  fAgentList.Free;
   inherited;
 end;
 
@@ -125,7 +166,7 @@ begin
 User := TUser.Create;
     User.Id := 17;
     User.CreationDate := Now();
-    User.Name := 'Jhon Miller';
+    User.Name := 'John Miller';
     User.Age := 30;
     User.Numbers := [1,2,3,4,5];
     User.Cash := 3500;
@@ -135,6 +176,24 @@ User := TUser.Create;
     User.Job := job;
     User.Car.Model := 'Ferrari';
     User.Car.CarType := ctOil;
+    car := TCar.Create;
+    car.Model := 'Ford';
+    car.CarType := ctDiesel;
+    User.CarList.Add(car);
+    car := TCar.Create;
+    car.Model := 'Nissan';
+    car.CarType := ctDiesel;
+    User.CarList.Add(car);
+    User.Points.Add(77);
+    User.Points.Add(100);
+    User.Points.Add(30);
+    agent.Name := 'FirstAgent';
+    agent.Status := TAgentStatus.stIdle;
+    User.Agent := agent;
+    User.AgentList.Add(agent);
+    agent.Name := 'SecondAgent';
+    agent.Status := TAgentStatus.stFail;
+    User.AgentList.Add(agent);
     //User2 := TMapper<TUser2>.Map(User);
     AutoMapper := TAutoMapper<TUser,TUser2>.Create;
     try
@@ -162,10 +221,10 @@ User := TUser.Create;
 
       Memo1.Lines.Add(' ');
       Memo1.Lines.Add('USER AS JSON RESULT');
-      Memo1.Lines.Add(Format('%s',[User.ToJson]));
+      Memo1.Lines.Add(Format('%s',[User.ToJson(True)]));
       Memo1.Lines.Add(' ');
       Memo1.Lines.Add('USER2 AS JSON RESULT');
-      Memo1.Lines.Add(Format('%s',[User2.ToJson]));
+      Memo1.Lines.Add(Format('%s',[User2.ToJson(True)]));
 
     finally
       AutoMapper.Free;
