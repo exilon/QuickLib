@@ -52,7 +52,8 @@ uses
     {$ENDIF}
   {$ENDIF}
   DateUtils,
-  Quick.Commons;
+  Quick.Commons,
+  Quick.JSON.Utils;
 
 type
 
@@ -83,7 +84,7 @@ type
   ['{CA26F7AE-F1FE-41BE-9C23-723A687F60D1}']
     function JsonToObject(aType: TClass; const aJson: string): TObject; overload;
     function JsonToObject(aObject: TObject; const aJson: string): TObject; overload;
-    function ObjectToJson(aObject: TObject): string;
+    function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
   end;
 
   TSerializeLevel = (slPublicProperty, slPublishedProperty);
@@ -143,7 +144,7 @@ type
     property SerializeLevel : TSerializeLevel read fSerializeLevel;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
-    function ObjectToJson(aObject : TObject): string;
+    function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
   end;
 
   PPByte = ^PByte;
@@ -738,8 +739,7 @@ var
 begin
   Result := True;
   propname := aPropertyName.ToLower;
-  cname := aObject.ClassName;
-  if (cname.StartsWith('TObjectList')) or (cname.StartsWith('TList')) then
+  if IsGenericList(aObject) then
   begin
     if (propname = 'capacity') or (propname = 'count') or (propname = 'ownsobjects') then Result := False;
   end
@@ -1307,13 +1307,14 @@ begin
   end;
 end;
 
-function TJsonSerializer.ObjectToJson(aObject: TObject): string;
+function TJsonSerializer.ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
 var
   json: TJSONObject;
 begin
   json := fRTTIJson.Serialize(aObject);
   try
     Result := json.ToJSON;
+    if aIndent then Result := TJsonUtils.JsonFormat(Result);
   finally
     json.Free;
   end;
