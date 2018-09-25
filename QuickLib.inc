@@ -1,4 +1,4 @@
-{
+﻿{
     This file is part of QuickLib: https://github.com/exilon/QuickLib
 
     QuickLibs. Copyright (C) 2018 Kike Pérez
@@ -26,6 +26,10 @@
 
   {$INLINE ON}
   {$define HASINLINE}
+
+  {$ifdef LINUX}
+    {$define FPCLINUX}
+  {$endif}
 
   {$ifdef ANDROID}
     {$define LINUX}
@@ -111,11 +115,14 @@
     {$ifend}
     {$if CompilerVersion >= 31.0} //Delphi RX10.1 Berlin
       {$define DELPHIRX101_UP}
-	  {$define DELPHIBERLIN_UP}
+	    {$define DELPHIBERLIN_UP}
     {$ifend}
     {$if CompilerVersion >= 32.0} //Delphi RX10.2 Tokyo
       {$define DELPHIRX102_UP}
-	  {$define DELPHITOKYO_UP}
+	    {$define DELPHITOKYO_UP}
+      {$ifdef LINUX}
+        {$define DELPHILINUX}
+      {$ifend}
     {$ifend}
   {$else}
     //Delphi 5 or older
