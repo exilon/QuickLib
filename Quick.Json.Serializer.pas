@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 21/05/2018
-  Modified    : 21/09/2018
+  Modified    : 16/10/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -172,6 +172,8 @@ var
   propObj : TObject;
 begin
   if GetTypeData(aTypeInfo).DynArrElType = nil then Exit;
+  if not assigned(aJsonArray) then Exit;
+
   len := aJsonArray.Count;
   rType := GetTypeData(aTypeInfo).DynArrElType^;
   pArr := nil;
@@ -989,10 +991,10 @@ begin
                 //jValue := TJsonValue(jPair.JsonValue.Clone);
                 jValue := jPair.JsonValue;
                 jArray.AddElement(jValue);
-                jPair.JsonValue.Owned := False;
+                if jPair.JsonValue <> nil then jPair.JsonValue.Owned := False;
               finally
                 jPair.Free;
-                jValue.Owned := True;
+                if jValue <> nil then jValue.Owned := True;
               end;
             end;
             Result.JsonValue := jArray;
