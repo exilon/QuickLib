@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 27/08/2015
-  Modified    : 20/10/2017
+  Modified    : 13/09/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,6 +36,7 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   IPPeerClient,
+  IdURI,
   Data.Cloud.CloudAPI,
   Data.Cloud.AzureAPI;
 
@@ -72,6 +73,8 @@ type
       function FileToArray(cFilename : string) : TArray<Byte>;
       function StreamToArray(cStream : TStream) : TArray<Byte>;
       function GMT2DateTime(const gmtdate : string):TDateTime;
+      function CheckContainer(const aContainer : string) : string;
+      function RemoveFirstSlash(const aValue : string) : string;
     public
       constructor Create; overload;
       constructor Create(azAccountName, azAccountKey : string); overload;
@@ -80,22 +83,22 @@ type
       property AccountKey : string read fAccountKey write SetAccountKey;
       property AzureProtocol : TAzureProtocol read fAzureProtocol write SetAzureProtocol;
       property TimeOut : Integer read fTimeOut write fTimeOut;
-      function PutBlob(azContainer, cFilename, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
-      function PutBlob(azContainer : string; cStream : TStream; azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
-      function GetBlob(azContainer, azBlobName, cFilenameTo : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
-      function GetBlob(azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo; out Stream : TMemoryStream) : Boolean; overload;
+      function PutBlob(const azContainer, cFilename, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
+      function PutBlob(const azContainer : string; cStream : TStream; const azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
+      function GetBlob(const azContainer, azBlobName, cFilenameTo : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
+      function GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo; out Stream : TMemoryStream) : Boolean; overload;
       function GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : TMemoryStream; overload;
-      function CopyBlob(azSourceContainer, azSourceBlobName : string; azTargetContainer, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+      function CopyBlob(const azSourceContainer, azSourceBlobName : string; azTargetContainer, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
       function RenameBlob(const azContainer, azSourceBlobName, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
       function ExistsObject(const azContainer, azBlobName : string) : Boolean;
-      function ExistsFolder(azContainer : string; azFolderName : string) : Boolean;
-      function DeleteBlob(azContainer,azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
-      function ListBlobs(azContainer : string; azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TBlobList;
-      function ListBlobsNames(azContainer : string; azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
-      function ExistsContainer(azContainer : string) : Boolean;
-      function ListContainers(azContainersStartWith : string; azResponseInfo : TAzureResponseInfo) : TStrings;
-      function CreateContainer(azContainer : string; azPublicAccess : TBlobPublicAccess; out azResponseInfo : TAzureResponseInfo) : Boolean;
-      function DeleteContainer(azContainer : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+      function ExistsFolder(const azContainer, azFolderName : string) : Boolean;
+      function DeleteBlob(const azContainer,azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+      function ListBlobs(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TBlobList;
+      function ListBlobsNames(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
+      function ExistsContainer(const azContainer : string) : Boolean;
+      function ListContainers(const azContainersStartWith : string; azResponseInfo : TAzureResponseInfo) : TStrings;
+      function CreateContainer(const azContainer : string; azPublicAccess : TBlobPublicAccess; out azResponseInfo : TAzureResponseInfo) : Boolean;
+      function DeleteContainer(const azContainer : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
   end;
 
 implementation
@@ -262,23 +265,25 @@ begin
   Result.StatusMsg := ResponseInfo.StatusMessage;
 end;
 
-function TQuickAzure.PutBlob(azContainer, cFilename, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+function TQuickAzure.PutBlob(const azContainer, cFilename, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
   Content : TArray<Byte>;
   CloudResponseInfo : TCloudResponseInfo;
+  container : string;
+  blobname : string;
 begin
   Result := False;
   BlobService := TAzureBlobService.Create(fconAzure);
   try
-    if azContainer = '' then azContainer := '$root';
+    container := CheckContainer(azContainer);
     CloudResponseInfo := TCloudResponseInfo.Create;
     try
       BlobService.Timeout := fTimeout;
       Content := FileToArray(cFilename);
-      if azBlobName = '' then azBlobName := cFilename;
-      if azBlobName.StartsWith('/') then azBlobName := Copy(azBlobName,2,Length(azBlobName));
-      Result := BlobService.PutBlockBlob(azContainer,azBlobName,Content,EmptyStr,nil,nil,CloudResponseInfo);
+      if azBlobName = '' then blobname := cFilename;
+      if blobname.StartsWith('/') then blobname := Copy(blobname,2,Length(blobname));
+      Result := BlobService.PutBlockBlob(container,blobname,Content,EmptyStr,nil,nil,CloudResponseInfo);
       azResponseInfo := GetResponseInfo(CloudResponseInfo);
     finally
       CloudResponseInfo.Free;
@@ -288,11 +293,13 @@ begin
   end;
 end;
 
-function TQuickAzure.PutBlob(azContainer : string; cStream : TStream; azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+function TQuickAzure.PutBlob(const azContainer : string; cStream : TStream; const azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
   Content : TArray<Byte>;
   CloudResponseInfo : TCloudResponseInfo;
+  container : string;
+  blobname : string;
 begin
   azResponseInfo.StatusCode := 500;
   if cStream.Size = 0 then
@@ -301,8 +308,8 @@ begin
     Exit;
   end;
 
-  if azContainer = '' then azContainer := '$root';
-  if azBlobName.StartsWith('/') then azBlobName := Copy(azBlobName,2,Length(azBlobName));
+  container := CheckContainer(azContainer);
+  blobname := RemoveFirstSlash(azBlobName);
   try
     BlobService := TAzureBlobService.Create(fconAzure);
     try
@@ -310,7 +317,7 @@ begin
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
         Content := StreamToArray(cStream);
-        Result := BlobService.PutBlockBlob(azContainer,azBlobName,Content,EmptyStr,nil,nil,CloudResponseInfo);
+        Result := BlobService.PutBlockBlob(container,blobname,Content,EmptyStr,nil,nil,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
       finally
         CloudResponseInfo.Free;
@@ -328,15 +335,17 @@ begin
   end;
 end;
 
-function TQuickAzure.GetBlob(azContainer, azBlobName, cFilenameTo : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+function TQuickAzure.GetBlob(const azContainer, azBlobName, cFilenameTo : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
   fs : TFileStream;
   CloudResponseInfo : TCloudResponseInfo;
+  container : string;
+  blobname : string;
 begin
   Result := False;
-  if azContainer = '' then azContainer := '$root';
-  if azBlobName.StartsWith('/') then azBlobName := Copy(azBlobName,2,Length(azBlobName));
+  container := CheckContainer(azContainer);
+  blobname := RemoveFirstSlash(azBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
@@ -345,7 +354,7 @@ begin
       try
         CloudResponseInfo := TCloudResponseInfo.Create;
         try
-          Result := BlobService.GetBlob(azContainer,azBlobName,fs,EmptyStr,CloudResponseInfo);
+          Result := BlobService.GetBlob(container,blobname,fs,EmptyStr,CloudResponseInfo);
           azResponseInfo := GetResponseInfo(CloudResponseInfo);
         finally
           CloudResponseInfo.Free;
@@ -361,22 +370,24 @@ begin
   end;
 end;
 
-function TQuickAzure.GetBlob(azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo; out Stream : TMemoryStream) : Boolean;
+function TQuickAzure.GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo; out Stream : TMemoryStream) : Boolean;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
+  container : string;
+  blobname : string;
 begin
   Result := False;
   Stream := TMemoryStream.Create;
-  if azContainer = '' then azContainer := '$root';
-  if azBlobName.StartsWith('/') then azBlobName := Copy(azBlobName,2,Length(azBlobName));
+  container := CheckContainer(azContainer);
+  blobname := RemoveFirstSlash(azBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
     try
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
-        Result := BlobService.GetBlob(azContainer,azBlobName,Stream,EmptyStr,CloudResponseInfo);
+        Result := BlobService.GetBlob(container,blobname,Stream,EmptyStr,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
       finally
         CloudResponseInfo.Free;
@@ -394,23 +405,33 @@ begin
   GetBlob(azContainer,azBlobName,azResponseInfo,Result);
 end;
 
-function TQuickAzure.CopyBlob(azSourceContainer, azSourceBlobName : string; azTargetContainer, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+function TQuickAzure.CheckContainer(const aContainer: string): string;
+begin
+  if aContainer = '' then Result := '$root'
+    else Result := aContainer;
+end;
+
+function TQuickAzure.CopyBlob(const azSourceContainer, azSourceBlobName : string; azTargetContainer, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
+  sourcecontainer : string;
+  targetcontainer : string;
+  sourceblobname : string;
+  targetblobname : string;
 begin
   Result := False;
-  if azSourceContainer = '' then azSourceContainer := '$root';
-  if azTargetContainer = '' then azTargetContainer := '$root';
-  if azSourceBlobName.StartsWith('/') then azSourceBlobName := Copy(azSourceBlobName,2,Length(azSourceBlobName));
-  if azTargetBlobName.StartsWith('/') then azTargetBlobName := Copy(azTargetBlobName,2,Length(azTargetBlobName));
+  sourcecontainer := CheckContainer(azSourceContainer);
+  targetcontainer := CheckContainer(azTargetContainer);
+  sourceblobname := RemoveFirstSlash(azSourceBlobName);
+  targetblobname := RemoveFirstSlash(azTargetBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
     try
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
-        Result := BlobService.CopyBlob(azTargetContainer,azTargetBlobName,azSourceContainer,azSourceBlobName,'',nil,CloudResponseInfo);
+        Result := BlobService.CopyBlob(targetcontainer,targetblobname,sourcecontainer,sourceblobname,'',nil,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
       finally
         CloudResponseInfo.Free;
@@ -428,14 +449,23 @@ begin
   end;
 end;
 
+function TQuickAzure.RemoveFirstSlash(const aValue: string): string;
+begin
+  if aValue.StartsWith('/') then Result := Copy(aValue,2,Length(aValue))
+    else Result := aValue;
+end;
+
 function TQuickAzure.RenameBlob(const azContainer, azSourceBlobName, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
-  ResponseInfo : TAzureResponseInfo;
+  sourceblobname : string;
 begin
   Result := False;
-  if CopyBlob(azContainer,azSourceBlobName,azContainer,azTargetBlobName,ResponseInfo) then
+  if sourceblobname.Contains('%') then sourceblobname := azSourceBlobName
+    else sourceblobname := TIdURI.PathEncode(azSourceBlobName);
+
+  if CopyBlob(azContainer,sourceblobname,azContainer,azTargetBlobName,azResponseInfo) then
   begin
-    Result := DeleteBlob(azContainer,azSourceBlobName,ResponseInfo);
+    Result := DeleteBlob(azContainer,azSourceBlobName,azResponseInfo);
   end;
 end;
 
@@ -446,7 +476,7 @@ var
   ResponseInfo : TAzureResponseInfo;
 begin
   Result := False;
-  azBlobs := ListBlobsNames(azContainer,azBlobName,True,ResponseInfo);
+  azBlobs := ListBlobsNames(azContainer,azBlobName,False,ResponseInfo);
   try
     if (ResponseInfo.StatusCode = 200) and (Assigned(azBlobs)) then
     begin
@@ -464,7 +494,7 @@ begin
   end;
 end;
 
-function TQuickAzure.ExistsFolder(azContainer : string; azFolderName : string) : Boolean;
+function TQuickAzure.ExistsFolder(const azContainer, azFolderName : string) : Boolean;
 var
   BlobService : TAzureBlobService;
   azBlob : TAzureBlob;
@@ -472,22 +502,25 @@ var
   CloudResponseInfo : TCloudResponseInfo;
   AzParams : TStrings;
   cNextMarker : string;
+  container : string;
+  foldername : string;
 begin
   Result := False;
-  if azContainer = '' then azContainer := '$root';
+  container := CheckContainer(azContainer);
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
     AzParams := TStringList.Create;
     try
-      if not azFolderName.EndsWith('/') then azFolderName := azFolderName + '/';      
-      AzParams.Values['prefix'] := azFolderName;
+      if not azFolderName.EndsWith('/') then foldername := azFolderName + '/'
+        else foldername := azFolderName;
+      AzParams.Values['prefix'] := foldername;
       AzParams.Values['delimiter'] := '/';
       AzParams.Values['maxresults'] := '1';
       cNextMarker := '';
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
-        azBlobList := BlobService.ListBlobs(azContainer,cNextMarker,AzParams,CloudResponseInfo);
+        azBlobList := BlobService.ListBlobs(container,cNextMarker,AzParams,CloudResponseInfo);
         try
           if (Assigned(azBlobList)) and (azBlobList.Count > 0) and (CloudResponseInfo.StatusCode = 200) then Result := True;
         finally
@@ -506,20 +539,22 @@ begin
   end;
 end;
 
-function TQuickAzure.DeleteBlob(azContainer,azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+function TQuickAzure.DeleteBlob(const azContainer,azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
+  container : string;
+  blobname : string;
 begin
   Result := False;
-  if azContainer = '' then azContainer := '$root';
-  if azBlobName.StartsWith('/') then azBlobName := Copy(azBlobName,2,Length(azBlobName));
+  container := CheckContainer(azContainer);
+  blobname := RemoveFirstSlash(azBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
     CloudResponseInfo := TCloudResponseInfo.Create;
     try
-      Result := BlobService.DeleteBlob(azContainer,azBlobName,False,EmptyStr,CloudResponseInfo);
+      Result := BlobService.DeleteBlob(container,blobname,False,EmptyStr,CloudResponseInfo);
       azResponseInfo := GetResponseInfo(CloudResponseInfo);
     finally
       CloudResponseInfo.Free;
@@ -529,7 +564,7 @@ begin
   end;
 end;
 
-function TQuickAzure.ListBlobs(azContainer : string; azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TBlobList;
+function TQuickAzure.ListBlobs(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TBlobList;
 var
   BlobService : TAzureBlobService;
   azBlob : TAzureBlob;
@@ -538,10 +573,11 @@ var
   CloudResponseInfo : TCloudResponseInfo;
   cNextMarker : string;
   AzParams : TStrings;
+  container : string;
 begin
   Result := TBlobList.Create(True);
   cNextMarker := '';
-  if azContainer = '' then azContainer := '$root';
+  container := CheckContainer(azContainer);
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
@@ -553,7 +589,7 @@ begin
         if cNextMarker <> '' then AzParams.Values['marker'] := cNextMarker;
         CloudResponseInfo := TCloudResponseInfo.Create;
         try
-          azBlobList := BlobService.ListBlobs(azContainer,cNextMarker,AzParams,CloudResponseInfo);
+          azBlobList := BlobService.ListBlobs(container,cNextMarker,AzParams,CloudResponseInfo);
           azResponseInfo := GetResponseInfo(CloudResponseInfo);
           if Assigned(azBlobList) then
           begin
@@ -584,7 +620,7 @@ begin
   end;
 end;
 
-function TQuickAzure.ListBlobsNames(azContainer : string; azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
+function TQuickAzure.ListBlobsNames(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
 var
   BlobService : TAzureBlobService;
   azBlob : TAzureBlob;
@@ -592,10 +628,11 @@ var
   CloudResponseInfo : TCloudResponseInfo;
   cNextMarker : string;
   AzParams : TStrings;
+  container : string;
 begin
   Result := TStringList.Create;
   cNextMarker := '';
-  if azContainer = '' then azContainer := '$root';
+  container := CheckContainer(azContainer);
   BlobService := TAzureBlobService.Create(fconAzure);
   CloudResponseInfo := TCloudResponseInfo.Create;
   try
@@ -607,7 +644,7 @@ begin
         if not Recursive then AzParams.Values['delimiter'] := '/';
         if cNextMarker <> '' then AzParams.Values['marker'] := cNextMarker;
 
-        azBlobList := BlobService.ListBlobs(azContainer,cNextMarker,AzParams,CloudResponseInfo);
+        azBlobList := BlobService.ListBlobs(container,cNextMarker,AzParams,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
         if Assigned(azBlobList) then
         begin
@@ -631,7 +668,7 @@ begin
   end;
 end;
 
-function TQuickAzure.ExistsContainer(azContainer : string) : Boolean;
+function TQuickAzure.ExistsContainer(const azContainer : string) : Boolean;
 var
   Container : string;
   Containers : TStrings;
@@ -656,7 +693,7 @@ begin
   end;
 end;
 
-function TQuickAzure.ListContainers(azContainersStartWith : string; azResponseInfo : TAzureResponseInfo) : TStrings;
+function TQuickAzure.ListContainers(const azContainersStartWith : string; azResponseInfo : TAzureResponseInfo) : TStrings;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
@@ -704,7 +741,7 @@ begin
   end;
 end;
 
-function TQuickAzure.CreateContainer(azContainer : string; azPublicAccess : TBlobPublicAccess; out azResponseInfo : TAzureResponseInfo) : Boolean;
+function TQuickAzure.CreateContainer(const azContainer : string; azPublicAccess : TBlobPublicAccess; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
@@ -724,7 +761,7 @@ begin
   end;
 end;
 
-function TQuickAzure.DeleteContainer(azContainer : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
+function TQuickAzure.DeleteContainer(const azContainer : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
