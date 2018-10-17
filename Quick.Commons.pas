@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 19/09/2018
+  Modified    : 14/10/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -261,6 +261,7 @@ type
   function GetLastInputInfo(var plii: TLastInputInfo): BOOL;stdcall; external 'user32' name 'GetLastInputInfo';
   {$ENDIF}
   function RemoveLastChar(const aText : string) : string;
+  function DateTimeToSQL(aDateTime : TDateTime) : string;
 
 {$IFDEF MSWINDOWS}
 var
@@ -1133,6 +1134,11 @@ end;
 function RemoveLastChar(const aText : string) : string;
 begin
   Result := aText.Remove(aText.Length - 1);
+end;
+
+function DateTimeToSQL(aDateTime : TDateTime) : string;
+begin
+  Result := FormatDateTime('YYYYMMDD hh:mm:ss',aDateTime);
 end;
 
 {$IFDEF MSWINDOWS}

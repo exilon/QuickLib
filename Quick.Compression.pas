@@ -37,12 +37,16 @@ uses
   System.SysUtils,
   System.ZLib;
 
-  function CompressString(const aStr : string) : string;
+type
+
+  TCompressionLevel = TZCompressionLevel;
+
+  function CompressString(const aStr : string; aLevel : TCompressionLevel = zcDefault) : string;
   function DecompressString(const aStr: string) : string;
 
 implementation
 
-function CompressString(const aStr : string) : string;
+function CompressString(const aStr : string; aLevel : TCompressionLevel = zcDefault) : string;
 var
   strstream : TStringStream;
   zipstream : TStringStream;
@@ -51,7 +55,7 @@ begin
   try
     zipstream := TStringStream.Create('',TEncoding.ANSI);
     try
-      ZCompressStream(strstream, zipstream);
+      ZCompressStream(strstream, zipstream, aLevel);
       zipstream.Position := 0;
       Result := zipstream.DataString;
     finally
