@@ -57,6 +57,9 @@ uses
     crt,
     {$ENDIF}
   {$ENDIF}
+  {$IFDEF DELPHILINUX}
+  Quick.SyncObjs.Linux.Compatibility,
+  {$ENDIF}
   SysUtils,
   Quick.Commons,
   Quick.Log;
@@ -93,19 +96,22 @@ type
   {$ELSE}
   TOutputProc<T> = procedure(const aLine : T) of object;
   TExecuteProc = procedure of object;
-    {$IFDEF LINUX}
-    TCoord = record
-      X : tcrtcoord;
-      Y : tcrtcoord;
-    end;
-
-    TSmallRect = record
-      Left : Byte;
-      Top : Byte;
-      Right : Byte;
-      Bottom : Byte;
-    end;
+  {$ENDIF}
+  {$IF DEFINED(FPCLINUX) OR DEFINED(DELPHILINUX)}
+    {$IFDEF DELPHILINUX}
+    tcrtcoord = Byte;
     {$ENDIF}
+  TCoord = record
+    X : tcrtcoord;
+    Y : tcrtcoord;
+  end;
+
+  TSmallRect = record
+    Left : Byte;
+    Top : Byte;
+    Right : Byte;
+    Bottom : Byte;
+  end;
   {$ENDIF}
 
   {$IFDEF MSWINDOWS}
