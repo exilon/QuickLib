@@ -5,6 +5,7 @@
 --------
 
 Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support.
+* NEW: TIndexedObjectList.
 * NEW: Improved firemonkey android compatibility.
 * NEW: JsonRecord
 * NEW: AutoMapper
@@ -319,8 +320,29 @@ var
    user, user2 : TUser;
 begin
    user := TUser.Create;
+   //show as json string
    Writeln(user.ToJson);
+   //mapping to other class
    user.Mapto(User2);
    Writeln(user2.ToJson);
+   //load from file
+   user.LoadFromFile('.\user.json');
+   //save to file
+   user2.SaveToFile('.\user2.json');
+end;
+```
+
+**Quick.Lists:** Improved lists with indexing by fields, allows fast hashed searches by object private fields.
+```delphi
+var
+   users : TIndexedObjectList<TUser>;
+begin
+   users := TIndexedObjectList<TUser>.Create(True);
+   //create index by private field "fName"
+   users.Indexes.Add('Name','fName');
+   //create index by public field "Id"
+   users.Indexes.Add('Id','Id');
+   //get user by "Name" index
+   writeln(users.Get('Name','Peter').SurName);
 end;
 ```
