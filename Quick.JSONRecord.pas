@@ -5,9 +5,9 @@
   Unit        : Quick.JSONRecord
   Description : Serializable class
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 05/05/2018
-  Modified    : 28/08/2018
+  Modified    : 06/11/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -33,6 +33,7 @@ unit Quick.JSONRecord;
 interface
 
 uses
+  Classes,
   Quick.Json.Serializer,
   Quick.AutoMapper;
 
@@ -41,7 +42,9 @@ type
   IJsonable = interface
   ['{AF71F59C-89A5-4BFB-8227-0CC3068B7671}']
     procedure FromJson(const aJson : string);
+    procedure LoadFromFile(const aJsonFilename : string);
     function ToJson(aIdent : Boolean = False) : string;
+    procedure SaveToFile(const aJsonFilename : string; aIndent : Boolean = True);
     procedure MapTo(aTgtObj : TObject);
     procedure MapFrom(aSrcObj : TObject);
   end;
@@ -49,8 +52,11 @@ type
   TJsonRecord = class(TInterfacedObject,IJsonable)
   public
     constructor CreateFromJson(const aJson : string);
+    constructor CreateFromFile(const aJsonFilename : string);
+    procedure LoadFromFile(const aJsonFilename : string);
     procedure FromJson(const aJson : string);
-    function ToJson(aIdent : Boolean = False) : string;
+    function ToJson(aIndent : Boolean = False) : string;
+    procedure SaveToFile(const aJsonFilename : string; aIndent : Boolean = True);
     function Map<T : class, constructor> : T;
     procedure MapTo(aTgtObj : TObject);
     procedure MapFrom(aSrcObj : TObject);
@@ -86,6 +92,45 @@ begin
   end;
 end;
 
+procedure TJsonRecord.LoadFromFile(const aJsonFilename: string);
+var
+  json : TStringList;
+begin
+  json := TStringList.Create;
+  try
+    json.LoadFromFile(aJsonFilename);
+    Self.FromJson(json.Text);
+  finally
+    json.Free;
+  end;
+end;
+
+constructor TJsonRecord.CreateFromFile(const aJsonFilename : string);
+var
+  json : TStringList;
+begin
+  json := TStringList.Create;
+  try
+    json.LoadFromFile(aJsonFilename);
+    CreateFromJson(json.Text);
+  finally
+    json.Free;
+  end;
+end;
+
+procedure TJsonRecord.SaveToFile(const aJsonFilename : string; aIndent : Boolean = True);
+var
+  json : TStringList;
+begin
+  json := TStringList.Create;
+  try
+    json.Text := Self.ToJson(aIndent);
+    json.SaveToFile(aJsonFilename);
+  finally
+    json.Free;
+  end;
+end;
+
 function TJsonRecord.Map<T> : T;
 begin
   Result := TMapper<T>.Map(Self);
@@ -101,13 +146,13 @@ begin
   TObjMapper.Map(Self,aTgtObj);
 end;
 
-function TJsonRecord.ToJson(aIdent : Boolean = False) : string;
+function TJsonRecord.ToJson(aIndent : Boolean = False) : string;
 var
   serializer : TJsonSerializer;
 begin
   serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
   try
-    Result := serializer.ObjectToJson(Self,aIdent);
+    Result := serializer.ObjectToJson(Self,aIndent);
   finally
     serializer.Free;
   end;
