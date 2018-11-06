@@ -41,11 +41,14 @@ uses
   Quick.Commons,
   {$IFNDEF FPC}
   System.IOUtils,
+    {$IFDEF DELPHILINUX}
+    Quick.SyncObjs.Linux.Compatibility,
+    {$ENDIF}
   {$ELSE}
   Quick.Files,
-    {$IFDEF LINUX}
-    syncObjs,
-    {$ENDIF}
+  {$ENDIF}
+  {$IFDEF LINUX}
+  syncObjs,
   {$ENDIF}
   SysUtils;
 
