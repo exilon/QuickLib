@@ -5,7 +5,8 @@
 --------
 
 Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support.
-* NEW: TIndexedObjectList.
+* NEW: TIndexedObjectList & TSearchObjectList.
+* NEW: RTTIUtils.
 * NEW: Improved firemonkey android compatibility.
 * NEW: JsonRecord
 * NEW: AutoMapper
@@ -332,16 +333,18 @@ begin
 end;
 ```
 
-**Quick.Lists:** Improved lists with indexing by fields, allows fast hashed searches by object private fields.
+**Quick.Lists:** Improved lists with indexing or search features.
+- TIndexedObjectList: Allows fast hashed searches by object properties or fields.
+- TSearchObjectList: Allows iteration search by object properties or fields.
 ```delphi
 var
    users : TIndexedObjectList<TUser>;
 begin
    users := TIndexedObjectList<TUser>.Create(True);
-   //create index by private field "fName"
-   users.Indexes.Add('Name','fName');
-   //create index by public field "Id"
-   users.Indexes.Add('Id','Id');
+   //create index by property "Name"
+   users.Indexes.Add('Name','Name',TClassField.cfProperty);
+   //create index by private field "Id"
+   users.Indexes.Add('Id','fId',TClassField.cfField);
    //get user by "Name" index
    writeln(users.Get('Name','Peter').SurName);
 end;
