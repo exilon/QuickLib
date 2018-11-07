@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/11/2018
-  Modified    : 04/1º/2018
+  Modified    : 07/11/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,18 +37,24 @@ uses
   Classes,
   SysUtils,
   RTTI,
+  TypInfo,
+  Quick.RTTI.Utils,
   System.Generics.Collections,
   System.Generics.Defaults;
 
 type
 
+  TClassField = (cfField, cfProperty);
+
   TSearchDictionary<TKey,TValue> = class(TObjectDictionary<TKey,TValue>)
   private
     fIndexName : string;
     fFieldName : string;
+    fClassField : TClassField;
   public
     property IndexName : string read fIndexName write fIndexName;
     property FieldName : string read fFieldName write fFieldName;
+    property ClassField : TClassField read fClassField write fClassField;
   end;
 
   TIndexList<T> = class
@@ -60,7 +66,7 @@ type
     destructor Destroy; override;
     property List : TList<TSearchDictionary<Variant,T>> read fList;
     function Get(const aIndexName : string) : TSearchDictionary<Variant,T>;
-    procedure Add(const aIndexName, aFieldName : string);
+    procedure Add(const aIndexName, aFieldName : string; aClassField : TClassField = cfProperty);
     procedure Remove(const aIndexName : string);
   end;
 
@@ -78,6 +84,14 @@ type
     property OwnsObjects: Boolean read FOwnsObjects write FOwnsObjects;
     property Indexes : TIndexList<T> read fIndexes;
     function Get(const aIndexName : string; aValue : Variant) : T;
+  end;
+
+  TSearchObjectList<T: class> = class(TObjectList<T>)
+  public
+    function Get(const aFieldName: string; const aValue: string; aClassField : TClassField = cfProperty) : T; overload;
+    function Get(const aFieldName : string; aValue : Int64; aClassField : TClassField = cfProperty) : T; overload;
+    function Get(const aFieldName : string; aValue : Double; aClassField : TClassField = cfProperty) : T; overload;
+    function Get(const aFieldName : string; aValue : TDateTime; aClassField : TClassField = cfProperty) : T; overload;
   end;
 
 implementation
@@ -110,9 +124,6 @@ end;
 procedure TIndexedObjectList<T>.Notify(const Value: T; Action: TCollectionNotification);
 var
   sindex : TSearchDictionary<Variant,T>;
-  ctx: TRttiContext;
-  rtype: TRttiType;
-  rfield: TRttiField;
   propvalue : TValue;
 begin
   inherited;
@@ -120,22 +131,26 @@ begin
   begin
     for sindex in fIndexes.List do
     begin
-      rtype := ctx.GetType(TypeInfo(T));
-      rfield := rtype.GetField(sindex.FieldName);
-      if rfield = nil then raise Exception.CreateFmt('Cannot add value to "%s" search dictionary!',[sindex.IndexName]);
-      propvalue := rfield.GetValue(TObject(Value));
+      try
+        if sindex.ClassField = TClassField.cfField then propvalue := TRTTI.GetFieldValue(TObject(Value),sindex.FieldName)
+          else propvalue := TRTTI.GetPropertyValue(TObject(Value),sindex.FieldName);
+      except
+        raise Exception.CreateFmt('Cannot add value to "%s" search dictionary!',[sindex.IndexName]);
+      end;
       sindex.Add(propvalue.AsVariant,Value);
     end;
   end;
   //remove object if owned
-  if OwnsObjects and (Action = cnRemoved) then
+  if OwnsObjects and ((Action = cnRemoved) or (Action = cnExtracted)) then
   begin
     for sindex in fIndexes.List do
     begin
-      rtype := ctx.GetType(TypeInfo(T));
-      rfield := rtype.GetField(sindex.FieldName);
-      if rfield = nil then raise Exception.CreateFmt('Cannot remove value to "%s" search dictionary!',[sindex.IndexName]);
-      propvalue := rfield.GetValue(TObject(Value));
+      try
+        if sindex.ClassField = TClassField.cfField then propvalue := TRTTI.GetFieldValue(TObject(Value),sindex.FieldName)
+          else propvalue := TRTTI.GetPropertyValue(TObject(Value),sindex.FieldName);
+      except
+        raise Exception.CreateFmt('Cannot remove value to "%s" search dictionary!',[sindex.IndexName]);
+      end;
       sindex.Remove(propvalue.AsVariant);
     end;
     Value.DisposeOf;
@@ -156,24 +171,26 @@ begin
   sindex := fIndexes.Get(aIndexName.ToLower);
   if sindex <> nil then sindex.TryGetValue(aValue,Result)
     else raise Exception.CreateFmt('Index "%s" not found!',[aIndexName]);
-
 end;
 
 { TIndexList<T> }
 
-procedure TIndexList<T>.Add(const aIndexName, aFieldName: string);
+procedure TIndexList<T>.Add(const aIndexName, aFieldName : string; aClassField : TClassField = cfProperty);
 var
   sdict : TSearchDictionary<Variant,T>;
-  ctx: TRttiContext;
-  rtype: TRttiType;
-  rfield: TRttiField;
 begin
-  rtype := ctx.GetType(TypeInfo(T));
-  rfield := rtype.GetField(aFieldName);
-  if rfield = nil then raise Exception.CreateFmt('Not found field "%s" to create a search dictionary!',[aFieldName]);
+  if aClassField = TClassField.cfField then
+  begin
+    if not TRTTI.FieldExists(TypeInfo(T),aFieldName) then raise Exception.CreateFmt('Not found field "%s" to create a search dictionary!',[aFieldName]);
+  end
+  else
+  begin
+    if not TRTTI.PropertyExists(TypeInfo(T),aFieldName) then raise Exception.CreateFmt('Not found property "%s" to create a search dictionary!',[aFieldName]);
+  end;
   sdict := TSearchDictionary<Variant,T>.Create;
   sdict.IndexName := aIndexName;
   sdict.FieldName := aFieldName;
+  sdict.ClassField := aClassField;
   fList.Add(sdict);
   fDictionaryIndex.Add(aIndexName.ToLower,sdict);
 end;
@@ -208,6 +225,80 @@ function TIndexList<T>.Get(const aIndexName: string): TSearchDictionary<Variant,
 begin
   Result := nil;
   fDictionaryIndex.TryGetValue(aIndexName,Result);
+end;
+
+{ TSearchObjectList<T> }
+
+function TSearchObjectList<T>.Get(const aFieldName: string; const aValue: string; aClassField : TClassField = cfProperty): T;
+var
+  val : T;
+begin
+  Result := nil;
+  for val in List do
+  begin
+    if aClassField = TClassField.cfField then
+    begin
+      if TRTTI.GetFieldValue(TObject(val),aFieldName).AsString = aValue then Exit(val);
+    end
+    else
+    begin
+      if GetStrProp(TObject(val),aFieldName) = aValue then Exit(val);
+    end;
+  end;
+end;
+
+function TSearchObjectList<T>.Get(const aFieldName: string; aValue: Int64; aClassField : TClassField = cfProperty): T;
+var
+  val : T;
+begin
+  Result := nil;
+  for val in List do
+  begin
+    if aClassField = TClassField.cfField then
+    begin
+      if TRTTI.GetFieldValue(TObject(val),aFieldName).AsInt64 = aValue then Exit(val);
+    end
+    else
+    begin
+      if GetInt64Prop(TObject(val),aFieldName) = aValue then Exit(val);
+    end;
+  end;
+end;
+
+function TSearchObjectList<T>.Get(const aFieldName: string; aValue: Double; aClassField : TClassField = cfProperty): T;
+var
+  val : T;
+begin
+  Result := nil;
+  for val in List do
+  begin
+    if aClassField = TClassField.cfField then
+    begin
+      if TRTTI.GetFieldValue(TObject(val),aFieldName).AsExtended = aValue then Exit(val);
+    end
+    else
+    begin
+      if GetFloatProp(TObject(val),aFieldName) = aValue then Exit(val);
+    end;
+  end;
+end;
+
+function TSearchObjectList<T>.Get(const aFieldName: string; aValue: TDateTime; aClassField : TClassField = cfProperty): T;
+var
+  val : T;
+begin
+  Result := nil;
+  for val in List do
+  begin
+    if aClassField = TClassField.cfField then
+    begin
+      if TRTTI.GetFieldValue(TObject(val),aFieldName).AsExtended = aValue then Exit(val);
+    end
+    else
+    begin
+      if GetFloatProp(TObject(val),aFieldName) = aValue then Exit(val);
+    end;
+  end;
 end;
 
 end.
