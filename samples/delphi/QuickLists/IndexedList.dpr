@@ -18,7 +18,7 @@ type
     fName : string;
     fSurName : string;
     fAge : Integer;
-  public
+  published
     property Id : Int64 read fId write fId;
     property Name : string read fName write fName;
     property SurName : string read fSurName write fSurName;
@@ -34,6 +34,7 @@ const
 
 var
   users : TIndexedObjectList<TUser>;
+  users2 : TSearchObjectList<TUser>;
   user : TUser;
   i : Integer;
   crono : TChronometer;
@@ -42,9 +43,11 @@ begin
   try
     ReportMemoryLeaksOnShutdown := True;
     users := TIndexedObjectList<TUser>.Create(True);
-    users.Indexes.Add('Name','fName');
-    users.Indexes.Add('Surname','fSurname');
-    users.Indexes.Add('id','fId');
+    users.Indexes.Add('Name','Name');
+    users.Indexes.Add('Surname','fSurname',TClassField.cfField);
+    users.Indexes.Add('id','Id');
+
+    users2 := TSearchObjectList<TUser>.Create(False);
 
     cout('Generating list...',etInfo);
     //generate first dummy entries
@@ -56,6 +59,7 @@ begin
       user.SurName := 'SurName' + i.ToString;
       user.Age := 18 + Random(20);
       users.Add(user);
+      users2.Add(user);
     end;
 
     //generate real entries to search
@@ -67,14 +71,19 @@ begin
       user.SurName := UserSurnames[i];
       user.Age := 18 + Random(20);
       users.Add(user);
+      users2.Add(user);
     end;
 
-    crono := TChronometer.Create(True);
+    crono := TChronometer.Create;
+
+    //test search by index
+    crono.Start;
     user := users.Get('Name','Peter');
     crono.Stop;
     if user <> nil then cout('Found by Index: %s %s in %s',[user.Name,user.SurName,crono.ElapsedTime],etSuccess)
       else cout('Not found!',etError);
 
+    //test search by normal iteration
     crono.Start;
     for i := 0 to users.Count - 1 do
     begin
@@ -85,9 +94,18 @@ begin
         Break;
       end;
     end;
+
+    //test search by embeded iteration
+    crono.Start;
+    user := users2.Get('Name','Peter');
+    crono.Stop;
+    if user <> nil then cout('Found by Search: %s %s in %s',[user.Name,user.SurName,crono.ElapsedTime],etSuccess)
+      else cout('Not found!',etError);
+
     cout('Press a key to Exit',etInfo);
-    ConsoleWaitForEnterKey;
+    Readln;
     users.Free;
+    users2.Free;
     crono.Free;
   except
     on E: Exception do
