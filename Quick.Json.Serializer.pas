@@ -5,9 +5,9 @@
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 21/05/2018
-  Modified    : 16/10/2018
+  Modified    : 06/12/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -49,6 +49,9 @@ uses
   {$ELSE}
     {$IFDEF DELPHIXE7_UP}
     System.Json,
+    {$ENDIF}
+    {$IFDEF DELPHIRX103_UP}
+    System.Generics.Collections,
     {$ENDIF}
   {$ENDIF}
   DateUtils,
@@ -465,11 +468,19 @@ begin
 
   if not rValue.IsEmpty then
   begin
+    {$IFDEF DELPHIRX103_UP}
+    if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
+    begin
+      for i := 0 to rvalue.GetArrayLength - 1 do
+      begin
+        TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
+      end;
+    end;
+    {$ELSE}
     for rfield in rType.GetFields do
     begin
       if rfield.Name = 'FOwnsObjects' then rfield.SetValue(aObject,True);
       //if rfield.Name = 'FCount' then rfield.SetValue(aObject,i);
-
       if rfield.Name = 'FItems' then
       begin
         //if TList(aObject) <> nil then TList(aObject).Clear;
@@ -480,6 +491,7 @@ begin
     end;
     rProp := rType.GetProperty('Count');
     rProp.SetValue(aObject,i);
+    {$ENDIF}
   end;
 end;
 {$ENDIF}
@@ -564,7 +576,12 @@ begin
         begin
           {$IFNDEF FPC}
           //avoid return unicode escaped chars if string
-          if aProperty.PropertyType.TypeKind in [tkString, tkLString, tkWString, tkUString] then rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.JsonString.ToString)
+          if aProperty.PropertyType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
+            {$IFDEF DELPHIRX103_UP}
+            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,TJsonValue(member).value)
+            {$ELSE}
+            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.JsonString.ToString)
+            {$ENDIF}
             else rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToJSON);
           {$ELSE}
           rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aName,member.ToJSON);
@@ -990,8 +1007,11 @@ begin
               try
                 //jValue := TJsonValue(jPair.JsonValue.Clone);
                 jValue := jPair.JsonValue;
-                jArray.AddElement(jValue);
-                if jPair.JsonValue <> nil then jPair.JsonValue.Owned := False;
+                if jValue <> nil then
+                begin
+                  jArray.AddElement(jValue);
+                  jPair.JsonValue.Owned := False;
+                end;
               finally
                 jPair.Free;
                 if jValue <> nil then jValue.Owned := True;

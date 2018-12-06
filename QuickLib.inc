@@ -124,6 +124,10 @@
         {$define DELPHILINUX}
       {$ifend}
     {$ifend}
+    {$if CompilerVersion >= 33.0} //Delphi RX10.3 Rio
+      {$define DELPHIRX103_UP}
+	    {$define DELPHIRIO_UP}
+    {$ifend}
   {$else}
     //Delphi 5 or older
     {$define DELPHI6OROLDER}
