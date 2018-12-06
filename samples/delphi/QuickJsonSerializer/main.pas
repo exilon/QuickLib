@@ -109,6 +109,7 @@ type
     fSurname : string;
     fAge : Integer;
     fAddress : string;
+    fPath : string;
     fOptions : TOptions;
     fLastConnections : TConnectionArray;
     fMarried : Boolean;
@@ -134,6 +135,7 @@ type
     property Genre : TGenre read fGenre write fGenre;
     property Department : TDepartment read fDepartment write fDepartment;
     property Address : string read fAddress write fAddress;
+    property Path : string read fPath write fPath;
     property Balance : Double read fBalance write fBalance;
     [TCustomNameProperty('IsMarried')]
     property Married : Boolean read fMarried write fMarried;
@@ -183,6 +185,7 @@ begin
   if User2 <> nil then User2.Free;
   User2 := TUser.Create;
   User2.FromJson(Memo1.Text);
+  //User2 := TUser.CreateFromJson(Memo1.Text);
   //User2.CreateFromJson(Memo1.Text);
   Memo1.Lines.Add('User2 as json:');
   Memo1.Lines.Add(User2.ToJson(True));
@@ -218,6 +221,7 @@ begin
   user.Age := 30;
   user.Married := True;
   user.Address := 'Sunset st. 2 \b';
+  User.Path := 'C:\documents\files';
   user.Options.Option1 := 1;
   user.Options.Option2 := 'good';
   user.Options.AllowGroups := gtExternal;
@@ -231,13 +235,13 @@ begin
   department.Id := 10;
   department.Name := 'IT';
   user.Department := department;
-  //user.Status := TUserStatus.usOnVacation;
-  //lastcon.IP := '127.0.0.1';
-  //lastcon.ConnectionDate := Now();
-  //User.LastConnections := [lastcon];
-  //lastcon.IP := '192.0.0.1';
-  //lastcon.ConnectionDate := Now();
-  //User.LastConnections := User.LastConnections + [lastcon];
+  user.Status := TUserStatus.usOnVacation;
+  lastcon.IP := '127.0.0.1';
+  lastcon.ConnectionDate := Now();
+  User.LastConnections := [lastcon];
+  lastcon.IP := '192.0.0.1';
+  lastcon.ConnectionDate := Now();
+  User.LastConnections := User.LastConnections + [lastcon];
   group := TGroup.Create;
   group.Id := 1;
   group.GType := gtInternal;
