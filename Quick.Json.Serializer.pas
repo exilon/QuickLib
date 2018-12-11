@@ -97,6 +97,7 @@ type
   TRTTIJson = class
   private
     fSerializeLevel : TSerializeLevel;
+    fUseEnumNames : Boolean;
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
@@ -111,6 +112,7 @@ type
     {$ENDIF}
   public
     constructor Create(aSerializeLevel : TSerializeLevel);
+    property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
     {$IFNDEF FPC}
     function DeserializeDynArray(aTypeInfo : PTypeInfo; aObject : TObject; const aJsonArray: TJSONArray) : TValue;
     function DeserializeRecord(aRecord : TValue; aObject : TObject; const aJson : TJSONObject) : TValue;
@@ -140,11 +142,15 @@ type
   TJsonSerializer = class(TInterfacedObject,IJsonSerializer)
   strict private
     fSerializeLevel : TSerializeLevel;
+    fUseEnumNames : Boolean;
     fRTTIJson : TRTTIJson;
+  private
+    procedure SetUseEnumNames(const Value: Boolean);
   public
     constructor Create(aSerializeLevel : TSerializeLevel);
     destructor Destroy; override;
     property SerializeLevel : TSerializeLevel read fSerializeLevel;
+    property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
     function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
@@ -359,6 +365,7 @@ end;
 constructor TRTTIJson.Create(aSerializeLevel: TSerializeLevel);
 begin
   fSerializeLevel := aSerializeLevel;
+  fUseEnumNames := True;
 end;
 
 function TRTTIJson.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
@@ -653,7 +660,8 @@ begin
           end
           else
           begin
-            TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result);
+            if fUseEnumNames then TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result)
+              else TValue.Make(StrToInt(value),aTypeInfo, Result);
           end;
         end;
       tkSet :
@@ -797,9 +805,17 @@ begin
     {$ENDIF}
     tkLString : Result := GetStrProp(Instance,pinfo);
     {$IFDEF FPC}
-    tkEnumeration : Result := GetEnumName(pinfo.PropType,GetOrdProp(Instance,PropertyName));
+    tkEnumeration :
+      begin
+        if fUseEnumNames then Result := GetEnumName(pinfo.PropType,GetOrdProp(Instance,PropertyName))
+          else Result := GetOrdProp(Instance,PropertyName);
+      end;
     {$ELSE}
-    tkEnumeration : Result := GetEnumName(@pinfo.PropType,GetOrdProp(Instance,PropertyName));
+    tkEnumeration :
+      begin
+        if fUseEnumNames then Result := GetEnumName(@pinfo.PropType,GetOrdProp(Instance,PropertyName))
+          else Result := GetOrdProp(Instance,PropertyName);
+      end;
     {$ENDIF}
     tkSet : Result := GetSetProp(Instance,pinfo,True);
     {$IFNDEF FPC}
@@ -1074,7 +1090,8 @@ begin
           else
           begin
             //Result.JsonValue := TJSONString.Create(GetEnumName(aValue.TypeInfo,aValue.AsOrdinal));
-            Result.JsonValue := TJSONString.Create(aValue.ToString);
+            if fUseEnumNames then Result.JsonValue := TJSONString.Create(aValue.ToString)
+              else Result.JsonValue := TJSONNumber.Create(GetEnumValue(aValue.TypeInfo,aValue.ToString));
           end;
         end;
       tkSet :
@@ -1248,7 +1265,8 @@ begin
           end
           else
           begin
-            Result.JsonValue := TJSONString.Create(GetEnumName(propinfo.PropType,GetOrdProp(aObject,aPropertyName)));
+            if fUseEnumNames then Result.JsonValue := TJSONString.Create(GetEnumName(propinfo.PropType,GetOrdProp(aObject,aPropertyName)))
+              else Result.JsonValue := TJSONNumber.Create(GetOrdProp(aObject,aPropertyName));
             //Result.JsonValue := TJSONString.Create(aValue.ToString);
           end;
         end;
@@ -1304,7 +1322,9 @@ begin
   if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EJsonSerializeError.Create('FreePascal RTTI only supports published properties');
   {$ENDIF}
   fSerializeLevel := aSerializeLevel;
+  fUseEnumNames := True;
   fRTTIJson := TRTTIJson.Create(aSerializeLevel);
+  fRTTIJson.UseEnumNames := fUseEnumNames;
 end;
 
 function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
@@ -1348,6 +1368,12 @@ begin
   finally
     json.Free;
   end;
+end;
+
+procedure TJsonSerializer.SetUseEnumNames(const Value: Boolean);
+begin
+  fUseEnumNames := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.UseEnumNames := Value;
 end;
 
 {$IFNDEF FPC}
