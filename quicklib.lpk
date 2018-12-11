@@ -96,16 +96,10 @@
         <UnitName Value="Quick.JSONRecord"/>
       </Item19>
     </Files>
-    <RequiredPkgs Count="3">
+    <RequiredPkgs Count="1">
       <Item1>
-        <PackageName Value="jcl"/>
-      </Item1>
-      <Item2>
         <PackageName Value="indylaz"/>
-      </Item2>
-      <Item3>
-        <PackageName Value="FCL"/>
-      </Item3>
+      </Item1>
     </RequiredPkgs>
     <UsageOptions>
       <UnitPath Value="$(PkgOutDir)"/>
