@@ -154,7 +154,7 @@ implementation
 
 procedure TForm1.btnToJsonClick(Sender: TObject);
 begin
-  Memo1.Text := serializer.ObjectToJson(User);
+  Memo1.Text := serializer.ObjectToJson(User,True);
   btnFromJson.Enabled := True;
 end;
 

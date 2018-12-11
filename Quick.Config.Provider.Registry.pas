@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 21/10/2017
-  Modified    : 07/04/2018
+  Modified    : 12/09/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,14 +37,16 @@ uses
   Windows,
   SysUtils,
   Registry,
+  Quick.Json.Serializer,
   {$IFDEF DELPHIRX102_UP}
     System.Json,
     System.JSON.Types,
-    System.JSON.Serializers,
   {$ELSE}
     {$IFDEF FPC}
-    fpjson,   jsonparser,
-    fpjsonrtti,
+    fpjson,
+    //jsonparser,
+    //fpjsonrtti,
+    Quick.Json.fpc.Compatibility,
     {$ELSE}
     Rest.Json.Types,
     System.JSON,
@@ -55,8 +57,6 @@ uses
   Quick.Config;
 
 type
-
-  TJSONValue = TJSONData;
 
   TAppConfigRegistryProvider<T : class> = class(TAppConfigProviderBase<T>)
   private
@@ -108,51 +108,31 @@ end;
 
 procedure TAppConfigRegistryProvider<T>.Load(var cConfig : T);
 var
-  {$IFDEF DELPHIRX102_UP}
-    Serializer: TJsonSerializer;
-  {$ENDIF}
-  {$IFDEF FPC}
-    streamer : TJSONDeStreamer;
-  {$ENDIF}
+  Serializer: TJsonSerializer;
   json : string;
   newObj : T;
 begin
   fRegConfig.Access := KEY_READ;
   fRegConfig.RootKey := fRootKey;
-  if (not fRegConfig.KeyExists('\Software\' + fMainKey))
-      and (CreateIfNotExists) then
+  if not fRegConfig.KeyExists('\Software\' + fMainKey) then
   begin
-    Save(cConfig);
+    if CreateIfNotExists then Save(cConfig)
+    else
+    begin
+      cConfig := InitObject;
+      Exit;
+    end;
   end;
   RegistryToJson(json);
-  {$IFDEF DELPHIRX102_UP}
-    Serializer := TJsonSerializer.Create;
-    try
-      Serializer.Formatting := TJsonFormatting.Indented;
-      if TAppConfig(cConfig).DateTimeZone = TDateTimeZone.tzLocal then
-      begin
-        Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Local;
-        Serializer.DateFormatHandling := TJsonDateFormatHandling.FormatSettings;
-      end
-      else Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Utc;
-      newObj := Serializer.Deserialize<T>(json);
-    finally
-      Serializer.Free;
-    end;
-  {$ELSE}
-    {$IFDEF FPC}
-    streamer := TJSONDeStreamer.Create(nil);
-    try
-      //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
-      Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-      Streamer.JsonToObject(json,NewObj);
-    finally
-      Streamer.Free;
-    end;
-    {$ELSE}
-    TJson.JsonToObject(newObj,TJSONObject(TJSONObject.ParseJSONValue(json)));
-    {$ENDIF}
-  {$ENDIF}
+  serializer := TJsonSerializer.Create(slPublishedProperty);
+  try
+    //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+    //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+    serializer.JsonToObject(cConfig,json);
+    Exit;
+  finally
+    serializer.Free;
+  end;
   if Assigned(cConfig) then cConfig.Free;
   cConfig := newObj;
 end;
@@ -193,26 +173,41 @@ begin
       raise EAppConfig.Create('Can''t create key');
     end;
 
+    {$IFNDEF FPC}
     jValue := TJSONObject.ParseJSONValue(TEncoding.ASCII.GetBytes(StrJson),0) as TJSONValue;
+    {$ELSE}
+    jValue := TJSONObject.ParseJSONValue(StrJson) as TJSONValue;
+    {$ENDIF}
     try
       if IsSimpleJsonValue(jValue) then
       begin
+        {$IFNDEF FPC}
         AddRegValue(aCurrentKey,TJSONPair(jValue).JsonString.ToString.DeQuotedString('"'),TJSONPair(jValue).JsonValue);
+        {$ELSE}
+        AddRegValue(aCurrentKey,TJSONPair(jValue).JsonString.DeQuotedString('"'),TJSONPair(jValue).JsonValue);
+        {$ENDIF}
       end
+      {$IFNDEF FPC}
       else if jValue is TJSONObject then
+      {$ELSE}
+      else if jvalue.JSONType = jtObject then
+      {$ENDIF}
       begin
         aCount := TJSONObject(jValue).Count;
         for i := 0 to aCount - 1 do
           ProcessPairWrite(aCurrentKey,TJSONObject(jValue),i);
       end
+      {$IFNDEF FPC}
       else if jValue is TJSONArray then
+      {$ELSE}
+      else if jValue.JSONType = jtArray then
+      {$ENDIF}
       begin
         aCount := TJSONArray(jValue).Count;
         for i := 0 to aCount - 1 do
           ProcessElementWrite(aCurrentKey,TJSONArray(jValue),i,aCount);
       end
-      else
-        raise EAppConfig.Create('Error Saving config to Registry');
+      else raise EAppConfig.Create('Error Saving config to Registry');
       Result := True;
     finally
        jValue.Free;
@@ -341,8 +336,12 @@ class function TAppConfigRegistryProvider<T>.IsSimpleJsonValue(v: TJSONValue): B
 begin
   Result := (v is TJSONNumber)
     or (v is TJSONString)
+    {$IFNDEF FPC}
     or (v is TJSONTrue)
     or (v is TJSONFalse)
+    {$ELSE}
+    or (v is TJsonBool)
+    {$ENDIF}
     or (v is TJSONNull);
 end;
 
@@ -491,7 +490,7 @@ begin
 
   if IsSimpleJsonValue(jPair.JsonValue) then
   begin
-    AddRegValue(cCurrentKey,jPair.JsonString.ToString,jPair.JsonValue);
+    AddRegValue(cCurrentKey,jPair.JsonString{$IFNDEF FPC}.ToString{$ENDIF},jPair.JsonValue);
     Exit;
   end;
 
@@ -499,13 +498,13 @@ begin
   begin
     aCount := TJSONObject(jPair.JsonValue).Count;
     for i := 0 to aCount - 1 do
-      ProcessPairWrite(cCurrentKey + '\' + jPair.JsonString.ToString.DeQuotedString('"'), TJSONObject(jPair.JsonValue),i);
+      ProcessPairWrite(cCurrentKey + '\' + jPair.JsonString{$IFNDEF FPC}.ToString{$ENDIF}.DeQuotedString('"'), TJSONObject(jPair.JsonValue),i);
   end
   else if jPair.JsonValue is TJSONArray then
   begin
     aCount := TJSONArray(jPair.JsonValue).Count;
     for i := 0 to aCount - 1 do
-      ProcessElementWrite(cCurrentKey + '\' + jPair.JsonString.ToString.DeQuotedString('"'), TJSONArray(jPair.JsonValue),i,aCount);
+      ProcessElementWrite(cCurrentKey + '\' + jPair.JsonString{$IFNDEF FPC}.ToString{$ENDIF}.DeQuotedString('"'), TJSONArray(jPair.JsonValue),i,aCount);
   end
   else raise EAppConfig.Create('Error Saving config to Registry');
 end;

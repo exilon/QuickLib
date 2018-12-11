@@ -520,7 +520,11 @@ begin
       case aProperty.PropertyType.TypeKind of
         tkDynArray :
           begin
+            {$IFNDEF FPC}
             jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+            {$ELSE}
+            jArray := TJSONArray(TJSONObject.ParseJSONValue(member.ToJSON));
+            {$ENDIF}
             try
               {$IFNDEF FPC}
               aProperty.SetValue(aObject,DeserializeDynArray(aProperty.PropertyType.Handle,Result,jArray));
@@ -1172,21 +1176,25 @@ begin
           try
             pArr := GetDynArrayProp(aObject,aPropertyName);
             TValue.Make(@pArr,propinfo.PropType, rValue);
-            if rValue.IsArray then len := rValue.GetArrayLength;
-            for i := 0 to len - 1 do
+            if rValue.IsArray then
             begin
-              rItemValue := rValue.GetArrayElement(i);
-              jPair := Serialize(aPropertyName,rItemValue);
-              try
-                //jValue := TJsonValue(jPair.JsonValue.Clone);
-                jValue := jPair.JsonValue;
-                jArray.Add(jValue);
-                //jPair.JsonValue.Owned := False;
-              finally
-                jPair.Free;
-                //jValue.Owned := True;
+              len := rValue.GetArrayLength;
+              for i := 0 to len - 1 do
+              begin
+                rItemValue := rValue.GetArrayElement(i);
+                jPair := Serialize(aPropertyName,rItemValue);
+                try
+                  //jValue := TJsonValue(jPair.JsonValue.Clone);
+                  jValue := jPair.JsonValue;
+                  jArray.Add(jValue);
+                  //jPair.JsonValue.Owned := False;
+                finally
+                  jPair.Free;
+                  //jValue.Owned := True;
+                end;
               end;
             end;
+
             Result.JsonValue := jArray;
           finally
             DynArrayClear(pArr,propinfo.PropType);

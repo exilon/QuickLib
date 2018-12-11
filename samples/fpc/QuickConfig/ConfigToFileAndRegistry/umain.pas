@@ -54,12 +54,14 @@ type
     property hola : Integer read fhola write fhola;
   end;
 
+  TArraySizes = array of Integer;
+
   TMyConfig = class(TAppConfig)
   private
     fTitle : string;
     fHidden : Boolean;
     fSessionName: string;
-    fSizes : TArray<Integer>;
+    fSizes : TArraySizes;
     fLastFilename : string;
     fWindowPos : TWinPos;
     fHistory : TArray<TProcessType>;
@@ -69,12 +71,12 @@ type
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure DefaultValues;
+    procedure DefaultValues; override;
     property Hidden : Boolean read fHidden write fHidden;
   published
     property Title : string read fTitle write fTitle;
     property SessionName : string read fSessionName write fSessionName;
-    property Sizes : TArray<Integer> read fSizes write fSizes;
+    property Sizes : TArraySizes read fSizes write fSizes;
     property LastFilename : string read fLastFilename write fLastFilename;
     //property WindowPos : TWinPos read fWindowPos write fWindowPos;
     property History : TArray<TProcessType> read fHistory write fHistory;
@@ -213,6 +215,9 @@ var
   processtype : TProcessType;
 begin
   cConfig.Title := 'hola';
+  cConfig.SessionName := 'Session01';
+  cConfig.LastFileName := 'C:\library.txt';
+  cConfig.Sizes := [1,2,3,4,5,6,7];
   cConfig.Complex := TProcessType.Create;
   cConfig.Complex.Id := 1;
   cConfig.Complex.Redundant := True;
