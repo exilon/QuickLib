@@ -5,9 +5,9 @@
   Unit        : Quick.Config
   Description : Load/Save config from/to JSON file
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 26/01/2017
-  Modified    : 07/04/2018
+  Modified    : 10/12/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,23 +37,17 @@ uses
   Classes,
   SysUtils,
   Rtti,
-  {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
-    DBXJSON,
-    JSON.Types,
-    JSON.Serializers;
+  {$IFDEF FPC}
+  fpjson,
+  jsonparser,
+  fpjsonrtti,
+  Quick.Json.Serializer;
   {$ELSE}
-    {$IFDEF FPC}
-    fpjson,
-    jsonparser,
-    fpjsonrtti,
-    Quick.Json.Serializer;
-    {$ELSE}
-    Quick.Json.Serializer,
-    DBXJSON,
-    System.JSON,
-    Rest.Json.Types,
-    Rest.Json;
-    {$ENDIF}
+  Quick.Json.Serializer,
+  DBXJSON,
+  System.JSON,
+  Rest.Json.Types,
+  Rest.Json;
   {$ENDIF}
 
 type
@@ -202,31 +196,12 @@ var
 begin
   Result := '';
   try
-    {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
-      Serializer := TJsonSerializer.Create;
-      try
-        Serializer.Formatting := TJsonFormatting.Indented;
-        if JsonIndent then Serializer.Formatting := TJsonFormatting.Indented;
-        if DateTimeZone = TDateTimeZone.tzLocal then
-        begin
-          Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Local;
-          Serializer.DateFormatHandling := TJsonDateFormatHandling.FormatSettings;
-        end
-        else Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Utc;
-        Result := Serializer.Serialize<TObject>(Self);
-      finally
-        Serializer.Free;
-      end;
-    {$ELSE}
-      serializer := TJsonSerializer.Create(slPublishedProperty);
-      try
-        //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
-        //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        Result := serializer.ObjectToJSON(Self);
-      finally
-        serializer.Free;
-      end;
-    {$ENDIF}
+    serializer := TJsonSerializer.Create(slPublishedProperty);
+    try
+      Result := serializer.ObjectToJSON(Self,True);
+    finally
+      serializer.Free;
+    end;
   except
     on e : Exception do raise Exception.Create(e.Message);
   end;
@@ -237,35 +212,16 @@ var
   Serializer : TJsonSerializer;
 begin
   try
-    {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
-      Serializer := TJsonSerializer.Create;
-      try
-        Serializer.Formatting := TJsonFormatting.Indented;
-        if JsonIndent then Serializer.Formatting := TJsonFormatting.Indented;
-        if DateTimeZone = TDateTimeZone.tzLocal then
-        begin
-          Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Local;
-          Serializer.DateFormatHandling := TJsonDateFormatHandling.FormatSettings;
-        end
-        else Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Utc;
-        Self := Serializer.Deserialize<TAppConfig>(json);
-      finally
-        Serializer.Free;
-      end;
-    {$ELSE}
-      serializer := TJsonSerializer.Create(slPublishedProperty);
-      try
-        //Streamer.Options := Streamer. .Options + [jsoDateTimeAsString ,jsoUseFormatString];
-        //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        {$IF NOT DEFINED(FPC) AND DEFINED(ANDROID)}
-        serializer.JsonToObject(Self,json);
-        {$ELSE}
-        Self := TAppConfig(serializer.JsonToObject(Self,json));
-        {$ENDIF}
-      finally
-        serializer.Free;
-      end;
-    {$ENDIF}
+    serializer := TJsonSerializer.Create(slPublishedProperty);
+    try
+      {$IF NOT DEFINED(FPC) AND DEFINED(ANDROID)}
+      serializer.JsonToObject(Self,json);
+      {$ELSE}
+      Self := TAppConfig(serializer.JsonToObject(Self,json));
+      {$ENDIF}
+    finally
+      serializer.Free;
+    end;
   except
     on e : Exception do raise Exception.Create(e.Message);
   end;

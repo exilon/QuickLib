@@ -5,9 +5,9 @@
   Unit        : Quick.Config.Provider.Json
   Description : Save config to JSON file
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 21/10/2017
-  Modified    : 07/04/2018
+  Modified    : 10/12/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -41,18 +41,13 @@ uses
   Quick.Files,
   {$ENDIF}
   Rtti,
-  {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
-    System.JSON.Types,
-    System.JSON.Serializers,
+  Quick.Json.Serializer,
+  {$IFDEF FPC}
+  fpjson,
+  fpjsonrtti,
   {$ELSE}
-    Quick.Json.Serializer,
-    {$IFDEF FPC}
-    fpjson,
-    fpjsonrtti,
-    {$ELSE}
-    Rest.Json.Types,
-    System.JSON,
-    {$ENDIF}
+  Rest.Json.Types,
+  System.JSON,
   {$ENDIF}
   Quick.Config;
 
@@ -70,7 +65,6 @@ type
 
 
 implementation
-
 
 constructor TAppConfigJsonProvider<T>.Create(var cConfig : T);
 begin
@@ -97,30 +91,15 @@ begin
     json := TStringList.Create;
     try
       json.LoadFromFile(fFilename);
-      {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
-        Serializer := TJsonSerializer.Create;
-        try
-          if TAppConfig(cConfig).DateTimeZone = TDateTimeZone.tzLocal then
-          begin
-            Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Local;
-            Serializer.DateFormatHandling := TJsonDateFormatHandling.FormatSettings;
-          end
-          else Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Utc;
-          NewObj := Serializer.Deserialize<T>(json.Text);
-        finally
-          Serializer.Free;
-        end;
-      {$ELSE}
-        serializer := TJsonSerializer.Create(slPublishedProperty);
-        try
-          //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
-          //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-          serializer.JsonToObject(cConfig,json.Text);
-          Exit;
-        finally
-          serializer.Free;
-        end;
-      {$ENDIF}
+      serializer := TJsonSerializer.Create(slPublishedProperty);
+      try
+        //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+        //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+        serializer.JsonToObject(cConfig,json.Text);
+        Exit;
+      finally
+        serializer.Free;
+      end;
       if Assigned(cConfig) then cConfig.Free;
       cConfig := NewObj;
     finally
@@ -144,30 +123,14 @@ begin
   try
     json := TStringList.Create;
     try
-      {$IF DEFINED(DELPHIRX102_UP) AND DEFINED(MSWINDOWS)}
-        Serializer := TJsonSerializer.Create;
-        try
-          if TAppConfig(cConfig).JsonIndent then Serializer.Formatting := TJsonFormatting.Indented;
-          if TAppConfig(cConfig).DateTimeZone = TDateTimeZone.tzLocal then
-          begin
-            Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Local;
-            Serializer.DateFormatHandling := TJsonDateFormatHandling.FormatSettings;
-          end
-          else Serializer.DateTimeZoneHandling := TJsonDateTimeZoneHandling.Utc;
-          json.Text := Serializer.Serialize<T>(cConfig);
-        finally
-          Serializer.Free;
-        end;
-      {$ELSE}
-        serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
-        try
-          //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
-          //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-          json.Text := serializer.ObjectToJson(cConfig);
-        finally
-          serializer.Free;
-        end;
-      {$ENDIF}
+      serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
+      try
+        //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+        //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+        json.Text := serializer.ObjectToJson(cConfig,True);
+      finally
+        serializer.Free;
+      end;
       json.SaveToFile(fFilename);
       {$IFDEF FPC}
       //TAppConfig(cConfig).LastSaved := Now;
