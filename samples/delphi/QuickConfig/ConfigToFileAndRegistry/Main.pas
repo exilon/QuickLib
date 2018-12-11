@@ -35,8 +35,12 @@ type
   end;
 
   TWorker = class
-    Name : string;
-    Active : Boolean;
+  private
+    fName : string;
+    fActive : Boolean;
+  published
+    property Name : string read fName write fName;
+    property Active : Boolean read fActive write fActive;
   end;
 
   TMyConfig = class(TAppConfig)
@@ -60,11 +64,11 @@ type
     property ModifyDate : TDateTime read fModifyDate write fModifyDate;
     property Title : string read fTitle write fTitle;
     property SessionName : string read fSessionName write fSessionName;
-  public
     property WorkList : TObjectList<TWorker> read fWorkList write fWorkList;
+  public
     constructor Create; override;
     destructor Destroy; override;
-    procedure DefaultValues;
+    procedure DefaultValues; override;
   end;
 
   TMainForm = class(TForm)
@@ -163,6 +167,7 @@ function  TMainForm.TestConfig(cConfig1, cConfig2 : TMyConfig) : Boolean;
 var
   i : Integer;
 begin
+  Result := False;
   try
     Assert(cConfig1.LastFilename = cConfig2.LastFilename);
     for i := Low(cConfig1.Sizes) to High(cConfig1.Sizes) do
