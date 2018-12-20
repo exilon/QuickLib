@@ -659,7 +659,11 @@ end;
 
 constructor TAnonymousThread.Create(aProc : TProc);
 begin
+  {$IFNDEF FPC}
+  fThread := TThread.CreateAnonymousThread(aProc);
+  {$ELSE}
   fThread := TThread.CreateAnonymousThread(@aProc);
+  {$ENDIF}
 end;
 
 class function TAnonymousThread.Execute(aProc: TProc): IAnonymousThread;
