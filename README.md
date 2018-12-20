@@ -4,7 +4,8 @@
 **QuickLib**
 --------
 
-Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support.
+Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+* NEW: TAnonymousThread simplified
 * NEW: TIndexedObjectList & TSearchObjectList.
 * NEW: RTTIUtils.
 * NEW: Improved firemonkey android compatibility.
@@ -249,6 +250,25 @@ SMTP.SendMail;
 - TThreadedQueueCS: Version of TThreadedQueue with Critical Section.
 - TThreadObjectList: Thread safe Object List.
 - TThreadedQueueList: Thread safe Queue List. Autogrow and with Critical Section.
+- TAnonymousThread: Creates anonymous thread defining unchained Execute and OnTerminate methods.
+```delphi
+//simple anonymousthread
+TAnonymousThread.Execute(
+      procedure
+      var
+        i : Integer;
+      begin
+        for i := 0 to 10 do cout('Working %d',[i],etTrace);
+        cout('executed thread',etSuccess);
+      end)
+    .OnTerminate(
+      procedure
+      begin
+        cout('terminated thread',etSuccess);
+        cout('PRESS <ENTER> TO EXIT',etInfo);
+      end)
+    .Start;
+```
 
 **Quick.Process:** Manages windows processes.
 ```delphi
