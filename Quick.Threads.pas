@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 09/03/2018
-  Modified    : 07/04/2018
+  Modified    : 19/12/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,6 +36,7 @@ interface
 uses
   Classes,
   Types,
+  SysUtils,
   //Quick.Chrono,
   {$IFNDEF FPC}
   System.RTLConsts,
@@ -44,8 +45,7 @@ uses
   {$ELSE}
   RtlConsts,
   Generics.Collections,
-  syncobjs,
-  SysUtils;
+  syncobjs;
   {$ENDIF}
 
 type
@@ -156,6 +156,27 @@ type
       property Duplicates: TDuplicates read fDuplicates write fDuplicates;
   end;
   {$ENDIF}
+
+  {$IFDEF FPC}
+  TProc = procedure of object;
+  {$ENDIF}
+
+  IAnonymousThread = interface
+    procedure Start;
+    function OnTerminate(aProc : TProc) : IAnonymousThread;
+  end;
+
+  TAnonymousThread = class(TInterfacedObject,IAnonymousThread)
+  private
+    fThread : TThread;
+    fTerminateProc : TProc;
+    constructor Create(aProc : TProc);
+    procedure NotifyTerminate(Sender : TObject);
+  public
+    class function Execute(aProc : TProc) : IAnonymousThread;
+    procedure Start;
+    function OnTerminate(aProc : TProc) : IAnonymousThread;
+  end;
 
 implementation
 
@@ -633,5 +654,34 @@ begin
   System.TMonitor.Exit(fLock);
 end;
 {$ENDIF}
+
+{ TThreadEx }
+
+constructor TAnonymousThread.Create(aProc : TProc);
+begin
+  fThread := TThread.CreateAnonymousThread(@aProc);
+end;
+
+class function TAnonymousThread.Execute(aProc: TProc): IAnonymousThread;
+begin
+  Result := TAnonymousThread.Create(aProc);
+end;
+
+procedure TAnonymousThread.NotifyTerminate(Sender: TObject);
+begin
+  fTerminateProc;
+end;
+
+function TAnonymousThread.OnTerminate(aProc: TProc): IAnonymousThread;
+begin
+  Result := Self;
+  fTerminateProc := aProc;
+  fThread.OnTerminate := Self.NotifyTerminate;
+end;
+
+procedure TAnonymousThread.Start;
+begin
+  fThread.Start;
+end;
 
 end.
