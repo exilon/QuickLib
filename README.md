@@ -5,6 +5,7 @@
 --------
 
 Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+* NEW: TBackgroundsTasks & TScheduledTasks
 * NEW: TAnonymousThread simplified
 * NEW: TIndexedObjectList & TSearchObjectList.
 * NEW: RTTIUtils.
@@ -247,10 +248,10 @@ SMTP.SendMail;
 ```
 
 **Quick.Threads:** Thread safe classes.
-- TThreadedQueueCS: Version of TThreadedQueue with Critical Section.
-- TThreadObjectList: Thread safe Object List.
-- TThreadedQueueList: Thread safe Queue List. Autogrow and with Critical Section.
-- TAnonymousThread: Creates anonymous thread defining unchained Execute and OnTerminate methods.
+- **TThreadedQueueCS:** Version of TThreadedQueue with Critical Section.
+- **TThreadObjectList:** Thread safe Object List.
+- **TThreadedQueueList:** Thread safe Queue List. Autogrow and with Critical Section.
+- **TAnonymousThread:** Creates anonymous thread defining unchained Execute and OnTerminate methods.
 ```delphi
 //simple anonymousthread
 TAnonymousThread.Execute(
@@ -268,6 +269,69 @@ TAnonymousThread.Execute(
         cout('PRESS <ENTER> TO EXIT',etInfo);
       end)
     .Start;
+```
+- **TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers.
+```delphi
+    backgroundtasks := TBackgroundTasks.Create(10);
+    for i := 1 to 100 do
+    begin
+      mytask := TMyTask.Create;
+      mytask.Id := i;
+      mytask.Name := 'Task' + i.ToString;
+      backgroundtasks.AddTask([mytask],False,
+                              procedure(task : ITask)
+                              begin
+                                cout('task %d started',[TMyTask(task.Param[0].AsObject).Id],etDebug);
+                                TMyTask(task.Param[0].AsObject).DoJob;
+                              end
+                            ).OnException(
+                              procedure(task : ITask; aException : Exception)
+                              begin
+                                cout('task %d failed (%s)',[TMyTask(task.Param[0].AsObject).Id,aException.Message],etError);
+                              end
+                            ).OnTerminated(
+                              procedure(task : ITask)
+                              begin
+                                cout('task %d finished',[TMyTask(task.Param[0].AsObject).Id],etDebug);
+                                TMyTask(task.Param[0].AsObject).Free;
+                              end
+                            ).Run;
+    end;
+    backgroundtasks.Start;
+```
+- **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date.
+You can assign anonymous methods to execute, exception, terminate and expiration events.
+  - *AddTask:* Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
+  - *StartAt:* Date and time to start task.
+  - *RunOnce:* Task will executed only one time. If there aren't a previous StartAt, task will be executed immediately.
+  - *RepeatEvery:* Can indicate repeat step over time and expiration date. If not previous StartAtspecified, task will be executed immediately.
+```delphi
+myjob := TMyJob.Create;
+myjob.Name := Format('Run at %s and repeat every 1 second until %s',[DateTimeToStr(ScheduledDate),DateTimeToStr(ExpirationDate)]);
+scheduledtasks.AddTask('Task1',[myjob],True,
+                            procedure(task : ITask)
+                            begin
+                              cout('task "%s" started',[TMyTask(task.Param[0]).Name],etDebug);
+                              TMyJob(task.Param[0]).DoJob;
+                            end
+                          ).OnException(
+                            procedure(task : ITask; aException : Exception)
+                            begin
+                              cout('task "%s" failed (%s)',[TMyJob(task.Param[0]).Name,aException.Message],etError);
+                            end
+                          ).OnTerminated(
+                            procedure(task : ITask)
+                            begin
+                              cout('task "%s" finished',[TMyJob(task.Param[0]).Name],etDebug);
+                            end
+                          ).OnExpired(
+                            procedure(task : ITask)
+                            begin
+                              cout('task "%s" expired',[TMyJob(task.Param[0]).Name],etWarning);
+                            end
+                          ).StartAt(ScheduledDate
+                          ).RepeatEvery(1,TTimeMeasure.tmSeconds,ExpirationDate);
+scheduledtasks.Start;
 ```
 
 **Quick.Process:** Manages windows processes.
