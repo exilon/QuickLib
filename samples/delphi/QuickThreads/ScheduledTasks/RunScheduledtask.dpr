@@ -142,6 +142,38 @@ begin
                           ).RepeatEvery(1,TTimeMeasure.tmSeconds,ExpirationDate);
 
 
+    ScheduledDate := IncSecond(Now(),30);
+
+    myjob := TMyJob.Create;
+    myjob.Id := 4;
+    myjob.Name := Format('Run at %s and repeat only one time',[DateTimeToStr(ScheduledDate),DateTimeToStr(ExpirationDate)]);
+
+
+    scheduledtasks.AddTask('Task4',[myjob],True,
+                            procedure(task : ITask)
+                            begin
+                              cout('task "%s" started',[TMyJob(task.Param[0]).Name],etDebug);
+                              TMyJob(task.Param[0]).DoJob;
+                            end
+                          ).OnException(
+                            procedure(task : ITask; aException : Exception)
+                            begin
+                              cout('task "%s" failed (%s)',[TMyJob(task.Param[0]).Name,aException.Message],etError);
+                            end
+                          ).OnTerminated(
+                            procedure(task : ITask)
+                            begin
+                              cout('task "%s" finished',[TMyJob(task.Param[0]).Name],etDebug);
+                            end
+                          ).OnExpired(
+                            procedure(task : ITask)
+                            begin
+                              cout('task "%s" expired',[TMyJob(task.Param[0]).Name],etWarning);
+                            end
+                          ).StartAt(ScheduledDate
+                          ).RunOnce;
+
+
     scheduledtasks.Start;
     cout('Running tasks in background!',etInfo);
     Readln;
