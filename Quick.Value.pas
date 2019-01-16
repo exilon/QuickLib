@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 07/01/2019
-  Modified    : 14/01/2019
+  Modified    : 15/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -193,7 +193,6 @@ type
     function CastToPointer: Pointer;
     function CastToInterface: Pointer;
     function CastToVariant: Variant;
-    function CastToVarRec: TVarRec;
     function CastToCardinal : Cardinal;
     procedure SetAsString(const Value : string);
     {$IFNDEF NEXTGEN}
@@ -209,7 +208,6 @@ type
     procedure SetAsPointer(const Value: Pointer);
     procedure SetAsDateTime(const Value : TDateTime);
     procedure SetAsVariant(const Value: Variant);
-    procedure SetAsVarRec(const Value: TVarRec);
     procedure SetAsCardinal(const Value : Cardinal);
   public
     constructor Create(const Value: TVarRec);
@@ -228,7 +226,6 @@ type
     property AsInterface : Pointer read CastToInterface write SetAsPointer;
     property AsObject : TObject read CastToObject write SetAsObject;
     property AsVariant : Variant  read CastToVariant write SetAsVariant;
-    property AsVarRec : TVarRec read CastToVarRec write SetAsVarRec;
     property AsCardinal : Cardinal read CastToCardinal write SetAsCardinal;
     property AsDateTime : TDateTime read CastToDateTime write SetAsDateTime;
     //function AsType<T> : T;
@@ -507,11 +504,6 @@ begin
   end;
 end;
 
-function TFlexValue.CastToVarRec: TVarRec;
-begin
-
-end;
-
 procedure TFlexValue.Clear;
 begin
    if Pointer(fDataIntf) <> nil then fDataIntf := nil;
@@ -726,11 +718,6 @@ begin
   Clear;
   fDataIntf := TValueVariant.Create(Value);
   fDataType := TValueDataType.dtVariant;
-end;
-
-procedure TFlexValue.SetAsVarRec(const Value: TVarRec);
-begin
-
 end;
 
 {$IFNDEF NEXTGEN}

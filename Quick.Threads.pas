@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 14/01/2019
+  Modified    : 16/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1196,7 +1196,6 @@ end;
 
 procedure TScheduledTask.RunOnce;
 begin
-  ClearSchedule;
   fScheduleMode := TScheduleMode.smRunOnce;
   if fStartDate = 0.0 then fStartDate := Now();
   fNextExecution := fStartDate;
@@ -1220,6 +1219,7 @@ begin
     begin
       fLastExecution := Now();
       Inc(fExecutionTimes);
+      fFinished := True;
       Result := True;
     end;
   end
@@ -1368,7 +1368,7 @@ begin
     try
       for task in fTaskList do
       begin
-        if not task.IsFinished then
+        if (task.IsEnabled) and (not task.IsFinished) then
         begin
           if task.CheckSchedule then
           begin
