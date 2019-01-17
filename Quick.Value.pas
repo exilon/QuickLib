@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 07/01/2019
-  Modified    : 15/01/2019
+  Modified    : 16/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -176,7 +176,11 @@ type
 
   TFlexValue = record
   private
+    {$IFNDEF FPC}
     fDataIntf : IInterface;
+    {$ELSE}
+    fDataIntf : TValueData;
+    {$ENDIF}
     fDataType : TValueDataType;
     function CastToString : string;
     {$IFNDEF NEXTGEN}
@@ -533,7 +537,9 @@ begin
     vtPointer : AsPointer := Value.VPointer;
     else raise Exception.Create('DataType not supported by TFlexValue');
   end;
-  //fDataIntf._AddRef;
+  {$IFDEF FPC}
+  fDataIntf._AddRef;
+  {$ENDIF}
 end;
 
 {$IFNDEF FPC}

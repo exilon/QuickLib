@@ -89,7 +89,7 @@ begin
   myjob := TMyJob.Create;
     myjob.Id := 1;
     myjob.Name := 'Run now and repeat every 1 second for 5 times';
-    scheduledtasks.AddTask('Task1',[myjob,1],True,
+    scheduledtasks.AddTask_Sync('Task1',[myjob,1],True,
                             procedure(task : ITask)
                             begin
                               Log('task "%s" started',[TMyJob(task.Param[0]).Name]);
@@ -100,12 +100,12 @@ begin
                             begin
                               Log('task "%s" failed (%s)',[TMyJob(task.Param[0]).Name,aException.Message]);
                             end
-                          ).OnTerminated(
+                          ).OnTerminated_Sync(
                             procedure(task : ITask)
                             begin
                               Log('task "%s" finished',[TMyJob(task.Param[0]).Name]);
                             end
-                          ).OnExpired(
+                          ).OnExpired_Sync(
                             procedure(task : ITask)
                             begin
                               Log('task "%s" expired',[TMyJob(task.Param[0]).Name]);
@@ -115,7 +115,7 @@ begin
     myjob := TMyJob.Create;
     myjob.Id := 2;
     myjob.Name := 'Run now, repeat every 1 second forever';
-    scheduledtasks.AddTask('Task2',[myjob,32,true,3.2,myjob.ClassType],True,
+    scheduledtasks.AddTask_Sync('Task2',[myjob,32,true,3.2,myjob.ClassType],True,
                             procedure(task : ITask)
                             begin
                               Log('task "%s" started with params(Int=%d / Bool=%s / Float=%s /Class=%s)',[TMyJob(task.Param[0]).Name,task.Param[1].AsInteger,task.Param[2].AsString,task.Param[3].AsString,task.Param[4].AsString]);
@@ -126,12 +126,12 @@ begin
                             begin
                               Log('task "%s" failed (%s)',[TMyJob(task.Param[0]).Name,aException.Message]);
                             end
-                          ).OnTerminated(
+                          ).OnTerminated_Sync(
                             procedure(task : ITask)
                             begin
                               Log('task "%s" finished',[TMyJob(task.Param[0]).Name]);
                             end
-                          ).OnExpired(
+                          ).OnExpired_Sync(
                             procedure(task : ITask)
                             begin
                               Log('task "%s" expired',[TMyJob(task.Param[0]).Name]);
@@ -147,7 +147,7 @@ begin
     myjob.Name := Format('Run at %s and repeat every 1 second until %s',[DateTimeToStr(ScheduledDate),DateTimeToStr(ExpirationDate)]);
 
 
-    scheduledtasks.AddTask('Task3',[myjob],True,
+    scheduledtasks.AddTask_Sync('Task3',[myjob],True,
                             procedure(task : ITask)
                             begin
                               Log('task "%s" started',[TMyJob(task.Param[0]).Name]);
@@ -158,12 +158,12 @@ begin
                             begin
                               Log('task "%s" failed (%s)',[TMyJob(task.Param[0]).Name,aException.Message]);
                             end
-                          ).OnTerminated(
+                          ).OnTerminated_Sync(
                             procedure(task : ITask)
                             begin
                               Log('task "%s" finished',[TMyJob(task.Param[0]).Name]);
                             end
-                          ).OnExpired(
+                          ).OnExpired_Sync(
                             procedure(task : ITask)
                             begin
                               Log('task "%s" expired',[TMyJob(task.Param[0]).Name]);

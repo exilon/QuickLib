@@ -251,7 +251,12 @@ SMTP.SendMail;
 - **TThreadedQueueCS:** Version of TThreadedQueue with Critical Section.
 - **TThreadObjectList:** Thread safe Object List.
 - **TThreadedQueueList:** Thread safe Queue List. Autogrow and with Critical Section.
-- **TAnonymousThread:** Creates anonymous thread defining unchained Execute and OnTerminate methods.
+- **TAnonymousThread:** Creates anonymous thread defining unchained Execute and OnTerminate methods. Use Execute_Sync and OnTerminate_Sync methods if code needs to update UI.
+  - *Execute:* Specify code to execute on start.
+  - *Execute_Sync:* Like Execute but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - *OnTerminate:* Specify code to execute when task finishes.
+  - *OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - *Start:* Starts thread execution.
 ```delphi
 //simple anonymousthread
 TAnonymousThread.Execute(
@@ -270,7 +275,13 @@ TAnonymousThread.Execute(
       end)
     .Start;
 ```
-- **TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers.
+- **TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
+  - *AddTask:* Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
+  - *AddTask_Sync:* Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
+  - *OnTerminate:* Specify code to execute when task finishes.
+  - *OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - *OnException:* Specify code to execute when task generates an exception.
+  - *Start:* Starts tasks execution.
 ```delphi
     backgroundtasks := TBackgroundTasks.Create(10);
     for i := 1 to 100 do
@@ -299,12 +310,20 @@ TAnonymousThread.Execute(
     end;
     backgroundtasks.Start;
 ```
-- **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date.
+- **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date. Use AddTask_Sync, OnTerminate_Sync and OnExpired_Sync if code needs to update UI.
 You can assign anonymous methods to execute, exception, terminate and expiration events.
   - *AddTask:* Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
+  - *AddTask_Sync:* Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
+  - *OnTerminate:* Specify code to execute when task finishes.
+  - *OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - *OnExpire:* Specify code to execute when task expiration reached or task was cancelled.
+  - *OnExpire_Sync:* Like OnExpire but runs code with synchronized thread method (avoids problems if your code updates UI).
+  - *OnException:* Specify code to execute when task generates an exception.
   - *StartAt:* Date and time to start task.
   - *RunOnce:* Task will executed only one time. If there aren't a previous StartAt, task will be executed immediately.
-  - *RepeatEvery:* Can indicate repeat step over time and expiration date. If not previous StartAtspecified, task will be executed immediately.
+  - *RepeatEvery:* Can indicate repeat step over time and expiration date. If not previous StartAt was specified, task will be executed immediately.
+  - *Start:* Starts scheduler.
+  - *Stop:* Stops scheduler.
 ```delphi
 myjob := TMyJob.Create;
 myjob.Name := Format('Run at %s and repeat every 1 second until %s',[DateTimeToStr(ScheduledDate),DateTimeToStr(ExpirationDate)]);

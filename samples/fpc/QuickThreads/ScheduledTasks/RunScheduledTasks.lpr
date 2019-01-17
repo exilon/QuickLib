@@ -37,7 +37,7 @@ procedure TMyJob.DoJob(task : ITask);
 var
   a, b, i : Integer;
 begin
-  cout('[%s] task "%s" doing a %s job...',[DateTimeToStr(Now()),fName,task.Param[0].AsString],etInfo);
+  cout('[%s] task "%s" doing a %s job %d...',[DateTimeToStr(Now()),fName,task.Param[0].AsString,task.Param[1].AsInteger],etInfo);
   Sleep(Random(1000));
   a := Random(100);
   b := Random(5) + 1;
