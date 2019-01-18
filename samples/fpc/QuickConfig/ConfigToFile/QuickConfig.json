@@ -1,0 +1,21 @@
+{
+     "Title" :  "hola",
+     "SessionName" :  "Session01",
+     "Sizes" :  [
+        1,
+         2,
+         3,
+         4,
+         5,
+         6,
+         7
+    ],
+     "LastFilename" :  "C:\\library.txt",
+     "History" :  [    ],
+     "Complex" :  {
+         "Id" :  1,
+         "Priority" :  "msMed",
+         "Redundant" :  true 
+    },
+     "ModifyDate" :  "2019-01-17T13:51:56.269Z " 
+}
