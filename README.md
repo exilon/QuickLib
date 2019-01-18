@@ -5,7 +5,9 @@
 --------
 
 Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
-* NEW: TBackgroundsTasks & TScheduledTasks
+* NEW: TScheduledTasks: New schedule methods.
+* NEW: TAnonymousThread, TBackgroundTasks & TScheduledTasks _Sync methods
+* NEW: TBackgroundTasks & TScheduledTasks
 * NEW: TAnonymousThread simplified
 * NEW: TIndexedObjectList & TSearchObjectList.
 * NEW: RTTIUtils.
@@ -319,9 +321,14 @@ You can assign anonymous methods to execute, exception, terminate and expiration
   - *OnExpire:* Specify code to execute when task expiration reached or task was cancelled.
   - *OnExpire_Sync:* Like OnExpire but runs code with synchronized thread method (avoids problems if your code updates UI).
   - *OnException:* Specify code to execute when task generates an exception.
-  - *StartAt:* Date and time to start task.
+  - *StartAt:* Date and time to start task. You need to define after .RunOnce or .RunEvery if you want to repeat task.
+  - *StartTodayAt:* Start task today at defined time. You need to define after .RunOnce or .RunEvery if you want to repeat task.
+  - *StartTomorrowAt:* Start task tomorrow at defined time. You need to define after .RunOnce or .RunEvery if you want to repeat task.
+  - *StartOnDayChange:* Start task when day changes. You need to define after .RunOnce if you want to execute only one time or .RunEveryDay if you want to repeat task.
   - *RunOnce:* Task will executed only one time. If there aren't a previous StartAt, task will be executed immediately.
   - *RepeatEvery:* Can indicate repeat step over time and expiration date. If not previous StartAt was specified, task will be executed immediately.
+  - *RepeatEveryDay:* Repeat task every day at same hour.
+  - *RepeatEveryWeek:* Repeat task every week at same hour.
   - *Start:* Starts scheduler.
   - *Stop:* Stops scheduler.
 ```delphi
