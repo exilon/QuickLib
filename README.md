@@ -314,21 +314,29 @@ TAnonymousThread.Execute(
 ```
 - **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date. Use AddTask_Sync, OnTerminate_Sync and OnExpired_Sync if code needs to update UI.
 You can assign anonymous methods to execute, exception, terminate and expiration events.
+- *Add a task to execute:*
   - *AddTask:* Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
   - *AddTask_Sync:* Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
+- *Define events to control:*
   - *OnTerminate:* Specify code to execute when task finishes.
   - *OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
   - *OnExpire:* Specify code to execute when task expiration reached or task was cancelled.
   - *OnExpire_Sync:* Like OnExpire but runs code with synchronized thread method (avoids problems if your code updates UI).
   - *OnException:* Specify code to execute when task generates an exception.
-  - *StartAt:* Date and time to start task. You need to define after .RunOnce or .RunEvery if you want to repeat task.
-  - *StartTodayAt:* Start task today at defined time. You need to define after .RunOnce or .RunEvery if you want to repeat task.
-  - *StartTomorrowAt:* Start task tomorrow at defined time. You need to define after .RunOnce or .RunEvery if you want to repeat task.
-  - *StartOnDayChange:* Start task when day changes. You need to define after .RunOnce if you want to execute only one time or .RunEveryDay if you want to repeat task.
-  - *RunOnce:* Task will executed only one time. If there aren't a previous StartAt, task will be executed immediately.
-  - *RepeatEvery:* Can indicate repeat step over time and expiration date. If not previous StartAt was specified, task will be executed immediately.
+- *Define when to start task:*
+  - *StartNow:* Start task immediately.
+  - *StartAt:* Date and time to start task. 
+  - *StartTodayAt:* Start task today at defined time.
+  - *StartTomorrowAt:* Start task tomorrow at defined time.
+  - *StartOnDayChange:* Start task when day changes.
+  - *StartInMinutes:* Start task after x minutes.
+  - *StartInSeconds:* Start task after x seconds.
+- *Define if needs to repeat or not (if not defined a previous StartAt, StartOn, etc, task will be executed immediately):*
+  - *RunOnce:* Task will be executed one time only. 
+  - *RepeatEvery:* Can indicate repeat step over time and expiration date.
   - *RepeatEveryDay:* Repeat task every day at same hour.
   - *RepeatEveryWeek:* Repeat task every week at same hour.
+- *Start/Stop scheduler:*
   - *Start:* Starts scheduler.
   - *Stop:* Stops scheduler.
 ```delphi
