@@ -39,6 +39,7 @@ uses
   Types,
   SysUtils,
   DateUtils,
+  Quick.Commons,
   //Quick.Chrono,
   Quick.Value,
   {$IFNDEF FPC}
@@ -227,10 +228,15 @@ type
     procedure DoExpire;
     function GetTaskName : string;
     function StartAt(aStartDate : TDateTime) : IScheduledTask;
+    function StartTodayAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
+    function StartTomorrowAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
+    function StartOnDayChange : IScheduledTask;
     procedure RunOnce;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure); overload;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure; aEndTime : TDateTime); overload;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure; aRepeatTimes : Integer); overload;
+    procedure RepeatEveryDay;
+    procedure RepeatEveryWeek;
     function IsFinished : Boolean;
     procedure Cancel;
     property Name : string read GetTaskName;
@@ -310,10 +316,15 @@ type
     function OnExpired(aTaskProc : TTaskProc) : IScheduledTask; virtual;
     function OnExpired_Sync(aTaskProc : TTaskProc) : IScheduledTask; virtual;
     function StartAt(aStartDate : TDateTime) : IScheduledTask;
+    function StartTodayAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
+    function StartTomorrowAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
+    function StartOnDayChange : IScheduledTask;
     procedure RunOnce;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure); overload;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure; aEndTime : TDateTime); overload;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure; aRepeatTimes : Integer); overload;
+    procedure RepeatEveryDay;
+    procedure RepeatEveryWeek;
     function IsFinished : Boolean;
     procedure Cancel;
   end;
@@ -1238,6 +1249,33 @@ begin
   fNextExecution := aStartDate;
 end;
 
+function TScheduledTask.StartOnDayChange: IScheduledTask;
+begin
+  Result := Self;
+  ClearSchedule;
+  fScheduleMode := TScheduleMode.smRunOnce;
+  fStartDate := ChangeTimeOfADay(Tomorrow(),0,0,0);
+  fNextExecution := fStartDate;
+end;
+
+function TScheduledTask.StartTodayAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
+begin
+  Result := Self;
+  ClearSchedule;
+  fScheduleMode := TScheduleMode.smRunOnce;
+  fStartDate := ChangeDateOfADay(Now(),aHour,aMinute,aSecond);
+  fNextExecution := fStartDate;
+end;
+
+function TScheduledTask.StartTomorrowAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
+begin
+  Result := Self;
+  ClearSchedule;
+  fScheduleMode := TScheduleMode.smRunOnce;
+  fStartDate := ChangeTimeOfADay(Tomorrow(),aHour,aMinute,aSecond);
+  fNextExecution := fStartDate;
+end;
+
 procedure TScheduledTask.RepeatEvery(aInterval: Integer; aTimeMeasure: TTimeMeasure);
 begin
   if fStartDate = 0.0 then ClearSchedule;
@@ -1259,6 +1297,16 @@ begin
   fExpirationDate := aEndTime;
   fNextExecution := fStartDate;
   fEnabled := True;
+end;
+
+procedure TScheduledTask.RepeatEveryDay;
+begin
+  RepeatEvery(1,tmDays);
+end;
+
+procedure TScheduledTask.RepeatEveryWeek;
+begin
+  RepeatEvery(7,tmDays);
 end;
 
 procedure TScheduledTask.RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure; aRepeatTimes : Integer);
