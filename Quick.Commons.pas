@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 14/10/2018
+  Modified    : 18/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -194,6 +194,10 @@ type
   {$ENDIF}
   //checks if two datetimes are in same day
   function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
+  //change Time of a DateTime
+  function ChangeTimeOfADay(aDate : TDateTime; aHour, aMinute, aSecond : Word; aMilliSecond : Word = 0) : TDateTime;
+  //change Date of a DateTime
+  function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
   //returns n times a char
   function FillStr(const C : Char; const Count : Byte) : string;
   //checks if string exists in array of string
@@ -545,6 +549,22 @@ function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
 begin
   //Test: Result := MinutesBetween(cBefore,cNow) < 1;
   Result := DateTimeInRange(cNow,StartOfTheDay(cBefore),EndOfTheDay(cBefore),True);
+end;
+
+function ChangeTimeOfADay(aDate : TDateTime; aHour, aMinute, aSecond : Word; aMilliSecond : Word = 0) : TDateTime;
+var
+  y, m, d : Word;
+begin
+  DecodeDate(aDate,y,m,d);
+  Result := EncodeDateTime(y,m,d,aHour,aMinute,aSecond,aMilliSecond);
+end;
+
+function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
+var
+  h, m, s, ms : Word;
+begin
+  DecodeTime(aDate,h,m,s,ms);
+  Result := EncodeDateTime(aYear,aMonth,aDay,h,m,s,0);
 end;
 
 function FillStr(const C : Char; const Count : Byte) : string;
