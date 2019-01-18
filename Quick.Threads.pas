@@ -231,6 +231,9 @@ type
     function StartTodayAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
     function StartTomorrowAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
     function StartOnDayChange : IScheduledTask;
+    function StartNow : IScheduledTask;
+    function StartInMinutes(aMinutes : Word) : IScheduledTask;
+    function StartInSeconds(aSeconds : Word) : IScheduledTask;
     procedure RunOnce;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure); overload;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure; aEndTime : TDateTime); overload;
@@ -319,6 +322,9 @@ type
     function StartTodayAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
     function StartTomorrowAt(aHour, aMinute: Word; aSecond : Word = 0): IScheduledTask;
     function StartOnDayChange : IScheduledTask;
+    function StartNow : IScheduledTask;
+    function StartInMinutes(aMinutes : Word) : IScheduledTask;
+    function StartInSeconds(aSeconds : Word) : IScheduledTask;
     procedure RunOnce;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure); overload;
     procedure RepeatEvery(aInterval : Integer; aTimeMeasure : TTimeMeasure; aEndTime : TDateTime); overload;
@@ -1247,6 +1253,33 @@ begin
   fScheduleMode := TScheduleMode.smRunOnce;
   fStartDate := aStartDate;
   fNextExecution := aStartDate;
+end;
+
+function TScheduledTask.StartInMinutes(aMinutes: Word): IScheduledTask;
+begin
+  Result := Self;
+  ClearSchedule;
+  fScheduleMode := TScheduleMode.smRunOnce;
+  fStartDate := IncMinute(Now(),aMinutes);
+  fNextExecution := fStartDate;
+end;
+
+function TScheduledTask.StartInSeconds(aSeconds: Word): IScheduledTask;
+begin
+  Result := Self;
+  ClearSchedule;
+  fScheduleMode := TScheduleMode.smRunOnce;
+  fStartDate := IncSecond(Now(),aSeconds);
+  fNextExecution := fStartDate;
+end;
+
+function TScheduledTask.StartNow: IScheduledTask;
+begin
+  Result := Self;
+  ClearSchedule;
+  fScheduleMode := TScheduleMode.smRunOnce;
+  fStartDate := Now();
+  fNextExecution := fStartDate;
 end;
 
 function TScheduledTask.StartOnDayChange: IScheduledTask;
