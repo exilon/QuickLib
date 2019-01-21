@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Log
   Description : Threadsafe Log
   Author      : Kike Pérez
-  Version     : 1.18
+  Version     : 1.19
   Created     : 10/04/2016
-  Modified    : 08/04/2018
+  Modified    : 21/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -47,7 +47,7 @@ uses
   {$ELSE}
   Quick.Files,
   {$ENDIF}
-  {$IFDEF LINUX}
+  {$IF Defined(NEXTGEN) OR Defined(LINUX) or Defined(MACOS)}
   syncObjs,
   {$ENDIF}
   SysUtils;
@@ -98,7 +98,11 @@ type
   end;
 
 var
+  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  CS : TCriticalSection;
+  {$ELSE}
   CS : TRTLCriticalSection;
+  {$ENDIF}
   Log : TQuickLog;
 
 implementation
@@ -185,7 +189,9 @@ begin
     end;
   end;
   //Checks if it's in use
+  {$IF NOT Defined(MACOS) AND NOT Defined(ANDROID)}
   if (fCheckFileInUse) and (TFile.IsInUse(logname)) Then fLogFileName := Format('%s_(1).%s',[ExtractFileNameWithoutExt(logname),ExtractFileExt(logname)]);
+  {$ENDIF}
 
   //writes header info
   if fShowHeaderInfo then
@@ -233,7 +239,11 @@ var
 begin
   //Checks if need to add date to filename
   logname := GetLogFileName;
+  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  CS.Enter;
+  {$ELSE}
   EnterCriticalSection(CS);
+  {$ENDIF}
   try
     cMsg := cMsg + #13#10;
     LEncoding:= TEncoding.Unicode;
@@ -279,7 +289,11 @@ begin
       //
     end;
   finally
+    {$IF Defined(MACOS) OR Defined(ANDROID)}
+    CS.Leave;
+    {$ELSE}
     LeaveCriticalSection(CS);
+    {$ENDIF}
   end;
 end;
 
@@ -292,14 +306,22 @@ initialization
 {$IF DEFINED(FPC) AND DEFINED(LINUX)}
 InitCriticalSection(CS);
 {$ELSE}
-InitializeCriticalSection(CS);
+  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  CS := TCriticalSection.Create;
+  {$ELSE}
+  InitializeCriticalSection(CS);
+  {$ENDIF}
 {$ENDIF}
 
 finalization
 {$IF DEFINED(FPC) AND DEFINED(LINUX)}
 DoneCriticalsection(CS);
 {$ELSE}
-DeleteCriticalSection(CS);
+  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  CS.Free;
+  {$ELSE}
+  DeleteCriticalSection(CS);
+  {$ENDIF}
 {$ENDIF}
 
 end.

@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 16/01/2019
+  Modified    : 21/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

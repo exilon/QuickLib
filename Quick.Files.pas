@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Files
   Description : Files functions
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 29/05/2018
+  Modified    : 21/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -71,22 +71,25 @@ type
 
 
   {$IFNDEF FPC}
-  TTextFileOperation = (tfOpenRead,tfOpenOverwrite,tfOpenAppend);
+    TTextFileOperation = (tfOpenRead,tfOpenOverwrite,tfOpenAppend);
 
-  TTextStreamFile = class
-    private
-      fReadStream : TStreamReader;
-      fWriteStream : TStreamWriter;
-      function GetEOF : Boolean;
-    public
-      constructor Create(const aFileName : string; aOpenMode : TTextFileOperation);
-      destructor Destroy; override;
-      function ReadLn: string; overload;
-      function ReadLn(out Data: string): Boolean; overload;
-      procedure WriteLn (const Data : string);
-      procedure Close;
-      property EOF: Boolean read GetEOF;
-  end;
+    TTextStreamFile = class
+      private
+        fReadStream : TStreamReader;
+        fWriteStream : TStreamWriter;
+        function GetEOF : Boolean;
+      public
+        constructor Create(const aFileName : string; aOpenMode : TTextFileOperation);
+        destructor Destroy; override;
+        function ReadLn: string; overload;
+        function ReadLn(out Data: string): Boolean; overload;
+        procedure WriteLn (const Data : string);
+        procedure Close;
+        property EOF: Boolean read GetEOF;
+    end;
+    {$IF Defined(MACOS) OR Defined(NEXTGEN)}
+    TFileTime = LongInt;
+    {$ENDIF}
   {$ELSE}
     {$IFDEF LINUX}
     TFILETIME = LongInt;
@@ -214,7 +217,9 @@ type
   procedure SplitFile(const aFileName : string; aSplitByteSize : Int64);
   procedure MergeFiles(const aFirstSplitFileName, aOutFileName : string); overload;
   procedure MergeFiles(aFilenames : array of string; const aOutFileName : string); overload;
+  {$IFNDEF NEXTGEN}
   function IsFileInUse(const aFileName : string) : Boolean;
+  {$ENDIF}
   procedure FileReplaceText(const aFileName, aSearchText, AReplaceText : string);
   function FileSearchText(const aFileName, SearchText: string; caseSensitive : Boolean): Longint;
   function GetCreationTime(const aFilename : string): TDateTime;
@@ -382,11 +387,12 @@ begin
   {$ENDIF}
 end;
 
+{$IFNDEF NEXTGEN}
 class function TFile.IsInUse(const Path : string) : Boolean;
 begin
   Result := IsFileInUse(Path);
 end;
-
+{$ENDIF}
 
 class function TFile.GetSize(const Path : string) : Int64;
 var
@@ -743,7 +749,7 @@ begin
 end;
 
 function IsFileInUse(const aFileName : string) : Boolean;
-{$IFNDEF LINUX}
+{$IF NOT Defined(LINUX) AND NOT Defined(MACOS)}
 var
   HFileRes: HFILE;
 begin

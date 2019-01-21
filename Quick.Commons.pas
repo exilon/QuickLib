@@ -56,6 +56,20 @@ interface
     Androidapi.JNI.JavaTypes,
     Androidapi.JNI.GraphicsContentViewText,
     {$ENDIF}
+    {$IFDEF IOS}
+    iOSapi.UIKit,
+    Posix.SysSysctl,
+    Posix.StdDef,
+    iOSapi.Foundation,
+    Macapi.ObjectiveC,
+    Macapi.Helpers,
+    {$ENDIF}
+    {$IFDEF OSX}
+    Macapi.Foundation,
+    Macapi.Helpers,
+    FMX.Helpers.Mac,
+    Macapi.ObjectiveC,
+    {$ENDIF}
     DateUtils;
 
 type
@@ -724,6 +738,23 @@ function GetLoggedUserName : string;
   {$ENDIF}
 {$ENDIF}
 
+{$IFDEF IOS}
+function GetDeviceModel : String;
+var
+  size : size_t;
+  buffer : array of Byte;
+begin
+  sysctlbyname('hw.machine',nil,@size,nil,0);
+  if size > 0 then
+  begin
+    SetLength(buffer, size);
+    sysctlbyname('hw.machine',@buffer[0],@size,nil,0);
+    Result := UTF8ToString(MarshaledAString(buffer));
+  end
+  else Result := EmptyStr;
+end;
+{$ENDIF}
+
 function GetComputerName : string;
 {$IFDEF MSWINDOWS}
   var
@@ -741,7 +772,15 @@ function GetComputerName : string;
   end;
   {$ELSE} //Android gets model name
   begin
-    Result := JStringToString(TJBuild.JavaClass.MODEL);
+    {$IFDEF NEXTGEN}
+      {$IFDEF ANDROID}
+      Result := JStringToString(TJBuild.JavaClass.MODEL);
+      {$ELSE} //IOS
+      Result := GetDeviceModel;
+      {$ENDIF}
+    {$ELSE} //OSX
+    Result := NSStrToStr(TNSHost.Wrap(TNSHost.OCClass.currentHost).localizedName);
+    {$ENDIF}
   end;
   {$ENDIF}
 {$ENDIF}
@@ -867,16 +906,48 @@ end;
   end;
   {$ELSE}
     {$IFDEF NEXTGEN}
-    var
-      PkgInfo : JPackageInfo;
-    begin
-      PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
-      Result := IntToStr(PkgInfo.VersionCode);
-    end;
-    {$ELSE}
-    begin
-      Result := 'N/A';
-    end;
+      {$IFDEF ANDROID}
+      var
+        PkgInfo : JPackageInfo;
+      begin
+        PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        Result := IntToStr(PkgInfo.VersionCode);
+      end;
+      {$ELSE} //IOS
+      var
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        try
+          AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+          AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+          BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+          Result := UTF8ToString(BuildStr.UTF8String);
+        except
+          Result := 'N/A';
+        end;
+      end;
+      {$ENDIF}
+    {$ELSE} //OSX
+      {$IFDEF OSX}
+      var
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        try
+          AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+
+          AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+          BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+          Result := UTF8ToString(BuildStr.UTF8String);
+
+        except
+          Result := 'N/A';
+        end;
+      end;
+      {$ENDIF}
     {$ENDIF}
   {$ENDIF}
 {$ENDIF}
@@ -935,16 +1006,36 @@ end;
   end;
   {$ELSE}
     {$IFDEF NEXTGEN}
+      {$IFDEF ANDROID}
+      var
+        PkgInfo : JPackageInfo;
+      begin
+        PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        Result := JStringToString(PkgInfo.versionName);
+      end;
+      {$ELSE} //IOS
+      var
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+        AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+        BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+        Result := UTF8ToString(BuildStr.UTF8String);
+      end;
+      {$ENDIF}
+    {$ELSE} //OSX
     var
-      PkgInfo : JPackageInfo;
-    begin
-      PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
-      Result := JStringToString(PkgInfo.versionName);
-    end;
-    {$ELSE}
-    begin
-      Result := 'N/A';
-    end;
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+        AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+        BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+        Result := UTF8ToString(BuildStr.UTF8String);
+      end;
     {$ENDIF}
   {$ENDIF}
 {$ENDIF}

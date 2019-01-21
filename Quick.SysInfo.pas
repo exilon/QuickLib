@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.SysInfo
   Description : System Info functions
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 17/05/2018
-  Modified    : 08/09/2018
+  Modified    : 21/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -38,9 +38,15 @@ interface
 uses
   SysUtils,
   {$IFNDEF FPC}
-    {$IFDEF ANDROID}
+    {$IFDEF NEXTGEN}
     System.IOUtils,
-    Androidapi.Helpers,
+      {$IFDEF ANDROID}
+      Androidapi.Helpers,
+      {$ENDIF}
+      {$IFDEF IOS}
+      Macapi.CoreFoundation,
+      iOSApi.Foundation,
+      {$ENDIF}
     {$ENDIF}
   {$ENDIF}
   Quick.Commons;
@@ -80,7 +86,11 @@ begin
   {$IFNDEF NEXTGEN}
   fAppName := ExtractFilenameWithoutExt(ParamStr(0));
   {$ELSE}
-  fAppName := JStringToString(SharedActivityContext.getPackageName);
+    {$IFDEF ANDROID}
+    fAppName := JStringToString(SharedActivityContext.getPackageName);
+    {$ELSE}
+    fAppName := TNSString.Wrap(CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle, kCFBundleIdentifierKey)).UTF8String;
+    {$ENDIF}
   {$ENDIF}
   fAppVersion := GetAppVersionFullStr;
   {$IFNDEF NEXTGEN}
@@ -96,7 +106,11 @@ end;
 
 function TSystemInfo.GetOSVersion: string;
 begin
-  Result := {$IFDEF FPC}{$I %FPCTARGETOS%}+'-'+{$I %FPCTARGETCPU%}{$ELSE}TOSVersion.ToString{$ENDIF};
+  Result := {$IFDEF FPC}
+              {$I %FPCTARGETOS%}+'-'+{$I %FPCTARGETCPU%}
+            {$ELSE}
+            TOSVersion.ToString
+            {$ENDIF};
 end;
 
 initialization
