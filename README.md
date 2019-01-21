@@ -4,7 +4,9 @@
 **QuickLib**
 --------
 
-Small delphi/fpc library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+Small delphi/Firemonkey(Windows,Android,OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+* NEW: First version with OSX/IOS partial support
+* NEW: Refactorized Quick.Config (more easy)
 * NEW: TScheduledTasks: New schedule methods.
 * NEW: TAnonymousThread, TBackgroundTasks & TScheduledTasks _Sync methods
 * NEW: TBackgroundTasks & TScheduledTasks
@@ -166,45 +168,53 @@ Log.Add('Error x',etError);
 Log.Add('Error is %s',[ErrorStr],etError);
 ```
 
-**Quick.Config:** Load/Save a config as json file or Windows Registry keys. Create a descend class from TAppConfig and add private variables will be loaded/saved.
+**Quick.Config:** Load/Save a config as json file or Windows Registry keys. Create a descend class from TAppConfigJson or TAppConfigRegistry and add private variables will be loaded/saved.
 
 ```delphi
 //create a class heritage
-TMyConfig = class(TAppConfig)
+TMyConfig = class(TAppConfigJson)
 private
     fName : string;
     fSurname : string;
     fStatus : Integer;
-public
+published
     property Name : string read fName write fName;
     property SurName : string read fSurname write fSurname;
     property Status : Integer read fStatus write fStatus;
 end;
-  
+
 //create your config to json file
 //Add Quick.Config.Json to your uses
-AppConfigJson := TAppConfigJsonProvider<TMyConfig>.Create(MyConfig);
-AppConfigJson.CreateIfNotExists := True;
-AppConfigJson.Filename := 'Config.json';
+MyConfig := TMyConfig.Create;
+MyConfig.Provider.CreateIfNotExists := True;
+MyConfig.Provider.Filename := 'Config.json';
 MyConfig.Name := 'John';
 MyConfig.Surname := 'Smith';
 //load
-AppConfigJson.Load(MyConfig);
+MyConfig.Load;
 //save
-AppConfigJson.Save(MyConfig);
+MyConfig.Save;
   
 //create your config to Windows Registry
 //Add Quick.Config.Registry to your uses
-AppConfigReg := TAppConfigRegistryProvider<TMyConfig>.Create(MyConfig);
+MyConfig := TMyConfig.Create;
 //Define Registry as HKEY_CURRENT_USER\Software\MyApp
-AppConfigReg.HRoot := HKEY_CURRENT_USER; 
-AppConfigReg.MainKey := 'MyApp';
+MyConfig.HRoot := HKEY_CURRENT_USER; 
+MyConfig.MainKey := 'MyApp';
 MyConfig.Name := 'John';
 MyConfig.Surname := 'Smith';
 //load
-AppConfigReg.Load(Config);
+MyConfig.Load;
 //save
-AppConfigReg.Save(Config);
+MyConfig.Save;
+
+//Create a custom Config with no default provider
+TMyConfig = class(TAppConfig)
+...your properties
+end;
+
+MyConfig := TMyConfig.Create(TAppConfigJsonProvider.Create('.\config.json');
+
 ```
 
 **Quick.FileMonitor:** Monitorizes a file for changes and throws events.
