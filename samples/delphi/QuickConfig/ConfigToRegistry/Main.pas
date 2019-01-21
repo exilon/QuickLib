@@ -14,7 +14,6 @@ uses
   Vcl.Dialogs,
   Vcl.StdCtrls,
   System.Generics.Collections,
-  Quick.Config.Base,
   Quick.Config.Registry;
 
 type
@@ -65,7 +64,7 @@ type
     property SessionName : string read fSessionName write fSessionName;
     property WorkList : TObjectList<TWorker> read fWorkList write fWorkList;
   public
-    constructor Create; override;
+    constructor Create;
     destructor Destroy; override;
     procedure DefaultValues; override;
   end;
@@ -172,6 +171,7 @@ end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+  if Assigned(ConfigTest) then ConfigTest.Free;
   if Assigned(ConfigReg) then ConfigReg.Free;
 end;
 
@@ -189,7 +189,7 @@ end;
 
 constructor TMyConfig.Create;
 begin
-  inherited;
+  inherited Create;
   WorkList := TObjectList<TWorker>.Create(True);
   DefaultValues;
 end;

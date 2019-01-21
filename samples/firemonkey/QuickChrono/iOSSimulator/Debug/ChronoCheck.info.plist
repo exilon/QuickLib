@@ -1,0 +1,225 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>ChronoCheck</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>ChronoCheck</string>
+	<key>CFBundleIdentifier</key>
+	<string>ChronoCheck</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>7.1</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>LSRequiresIPhoneOS</key>
+	<string>true</string>
+	<key>CFBundleAllowMixedLocalizations</key>
+	<string>YES</string>
+	<key>CFBundleExecutable</key>
+	<string>ChronoCheck</string>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>CFBundleResourceSpecification</key>
+	<string>ResourceRules.plist</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>The reason for accessing the location information of the user</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>The reason for accessing the location information of the user</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>The reason for accessing the location information of the user</string>
+	<key>FMLocalNotificationPermission</key>
+	<string>false</string>
+	<key>UIBackgroundModes</key>
+	<array>
+	</array>
+	<key>NSContactsUsageDescription</key>
+	<string>The reason for accessing the contacts</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>The reason for accessing the photo library</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>The reason for adding to the photo library</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The reason for accessing the camera</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>The reason for accessing the face id</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>The reason for accessing the microphone</string>
+	<key>NSSiriUsageDescription</key>
+	<string>The reason for accessing Siri</string>
+
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CFBundleIconFiles</key>
+	<array>
+		<string>FM_ApplicationIcon_57x57</string>
+		<string>FM_ApplicationIcon_87x87</string>
+		<string>FM_ApplicationIcon_114x114</string>
+		<string>FM_ApplicationIcon_60x60</string>
+		<string>FM_ApplicationIcon_120x120</string>
+		<string>FM_ApplicationIcon_180x180</string>
+		<string>FM_SpotlightSearchIcon_29x29</string>
+		<string>FM_SpotlightSearchIcon_40x40</string>
+		<string>FM_SpotlightSearchIcon_58x58</string>
+		<string>FM_SpotlightSearchIcon_80x80</string>
+		<string>FM_ApplicationIcon_72x72</string>
+		<string>FM_ApplicationIcon_144x144</string>
+		<string>FM_ApplicationIcon_76x76</string>
+		<string>FM_ApplicationIcon_152x152</string>
+		<string>FM_SpotlightSearchIcon_40x40</string>
+		<string>FM_SpotlightSearchIcon_50x50</string>
+		<string>FM_SpotlightSearchIcon_80x80</string>
+		<string>FM_SpotlightSearchIcon_100x100</string>
+		<string>FM_SettingIcon_29x29</string>
+		<string>FM_SettingIcon_58x58</string>
+	</array>
+	<key>UILaunchImages</key>
+	<array>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{320, 480}</string>
+			<key>UILaunchImageName</key>
+			<string>Default</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{320, 568}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-568h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{375, 667}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-667h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{414, 736}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-736h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{414, 736}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-Landscape-736h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Landscape</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{375, 812}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-812h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>11.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{375, 812}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-Landscape-812h</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>11.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Landscape</string>
+		</dict>
+	</array>
+	<key>UILaunchImages~ipad</key>
+	<array>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{768, 1024}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-Portrait</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{768, 1024}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-Landscape</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Landscape</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{1536, 2048}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-Portrait</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Portrait</string>
+		</dict>
+		<dict>
+			<key>UILaunchImageSize</key>
+			<string>{1536, 2048}</string>
+			<key>UILaunchImageName</key>
+			<string>Default-Landscape</string>
+			<key>UILaunchImageMinimumOSVersion</key>
+			<string>8.0</string>
+			<key>UILaunchImageOrientation</key>
+			<string>Landscape</string>
+		</dict>
+	</array>
+	<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoads</key><true/>
+		</dict>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+
+</dict>
+</plist>

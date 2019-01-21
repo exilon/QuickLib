@@ -119,6 +119,7 @@ procedure TForm1.btnSaveJsonClick(Sender: TObject);
 begin
   SetConfig(ConfigJson);
   ConfigJson.Save;
+
   meInfo.Lines.Add(ConfigJson.ToJson);
   meInfo.Lines.Add('Saved Config in Json at ' + DateTimeToStr(ConfigJson.LastSaved));
 end;
