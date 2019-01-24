@@ -1,11 +1,31 @@
 {
      "Title" :  "hola",
      "SessionName" :  "Session01",
+     "Sizes" :  [
+        1,
+         2,
+         3,
+         4,
+         5,
+         6,
+         7
+    ],
      "LastFilename" :  "C:\\library.txt",
+     "WindowPos" :  {
+         "PosX" :  100,
+         "PosY" :  200 
+    },
+     "History" :  [
+        {
+             "Id" :  1,
+             "Priority" :  "msLow",
+             "Redundant" :  true 
+        }
+    ],
      "Complex" :  {
          "Id" :  1,
          "Priority" :  "msMed",
          "Redundant" :  true 
     },
-     "ModifyDate" :  "2019-01-21T23:10:54.785Z " 
+     "ModifyDate" :  "2019-01-24T23:59:38.138Z" 
 }

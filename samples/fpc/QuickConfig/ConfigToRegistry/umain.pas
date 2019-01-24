@@ -9,7 +9,7 @@ uses
   {$IFDEF FPC}
   registry,
   {$ENDIF}
-  Quick.Config.Json,
+  Quick.Config.Registry,
   Generics.Collections;
 
 type
@@ -45,7 +45,7 @@ type
     property Active : Boolean read fActive write fActive;
   end;
 
-  TMyConfig2 = class(TAppConfigJson)
+  TMyConfig2 = class(TAppConfigRegistry)
   private
     fhola : Integer;
   published
@@ -55,7 +55,7 @@ type
   TArraySizes = array of Integer;
   TArrayHistory = array of TProcessType;
 
-  TMyConfig = class(TAppConfigJson)
+  TMyConfig = class(TAppConfigRegistry)
   private
     fTitle : string;
     fHidden : Boolean;
@@ -68,7 +68,6 @@ type
     fModifyDate : TDateTime;
     //fWorkList : TObjectList<TWorker>;
   public
-    constructor Create;
     destructor Destroy; override;
     procedure DefaultValues; override;
     property Hidden : Boolean read fHidden write fHidden;
@@ -104,7 +103,7 @@ type
 
 var
   Form1: TForm1;
-  ConfigJson : TMyConfig;
+  ConfigReg : TMyConfig;
   ConfigTest : TMyConfig;
 
 implementation
@@ -118,19 +117,19 @@ uses
 
 procedure TForm1.btnSaveJsonClick(Sender: TObject);
 begin
-  SetConfig(ConfigJson);
-  ConfigJson.Save;
+  SetConfig(ConfigReg);
+  ConfigReg.Save;
 
-  meInfo.Lines.Add(ConfigJson.ToJson);
-  meInfo.Lines.Add('Saved Config in Json at ' + DateTimeToStr(ConfigJson.LastSaved));
+  meInfo.Lines.Add(ConfigReg.ToJson);
+  meInfo.Lines.Add('Saved Config in Json at ' + DateTimeToStr(ConfigReg.LastSaved));
 end;
 
 procedure TForm1.btnLoadJsonClick(Sender: TObject);
 begin
   meInfo.Lines.Add('Load ConfigJson');
-  ConfigJson.Load;
-  meInfo.Lines.Add(ConfigJson.ToJSON);
-  if TestConfig(ConfigTest,ConfigJson) then meInfo.Lines.Add('Test passed successfully!');
+  ConfigReg.Load;
+  meInfo.Lines.Add(ConfigReg.ToJSON);
+  if TestConfig(ConfigTest,ConfigReg) then meInfo.Lines.Add('Test passed successfully!');
 end;
 
 function  TForm1.TestConfig(cConfig1, cConfig2 : TMyConfig) : Boolean;
@@ -166,15 +165,15 @@ end;
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   if Assigned(ConfigTest) then ConfigTest.Free;
-  if Assigned(ConfigJson) then ConfigJson.Free;
+  if Assigned(ConfigReg) then ConfigReg.Free;
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   ConfigTest := TMyConfig.Create;
   SetConfig(ConfigTest);
-  ConfigJson := TMyConfig.Create('.\Config.json');
-  //ConfigJson.Provider.CreateIfNotExists := True;
+  ConfigReg := TMyConfig.Create(HKEY_CURRENT_USER,'_AppConfig2');
+  //ConfigReg.Provider.CreateIfNotExists := True;
 end;
 
 procedure TForm1.SetConfig(cConfig: TMyConfig);
@@ -201,13 +200,6 @@ begin
 end;
 
 { TMyConfig }
-
-constructor TMyConfig.Create;
-begin
-  inherited;
-  //WorkList := TObjectList<TWorker>.Create(True);
-  DefaultValues;
-end;
 
 procedure TMyConfig.DefaultValues;
 begin
