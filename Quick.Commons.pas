@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 18/01/2019
+  Modified    : 24/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1090,7 +1090,7 @@ begin
   FmtSettings.DateSeparator := '-';
   FmtSettings.TimeSeparator := ':';
   FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ"Z"';
-  Result := DateTimeToStr(aDateTime,FmtSettings);
+  Result := DateTimeToStr(aDateTime,FmtSettings).Trim;
   {$ENDIF}
 end;
 
