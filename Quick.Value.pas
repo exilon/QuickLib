@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 07/01/2019
-  Modified    : 21/01/2019
+  Modified    : 24/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -136,6 +136,24 @@ type
   public
     constructor Create(const Value : Extended);
     property Value : Extended read GetValue write SetValue;
+  end;
+
+  IValueObject = interface
+  ['{5828FABC-6C5D-4954-941E-B3580F918A8B}']
+    function GetValue : TObject;
+    procedure SetValue(const Value : TObject);
+    property Value : TObject read GetValue write SetValue;
+  end;
+
+  TValueObject = class(TValueData,IValueObject)
+  strict private
+    fData : TObject;
+  private
+    function GetValue : TObject;
+    procedure SetValue(const Value : TObject);
+  public
+    constructor Create(const Value : TObject);
+    property Value : TObject read GetValue write SetValue;
   end;
 
   IValuePointer = interface
@@ -458,7 +476,8 @@ begin
   try
     case fDataType of
       dtObject,
-      dtOwnedObject : Result := (fDataIntf as IValuePointer).Value;
+      dtOwnedObject : Result := (fDataIntf as IValueObject).Value;
+      dtPointer : Result := TObject((fDataIntf as IValueObject).Value);
       dtNull : Result := nil;
       else raise Exception.Create('DataType not supported');
     end;
@@ -472,7 +491,8 @@ begin
   try
     case fDataType of
       dtObject,
-      dtOwnedObject : Result := (fDataIntf as IValuePointer).Value;
+      dtOwnedObject : Result := Pointer((fDataIntf as IValueObject).Value);
+      dtPointer : Result := (fDataIntf as IValuePointer).Value;
       dtNull : Result := nil;
       else raise Exception.Create('DataType not supported');
     end;
@@ -703,7 +723,7 @@ end;
 procedure TFlexValue.SetAsObject(const Value: TObject);
 begin
   Clear;
-  fDataIntf := TValuePointer.Create(Value);
+  fDataIntf := TValueObject.Create(Value);
   fDataType := TValueDataType.dtObject;
 end;
 
@@ -864,6 +884,23 @@ begin
 end;
 
 procedure TValueExtended.SetValue(const Value: Extended);
+begin
+  fData := Value;
+end;
+
+{ TValueObject }
+
+constructor TValueObject.Create(const Value: TObject);
+begin
+  fData := Value;
+end;
+
+function TValueObject.GetValue: TObject;
+begin
+  Result := fData;
+end;
+
+procedure TValueObject.SetValue(const Value: TObject);
 begin
   fData := Value;
 end;
