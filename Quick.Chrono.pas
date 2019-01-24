@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2019 Kike Pérez
 
   Unit        : Quick.Chrono
   Description : Chronometers time elapsed and estimated time to do a task
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 27/08/2015
-  Modified    : 31/08/2018
+  Modified    : 20/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -70,7 +70,7 @@ resourcestring
 
 type
 
-  {$IF Defined(ANDROID) OR Defined(LINUX)}
+  {$IF Defined(NEXTGEN) OR Defined(LINUX) OR Defined(OSX)}
   TLargeInteger = Int64;
   {$ENDIF}
 
@@ -193,7 +193,7 @@ begin
 end;
 
 procedure TChronometer.SetTickStamp(var lInt: TLargeInteger);
-{$IF Defined(POSIX) OR Defined(LINUX) AND NOT Defined(MACOS)}
+{$IF (Defined(POSIX) OR Defined(LINUX)) AND NOT Defined(MACOS)}
 var
   res: timespec;
 {$ENDIF}
@@ -205,7 +205,7 @@ begin
     {$IFDEF MACOS}
     lInt := Int64(AbsoluteToNanoseconds(mach_absolute_time) div 100);
     {$ENDIF}
-    {$IF defined(POSIX) OR Defined(LINUX)}
+    {$IF (Defined(POSIX) OR Defined(LINUX)) AND NOT Defined(MACOS)}
     clock_gettime(CLOCK_MONOTONIC, @res);
     lInt := (Int64(1000000000) * res.tv_sec + res.tv_nsec) div 100;
     {$ENDIF}

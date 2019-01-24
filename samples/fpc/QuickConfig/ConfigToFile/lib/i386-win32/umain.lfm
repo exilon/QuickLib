@@ -23,6 +23,7 @@ object Form1: TForm1
     Height = 25
     Top = 424
     Width = 123
+    Cancel = True
     Caption = 'Load From Json'
     OnClick = btnLoadJsonClick
     TabOrder = 1

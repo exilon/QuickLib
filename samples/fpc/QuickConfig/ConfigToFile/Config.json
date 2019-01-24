@@ -11,11 +11,21 @@
          7
     ],
      "LastFilename" :  "C:\\library.txt",
-     "History" :  [    ],
+     "WindowPos" :  {
+         "PosX" :  100,
+         "PosY" :  200 
+    },
+     "History" :  [
+        {
+             "Id" :  1,
+             "Priority" :  "msLow",
+             "Redundant" :  true 
+        }
+    ],
      "Complex" :  {
          "Id" :  1,
          "Priority" :  "msMed",
          "Redundant" :  true 
     },
-     "ModifyDate" :  "2019-01-17T23:27:53.802Z " 
+     "ModifyDate" :  "2019-01-24T23:59:38.138Z" 
 }

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2019 Kike Pérez
 
-  Unit        : Quick.Config.Provider.Registry
+  Unit        : Quick.Config.Registry
   Description : Save config to Windows Registry
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 12/09/2018
+  Modified    : 17/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -58,7 +58,7 @@ uses
 
 type
 
-  TAppConfigRegistryProvider = class(TAppConfigProviderBase)
+  TAppConfigRegistryProvider = class(TAppConfigProvider)
   private
     fRootKey : HKEY;
     fMainKey : string;
@@ -79,7 +79,7 @@ type
     procedure Load(cConfig : TAppConfig); override;
     procedure Save(cConfig : TAppConfig); override;
   public
-    constructor Create; override;
+    constructor Create(aHRoot : HKEY = HKEY_CURRENT_USER; const aMainKey : string = ''); virtual;
     destructor Destroy; override;
     property HRoot : HKEY read fRootKey write fRootKey;
     property MainKey : string read fMainKey write fMainKey;
@@ -89,13 +89,31 @@ type
 
   TAppConfigRegistry = class(TAppConfig)
   private
-    fProvider : TAppConfigRegistryProvider;
-    function GetProvider : IAppConfigProvider; override;
+    function GetProvider : TAppConfigRegistryProvider;
   public
-    constructor Create; override;
+    constructor Create(aHRoot : HKEY = HKEY_CURRENT_USER; const aMainKey : string = '');
     destructor Destroy; override;
-    property Provider : TAppConfigRegistryProvider read fProvider write fProvider;
+    property Provider : TAppConfigRegistryProvider read GetProvider;
   end;
+
+  {Usage: create a descend class from TAppConfigRegistry and add published properties to be loaded/saved
+
+  TMyConfig = class(TAppConfigRegistry)
+  private
+    fName : string;
+    fSurname : string;
+    fStatus : Integer;
+  published
+    property Name : string read fName write fName;
+    property SurName : string read fSurname write fSurname;
+    property Status : Integer read fStatus write fStatus;
+  end;
+
+  MyConfig := TMyConfig.Create;
+  MyConfig.Provider.MainKey := 'MyAppName';
+  MyConfig.Name := 'John';
+  MyConfig.Save;
+  }
 
 
 implementation
@@ -103,11 +121,13 @@ implementation
 
 { TAppConfigRegistryProvider }
 
-constructor TAppConfigRegistryProvider.Create;
+constructor TAppConfigRegistryProvider.Create(aHRoot : HKEY = HKEY_CURRENT_USER; const aMainKey : string = '');
 begin
   inherited Create;
-  fRootKey := HKEY_CURRENT_USER;
-  fMainKey := '_AppConfig';
+  if aHRoot <> HKEY_CURRENT_USER then fRootKey := aHRoot
+    else fRootKey := HKEY_CURRENT_USER;
+  if aMainKey <> '' then fMainKey := aMainKey
+    else fMainKey := '_AppConfig';
   fRegConfig := TRegistry.Create(KEY_READ or KEY_WRITE);
 end;
 
@@ -126,7 +146,8 @@ begin
   fRegConfig.RootKey := fRootKey;
   if not fRegConfig.KeyExists('\Software\' + fMainKey) then
   begin
-    if not CreateIfNotExists then raise EAppConfig.Create('Not exists MainKey in registry!');
+    if not CreateIfNotExists then raise EAppConfig.Create('Not exists MainKey in registry!')
+      else TAppConfigRegistry(cConfig).DefaultValues;
     Save(cConfig);
   end;
   RegistryToJson(json);
@@ -541,21 +562,19 @@ end;
 
 { TAppConfigRegistry }
 
-constructor TAppConfigRegistry.Create;
+constructor TAppConfigRegistry.Create(aHRoot : HKEY = HKEY_CURRENT_USER; const aMainKey : string = '');
 begin
-  inherited;
-  fProvider := TAppConfigRegistryProvider.Create;
+  inherited Create(TAppConfigRegistryProvider.Create(aHRoot,aMainKey));
 end;
 
 destructor TAppConfigRegistry.Destroy;
 begin
-  if Assigned(fProvider) then fProvider.Free;
   inherited;
 end;
 
-function TAppConfigRegistry.GetProvider: IAppConfigProvider;
+function TAppConfigRegistry.GetProvider: TAppConfigRegistryProvider;
 begin
-  Result := fProvider;
+  Result := TAppConfigRegistryProvider(fProvider);
 end;
 
 end.

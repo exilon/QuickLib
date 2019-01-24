@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2019 Kike Pérez
 
-  Unit        : Quick.Config
-  Description : Load/Save config from/to JSON file
+  Unit        : Quick.Config.Base
+  Description : Quick Config Base classes
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 26/01/2017
-  Modified    : 10/12/2018
+  Modified    : 21/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -52,8 +52,6 @@ uses
 
 type
 
-  TDateTimeZone = (tzLocal, tzUTC);
-
   TAppConfig = class;
 
   IAppConfigProvider = interface
@@ -64,7 +62,7 @@ type
 
   TSerializeProperty = (spPublic, spPublished);
 
-  TAppConfigProviderBase = class(TInterfacedObject,IAppConfigProvider)
+  TAppConfigProvider = class(TInterfacedObject,IAppConfigProvider)
   private
     fCreateIfNotExists : Boolean;
     fSerializeLevel : TSerializeProperty;
@@ -84,62 +82,41 @@ type
   private
     {$IFDEF FPC}
     fOnApplyConfig : TApplyConfigEvent;
-    fDateTimeZone: TDateTimeZone;
     fJsonIndent: Boolean;
     fLastSaved : TDateTime;
     {$ELSE}
     {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
     fOnApplyConfig : TApplyConfigEvent;
     {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
-    fDateTimeZone: TDateTimeZone;
-    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
     fJsonIndent: Boolean;
     {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
     fLastSaved : TDateTime;
     {$ENDIF}
   protected
-    function GetProvider : IAppConfigProvider; virtual; abstract;
+    fProvider : TAppConfigProvider;
   public
-    constructor Create; virtual;
+    constructor Create(aConfigProvider : TAppConfigProvider); virtual;
+    destructor Destroy; override;
     {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property OnApplyConfig : TApplyConfigEvent read fOnApplyConfig write fOnApplyConfig;
-    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
-    property DateTimeZone : TDateTimeZone read fDateTimeZone write fDateTimeZone;
     {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property JsonIndent : Boolean read fJsonIndent write fJsonIndent;
     {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property LastSaved : TDateTime read fLastSaved write fLastSaved;
     procedure Apply;
     procedure DefaultValues; virtual;
-    procedure Load;
-    procedure Save;
+    procedure Load; virtual;
+    procedure Save; virtual;
     function ToJSON : string;
     procedure FromJSON(const json : string);
   end;
-
-  {Usage: create a descend class from TAppConfig and add published properties to be loaded/saved
-
-  TMyConfig = class(TAppConfig)
-  private
-    fName : string;
-    fSurname : string;
-    fStatus : Integer;
-  published
-    property Name : string read fName write fName;
-    property SurName : string read fSurname write fSurname;
-    property Status : Integer read fStatus write fStatus;
-  end;
-
-  AppConfigProvider := TAppConfigJsonProvider<TMyConfig>.Create(MyConfig);
-  MyConfig.Name := 'John';
-  }
 
 implementation
 
 
 { TAppConfigProviderBase }
 
-constructor TAppConfigProviderBase.Create;
+constructor TAppConfigProvider.Create;
 begin
   fCreateIfNotExists := True;
   fSerializeLevel := spPublished;
@@ -147,9 +124,9 @@ end;
 
 { TAppConfig }
 
-constructor TAppConfig.Create;
+constructor TAppConfig.Create(aConfigProvider : TAppConfigProvider);
 begin
-  fDateTimeZone := TDateTimeZone.tzLocal;
+  fProvider := aConfigProvider;
   fJsonIndent := True;
   fLastSaved := 0;
 end;
@@ -164,6 +141,12 @@ begin
   //inherit to set default values if no config exists before
 end;
 
+
+destructor TAppConfig.Destroy;
+begin
+  if Assigned(fProvider) then fProvider.Free;
+  inherited;
+end;
 
 function TAppConfig.ToJSON : string;
 var
@@ -189,7 +172,7 @@ begin
   try
     serializer := TJsonSerializer.Create(slPublishedProperty);
     try
-      {$IF NOT DEFINED(FPC) AND DEFINED(ANDROID)}
+      {$IF NOT DEFINED(FPC) AND DEFINED(NEXTGEN)}
       serializer.JsonToObject(Self,json);
       {$ELSE}
       Self := TAppConfig(serializer.JsonToObject(Self,json));
@@ -204,12 +187,12 @@ end;
 
 procedure TAppConfig.Load;
 begin
-  GetProvider.Load(Self);
+  fProvider.Load(Self);
 end;
 
 procedure TAppConfig.Save;
 begin
-  GetProvider.Save(Self);
+  fProvider.Save(Self);
 end;
 
 end.

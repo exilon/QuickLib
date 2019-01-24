@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 07/01/2019
-  Modified    : 16/01/2019
+  Modified    : 24/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -62,7 +62,7 @@ type
     property Value : string read GetValue write SetValue;
   end;
 
-  {$IFNDEF NEXTGEN}
+  {$IFDEF MSWINDOWS}
    IValueAnsiString = interface
    ['{75775F25-6F7A-49F0-A1E0-BDE1F55EC378}']
     function GetValue : AnsiString;
@@ -138,6 +138,24 @@ type
     property Value : Extended read GetValue write SetValue;
   end;
 
+  IValueObject = interface
+  ['{5828FABC-6C5D-4954-941E-B3580F918A8B}']
+    function GetValue : TObject;
+    procedure SetValue(const Value : TObject);
+    property Value : TObject read GetValue write SetValue;
+  end;
+
+  TValueObject = class(TValueData,IValueObject)
+  strict private
+    fData : TObject;
+  private
+    function GetValue : TObject;
+    procedure SetValue(const Value : TObject);
+  public
+    constructor Create(const Value : TObject);
+    property Value : TObject read GetValue write SetValue;
+  end;
+
   IValuePointer = interface
   ['{9FE4E499-C487-4D24-8190-14FF3F9FE86B}']
     function GetValue : Pointer;
@@ -183,7 +201,7 @@ type
     {$ENDIF}
     fDataType : TValueDataType;
     function CastToString : string;
-    {$IFNDEF NEXTGEN}
+    {$IFDEF MSWINDOWS}
     function CastToAnsiString : AnsiString;
     function CastToWideString : WideString;
     {$ENDIF}
@@ -199,7 +217,7 @@ type
     function CastToVariant: Variant;
     function CastToCardinal : Cardinal;
     procedure SetAsString(const Value : string);
-    {$IFNDEF NEXTGEN}
+    {$IFDEF MSWINDOWS}
     procedure SetAsAnsiString(const Value : AnsiString);
     procedure SetAsWideString(const Value : WideString);
     {$ENDIF}
@@ -217,7 +235,7 @@ type
     constructor Create(const Value: TVarRec);
     property DataType : TValueDataType read fDataType;
     property AsString : string read CastToString write SetAsString;
-    {$IFNDEF NEXTGEN}
+    {$IFDEF MSWINDOWS}
     property AsAnsiString : AnsiString read CastToAnsiString write SetAsAnsiString;
     property AsWideString : WideString read CastToWideString write SetAsWideString;
     {$ENDIF}
@@ -268,7 +286,7 @@ begin
     case fDataType of
       dtNull : Result := '';
       dtString : Result := (fDataIntf as IValueString).Value;
-      {$IFNDEF NEXTGEN}
+      {$IFDEF MSWINDOWS}
       dtAnsiString : Result := string((fDataIntf as IValueAnsiString).Value);
       dtWideString : Result := (fDataIntf as IValueWideString).Value;
       {$ENDIF}
@@ -287,7 +305,7 @@ begin
   end;
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFDEF MSWINDOWS}
 function TFlexValue.CastToAnsiString: AnsiString;
 begin
   try
@@ -316,7 +334,7 @@ begin
     case fDataType of
       dtNull : Result := '';
       dtString : Result := Widestring((fDataIntf as IValueString).Value);
-      {$IFNDEF NEXTGEN}
+      {$IFDEF MSWINDOWS}
       dtAnsiString : Result := Widestring((fDataIntf as IValueAnsiString).Value);
       dtWideString : Result := (fDataIntf as IValueWideString).Value;
       {$ENDIF}
@@ -341,7 +359,7 @@ begin
     case fDataType of
       dtNull : Result := False;
       dtString : Result := StrToBool((fDataIntf as IValueString).Value);
-      {$IFNDEF NEXTGEN}
+      {$IFDEF MSWINDOWS}
       dtAnsiString : Result := StrToBool(string((fDataIntf as IValueAnsiString).Value));
       dtWideString : Result := StrToBool((fDataIntf as IValueWideString).Value);
       {$ENDIF}
@@ -385,7 +403,7 @@ begin
     case fDataType of
       dtNull : Result := 0.0;
       dtString : Result := StrToDateTime((fDataIntf as IValueString).Value);
-      {$IFNDEF NEXTGEN}
+      {$IFDEF MSWINDOWS}
       dtAnsiString : Result := StrToDateTime(string((fDataIntf as IValueAnsiString).Value));
       dtWideString : Result := StrToDateTime((fDataIntf as IValueWideString).Value);
       {$ENDIF}
@@ -408,7 +426,7 @@ begin
     case fDataType of
       dtNull : Result := 0.0;
       dtString : Result := StrToFloat((fDataIntf as IValueString).Value);
-      {$IFNDEF NEXTGEN}
+      {$IFDEF MSWINDOWS}
       dtAnsiString : Result := StrToFloat(string((fDataIntf as IValueAnsiString).Value));
       dtWideString : Result := StrToFloat((fDataIntf as IValueWideString).Value);
       {$ENDIF}
@@ -432,7 +450,7 @@ begin
     case fDataType of
       dtNull : Result := 0;
       dtString : Result := StrToInt((fDataIntf as IValueString).Value);
-      {$IFNDEF NEXTGEN}
+      {$IFDEF MSWINDOWS}
       dtAnsiString : Result := StrToInt(string((fDataIntf as IValueAnsiString).Value));
       dtWideString : Result := StrToInt((fDataIntf as IValueWideString).Value);
       {$ENDIF}
@@ -458,7 +476,8 @@ begin
   try
     case fDataType of
       dtObject,
-      dtOwnedObject : Result := (fDataIntf as IValuePointer).Value;
+      dtOwnedObject : Result := (fDataIntf as IValueObject).Value;
+      dtPointer : Result := TObject((fDataIntf as IValueObject).Value);
       dtNull : Result := nil;
       else raise Exception.Create('DataType not supported');
     end;
@@ -472,7 +491,8 @@ begin
   try
     case fDataType of
       dtObject,
-      dtOwnedObject : Result := (fDataIntf as IValuePointer).Value;
+      dtOwnedObject : Result := Pointer((fDataIntf as IValueObject).Value);
+      dtPointer : Result := (fDataIntf as IValuePointer).Value;
       dtNull : Result := nil;
       else raise Exception.Create('DataType not supported');
     end;
@@ -519,13 +539,15 @@ begin
   case Value.VType of
     {$IFNDEF NEXTGEN}
     vtString : AsString := string(Value.VString^);
-    {$ENDIF}
     vtChar : AsString := string(Value.VChar);
-    {$IFNDEF NEXTGEN}
+    {$ENDIF}
+    {$IFDEF MSWINDOWS}
     vtAnsiString : AsAnsiString := AnsiString(Value.VAnsiString);
     vtWideString : AsWideString := WideString(Value.VWideString);
     {$ENDIF}
+    {$IFDEF UNICODE}
     vtUnicodeString: AsString := string(Value.VUnicodeString);
+    {$ENDIF UNICODE}
     vtInteger : AsInteger := Value.VInteger;
     vtInt64 : AsInt64 := Value.VInt64^;
     vtExtended : AsExtended := Value.VExtended^;
@@ -640,7 +662,7 @@ begin
   Result := fDataType = dtVariant;
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFDEF MSWINDOWS}
 procedure TFlexValue.SetAsAnsiString(const Value: AnsiString);
 begin
   Clear;
@@ -701,7 +723,7 @@ end;
 procedure TFlexValue.SetAsObject(const Value: TObject);
 begin
   Clear;
-  fDataIntf := TValuePointer.Create(Value);
+  fDataIntf := TValueObject.Create(Value);
   fDataType := TValueDataType.dtObject;
 end;
 
@@ -726,7 +748,7 @@ begin
   fDataType := TValueDataType.dtVariant;
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFDEF MSWINDOWS}
 procedure TFlexValue.SetAsWideString(const Value: WideString);
 begin
   Clear;
@@ -781,7 +803,7 @@ end;
 
 { TValueAnsiStringData }
 
-{$IFNDEF NEXTGEN}
+{$IFDEF MSWINDOWS}
 constructor TValueAnsiString.Create(const Value: AnsiString);
 begin
   fData := Value;
@@ -862,6 +884,23 @@ begin
 end;
 
 procedure TValueExtended.SetValue(const Value: Extended);
+begin
+  fData := Value;
+end;
+
+{ TValueObject }
+
+constructor TValueObject.Create(const Value: TObject);
+begin
+  fData := Value;
+end;
+
+function TValueObject.GetValue: TObject;
+begin
+  Result := fData;
+end;
+
+procedure TValueObject.SetValue(const Value: TObject);
 begin
   fData := Value;
 end;

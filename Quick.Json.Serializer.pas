@@ -1154,9 +1154,61 @@ begin
   //Result.JsonString := TJSONString(aName);
   try
     case avalue.Kind of
-      tkInteger, tkInt64 :
+      tkClass :
+        begin
+           Result.JsonValue := TJSONValue(Serialize(aValue.AsObject));
+        end;
+      tkString, tkLString, tkWString, tkUString :
+        begin
+          Result.JsonValue := TJSONString.Create(aValue.AsString);
+        end;
+      tkChar, tkWChar :
+        begin
+          Result.JsonValue := TJSONString.Create(aValue.AsString);
+        end;
+      tkInteger :
+        begin
+          Result.JsonValue := TJSONNumber.Create(aValue.AsInteger);
+        end;
+      tkInt64 :
         begin
           Result.JsonValue := TJSONNumber.Create(aValue.AsInt64);
+        end;
+      tkFloat :
+        begin
+          if aValue.TypeInfo = TypeInfo(TDateTime) then
+          begin
+            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
+          end
+          else if aValue.TypeInfo = TypeInfo(TDate) then
+          begin
+            Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
+          end
+          else if aValue.TypeInfo = TypeInfo(TTime) then
+          begin
+            Result.JsonValue := TJSONString.Create(TimeToStr(aValue.AsExtended));
+          end
+          else
+          begin
+            Result.JsonValue := TJSONNumber.Create(aValue.AsExtended);
+          end;
+        end;
+      tkEnumeration :
+        begin
+          if (aValue.TypeInfo = System.TypeInfo(Boolean)) then
+          begin
+            Result.JsonValue := TJSONBool.Create(aValue.AsBoolean);
+          end
+          else
+          begin
+            //Result.JsonValue := TJSONString.Create(GetEnumName(aValue.TypeInfo,aValue.AsOrdinal));
+            if fUseEnumNames then Result.JsonValue := TJSONString.Create(aValue.ToString)
+              else Result.JsonValue := TJSONNumber.Create(GetEnumValue(aValue.TypeInfo,aValue.ToString));
+          end;
+        end;
+      tkSet :
+        begin
+          Result.JsonValue := TJSONString.Create(aValue.ToString);
         end;
     else
       begin
@@ -1211,10 +1263,10 @@ begin
                 end;
               end;
             end;
-
             Result.JsonValue := jArray;
           finally
-            DynArrayClear(pArr,propinfo.PropType);
+            //DynArrayClear(pArr,propinfo.PropType);
+            pArr := nil;
           end;
         end;
       tkClass :

@@ -53,6 +53,7 @@ type
   end;
 
   TArraySizes = array of Integer;
+  TArrayHistory = array of TProcessType;
 
   TMyConfig = class(TAppConfigJson)
   private
@@ -62,10 +63,10 @@ type
     fSizes : TArraySizes;
     fLastFilename : string;
     fWindowPos : TWinPos;
-    fHistory : TArray<TProcessType>;
+    fHistory : TArrayHistory;
     fComplex : TProcessType;
     fModifyDate : TDateTime;
-    fWorkList : TObjectList<TWorker>;
+    //fWorkList : TObjectList<TWorker>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -76,8 +77,8 @@ type
     property SessionName : string read fSessionName write fSessionName;
     property Sizes : TArraySizes read fSizes write fSizes;
     property LastFilename : string read fLastFilename write fLastFilename;
-    //property WindowPos : TWinPos read fWindowPos write fWindowPos;
-    property History : TArray<TProcessType> read fHistory write fHistory;
+    property WindowPos : TWinPos read fWindowPos write fWindowPos;
+    property History : TArrayHistory read fHistory write fHistory;
     property Complex : TProcessType read fComplex write fComplex;
     property ModifyDate : TDateTime read fModifyDate write fModifyDate;
     //property WorkList : TObjectList<TWorker> read fWorkList write fWorkList;
@@ -119,6 +120,7 @@ procedure TForm1.btnSaveJsonClick(Sender: TObject);
 begin
   SetConfig(ConfigJson);
   ConfigJson.Save;
+
   meInfo.Lines.Add(ConfigJson.ToJson);
   meInfo.Lines.Add('Saved Config in Json at ' + DateTimeToStr(ConfigJson.LastSaved));
 end;
@@ -126,7 +128,6 @@ end;
 procedure TForm1.btnLoadJsonClick(Sender: TObject);
 begin
   meInfo.Lines.Add('Load ConfigJson');
-  ConfigJson := TMyConfig.Create;
   ConfigJson.Load;
   meInfo.Lines.Add(ConfigJson.ToJSON);
   if TestConfig(ConfigTest,ConfigJson) then meInfo.Lines.Add('Test passed successfully!');
@@ -140,8 +141,8 @@ begin
     Assert(cConfig1.LastFilename = cConfig2.LastFilename);
     for i := Low(cConfig1.Sizes) to High(cConfig1.Sizes) do
       Assert(cConfig1.Sizes[i] = cConfig2.Sizes[i]);
-    //Assert(cConfig1.WindowPos.PosX = cConfig2.WindowPos.PosX);
-    //Assert(cConfig1.WindowPos.PosX = cConfig2.WindowPos.PosX);
+    Assert(cConfig1.WindowPos.PosX = cConfig2.WindowPos.PosX);
+    Assert(cConfig1.WindowPos.PosX = cConfig2.WindowPos.PosX);
     Assert(cConfig1.Complex.Priority = cConfig2.Complex.Priority);
     Assert(cConfig1.Complex.Redundant  = cConfig2.Complex.Redundant);
     Assert(cConfig1.Title = cConfig2.Title);
@@ -188,11 +189,14 @@ begin
   cConfig.Complex.Id := 1;
   cConfig.Complex.Redundant := True;
   cConfig.Complex.Priority := TMyPriority.msMed;
-  //processtype := TProcessType.Create;
-  //processtype.Id := 1;
-  //processtype.Priority := msLow;
-  //processtype.Redundant := True;
-  //cConfig.History := [processtype];
+  cConfig.WindowPos := TWinPos.Create;
+  cConfig.WindowPos.PosX := 100;
+  cConfig.WindowPos.PosY := 200;
+  processtype := TProcessType.Create;
+  processtype.Id := 1;
+  processtype.Priority := msLow;
+  processtype.Redundant := True;
+  cConfig.History := [processtype];
   cConfig.ModifyDate := Now();
 end;
 

@@ -8,7 +8,7 @@ uses
   FMX.Controls.Presentation, FMX.ScrollBox, FMX.Memo,
   DateUtils,
   Quick.Commons,
-  Quick.Threads;
+  Quick.Threads, FMX.StdCtrls, FMX.Layouts;
 
 type
 
@@ -26,9 +26,12 @@ type
 
   TfrmMain = class(TForm)
     meLog: TMemo;
+    Layout1: TLayout;
+    btnStart: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormActivate(Sender: TObject);
+    procedure btnStartClick(Sender: TObject);
   private
     { Private declarations }
     ScheduledTasks : TScheduledTasks;
@@ -70,10 +73,14 @@ begin
   log('task "%s" result %d / %d = %d',[fName,a,b,i]);
 end;
 
+procedure TfrmMain.btnStartClick(Sender: TObject);
+begin
+  ScheduledTasks.Start;
+end;
+
 procedure TfrmMain.FormActivate(Sender: TObject);
 begin
-  if not ScheduledTasks.IsStarted then ScheduledTasks.Start;
-
+  //if not ScheduledTasks.IsStarted then ScheduledTasks.Start;
 end;
 
 procedure TfrmMain.FormClose(Sender: TObject; var Action: TCloseAction);

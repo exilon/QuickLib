@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2019 Kike Pérez
 
-  Unit        : Quick.Config.Provider.Json
+  Unit        : Quick.Config.Json
   Description : Save config to JSON file
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 10/12/2018
+  Modified    : 17/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -53,33 +53,52 @@ uses
 
 type
 
-  TAppConfigJsonProvider = class(TAppConfigProviderBase)
+  TAppConfigJsonProvider = class(TAppConfigProvider)
   private
     fFilename : string;
     procedure Load(cConfig : TAppConfig); override;
     procedure Save(cConfig : TAppConfig); override;
   public
-    constructor Create; override;
+    constructor Create(const aFilename : string = ''); virtual;
     property Filename : string read fFilename write fFilename;
   end;
 
   TAppConfigJson = class(TAppConfig)
   private
-    fProvider : TAppConfigJsonProvider;
-    function GetProvider : IAppConfigProvider; override;
+    function GetProvider : TAppConfigJsonProvider;
   public
-    constructor Create; override;
+    constructor Create(const aFileName : string = ''); overload; virtual;
     destructor Destroy; override;
-    property Provider : TAppConfigJsonProvider read fProvider write fProvider;
+    property Provider : TAppConfigJsonProvider read GetProvider;
   end;
+
+  {Usage: create a descend class from TAppConfigJson and add published properties to be loaded/saved
+
+  TMyConfig = class(TAppConfigJson)
+  private
+    fName : string;
+    fSurname : string;
+    fStatus : Integer;
+  published
+    property Name : string read fName write fName;
+    property SurName : string read fSurname write fSurname;
+    property Status : Integer read fStatus write fStatus;
+  end;
+
+  MyConfig := TMyConfig.Create;
+  MyConfig.Provider.FileName := '.\MyAppName.json';
+  MyConfig.Name := 'John';
+  MyConfig.Save;
+  }
 
 
 implementation
 
-constructor TAppConfigJsonProvider.Create;
+constructor TAppConfigJsonProvider.Create(const aFilename : string = '');
 begin
   inherited Create;
-  fFilename := TPath.ChangeExtension(ParamStr(0),'json');
+  if aFilename = '' then fFilename := TPath.ChangeExtension(ParamStr(0),'json')
+    else fFilename := aFilename;
 end;
 
 procedure TAppConfigJsonProvider.Load(cConfig : TAppConfig);
@@ -150,22 +169,19 @@ end;
 
 { TAppConfigJson }
 
-constructor TAppConfigJson.Create;
+constructor TAppConfigJson.Create(const aFileName : string = '');
 begin
-  inherited;
-  fProvider := TAppConfigJsonProvider.Create;
+  inherited Create(TAppConfigJsonProvider.Create(aFileName));
 end;
-
 
 destructor TAppConfigJson.Destroy;
 begin
-  if Assigned(fProvider) then fProvider.Free;
   inherited;
 end;
 
-function TAppConfigJson.GetProvider: IAppConfigProvider;
+function TAppConfigJson.GetProvider: TAppConfigJsonProvider;
 begin
-  Result := fProvider;
+  Result := TAppConfigJsonProvider(fProvider);
 end;
 
 end.
