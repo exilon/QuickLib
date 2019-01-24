@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 21/01/2019
+  Modified    : 24/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1223,6 +1223,7 @@ end;
 
 function TScheduledTasks.GetTask(const aTaskName: string): IScheduledTask;
 begin
+  if not Assigned(fScheduler) then raise Exception.Create('Scheduler must be started to get a task!');
   Result := fScheduler.Get(aTaskName);
 end;
 
