@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 26/01/2017
-  Modified    : 21/01/2019
+  Modified    : 25/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -41,14 +41,13 @@ uses
   fpjson,
   jsonparser,
   fpjsonrtti,
-  Quick.Json.Serializer;
   {$ELSE}
-  Quick.Json.Serializer,
   DBXJSON,
   System.JSON,
   Rest.Json.Types,
-  Rest.Json;
+  Rest.Json,
   {$ENDIF}
+  Quick.Json.Serializer;
 
 type
 
@@ -104,12 +103,16 @@ type
     {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
     property LastSaved : TDateTime read fLastSaved write fLastSaved;
     procedure Apply;
+    //override this method to provide your class initialization
+    procedure Init; virtual;
     procedure DefaultValues; virtual;
     procedure Load; virtual;
     procedure Save; virtual;
     function ToJSON : string;
     procedure FromJSON(const json : string);
   end;
+
+  EAppConfig = class(Exception);
 
 implementation
 
@@ -129,6 +132,7 @@ begin
   fProvider := aConfigProvider;
   fJsonIndent := True;
   fLastSaved := 0;
+  Init;
 end;
 
 procedure TAppConfig.Apply;
@@ -156,7 +160,7 @@ begin
   try
     serializer := TJsonSerializer.Create(slPublishedProperty);
     try
-      Result := serializer.ObjectToJSON(Self,True);
+      Result := serializer.ObjectToJSON(Self,fJsonIndent);
     finally
       serializer.Free;
     end;
@@ -172,11 +176,7 @@ begin
   try
     serializer := TJsonSerializer.Create(slPublishedProperty);
     try
-      {$IF NOT DEFINED(FPC) AND DEFINED(NEXTGEN)}
       serializer.JsonToObject(Self,json);
-      {$ELSE}
-      Self := TAppConfig(serializer.JsonToObject(Self,json));
-      {$ENDIF}
     finally
       serializer.Free;
     end;
@@ -185,14 +185,22 @@ begin
   end;
 end;
 
+procedure TAppConfig.Init;
+begin
+  //override to create private classes
+end;
+
 procedure TAppConfig.Load;
 begin
+  if not Assigned(fProvider) then raise EAppConfig.Create('No provider assigned!');
   fProvider.Load(Self);
 end;
 
 procedure TAppConfig.Save;
 begin
+  if not Assigned(fProvider) then raise EAppConfig.Create('No provider assigned!');
   fProvider.Save(Self);
+  fLastSaved := Now();
 end;
 
 end.
