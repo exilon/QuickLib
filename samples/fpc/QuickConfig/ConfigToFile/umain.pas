@@ -68,7 +68,7 @@ type
     fModifyDate : TDateTime;
     //fWorkList : TObjectList<TWorker>;
   public
-    constructor Create;
+    procedure Init;
     destructor Destroy; override;
     procedure DefaultValues; override;
     property Hidden : Boolean read fHidden write fHidden;
@@ -94,6 +94,7 @@ type
     procedure btnSaveJsonClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
+    procedure OnConfigFileModified;
   private
 
   public
@@ -171,10 +172,17 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-  ConfigTest := TMyConfig.Create;
+  ConfigTest := TMyConfig.Create('');
   SetConfig(ConfigTest);
   ConfigJson := TMyConfig.Create('.\Config.json');
-  //ConfigJson.Provider.CreateIfNotExists := True;
+  ConfigJson.Provider.CreateIfNotExists := True;
+  ConfigJson.Provider.ReloadIfFileChanged := True;
+  ConfigJson.Provider.OnFileModified := OnConfigFileModified;
+end;
+
+procedure TForm1.OnConfigFileModified;
+begin
+  meInfo.Lines.Add('Config file modified');
 end;
 
 procedure TForm1.SetConfig(cConfig: TMyConfig);
@@ -202,7 +210,7 @@ end;
 
 { TMyConfig }
 
-constructor TMyConfig.Create;
+procedure TMyConfig.Init;
 begin
   inherited;
   //WorkList := TObjectList<TWorker>.Create(True);

@@ -64,8 +64,8 @@ type
     property SessionName : string read fSessionName write fSessionName;
     property WorkList : TObjectList<TWorker> read fWorkList write fWorkList;
   public
-    constructor Create;
     destructor Destroy; override;
+    procedure Init; override;
     procedure DefaultValues; override;
   end;
 
@@ -187,9 +187,9 @@ end;
 
 { TMyConfig }
 
-constructor TMyConfig.Create;
+procedure TMyConfig.Init;
 begin
-  inherited Create;
+  inherited;
   WorkList := TObjectList<TWorker>.Create(True);
   DefaultValues;
 end;

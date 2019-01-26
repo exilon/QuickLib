@@ -1,7 +1,11 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
+
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
 <plist version="1.0">
+
 <dict>
+
 	<key>CFBundleName</key>
 	<string>ConfigToFile</string>
 	<key>CFBundleDisplayName</key>
@@ -33,6 +37,7 @@
 	<key>NSContactsUsageDescription</key>
 	<string>The reason for accessing the contacts</string>
 
+
 	<key>CFBundleIconFile</key>
 	<string>ConfigToFile.icns</string>
 	<key>CFBundleSupportedPlatforms</key>
@@ -40,5 +45,8 @@
 		<string>MacOSX</string>
 	</array>
 
+
 </dict>
+
 </plist>
+

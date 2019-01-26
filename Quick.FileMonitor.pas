@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2019 Kike Pérez
 
   Unit        : Quick.FileMonitor
   Description : Watch for single file changes
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 11/09/2017
-  Modified    : 07/04/2018
+  Modified    : 25/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,6 +37,9 @@ uses
   Classes,
   {$IFDEF MSWINDOWS}
   Windows,
+  SyncObjs,
+  {$ELSE}
+  SyncObjs,
   {$ENDIF}
   SysUtils,
   {$IFDEF FPC}
@@ -51,10 +54,10 @@ type
   TMonitorWatch = set of TMonitorNotify;
   TFileChangeNotify = procedure(MonitorNofify : TMonitorNotify) of object;
 
-  TQuickFileMonitor = class(TThread)
+  TFileMonitor = class(TThread)
   private
     fFileName : string;
-    fTickEvent : THandle;
+    fTickEvent : TSimpleEvent;
     fInterval : Integer;
     fNotifies : TMonitorWatch;
     fEnabled : Boolean;
@@ -75,9 +78,11 @@ type
     property Enabled : Boolean read fEnabled write SetStatus;
   end;
 
+  TQuickFileMonitor = TFileMonitor;
+
 implementation
 
-constructor TQuickFileMonitor.Create;
+constructor TFileMonitor.Create;
 begin
   inherited Create(True);
   Self.FreeOnTerminate := False;
@@ -86,19 +91,23 @@ begin
   fModifedDate := 0;
   fCurrentMonitorNotify := mnNone;
   fNotifies := [mnFileCreated,mnFileModified,mnFileDeleted];
-  fTickEvent := CreateEvent(nil, True, False, nil);
+  {$IFDEF FPC}
+  fTickEvent := TSimpleEvent.Create;
+  {$ELSE}
+  fTickEvent := TSimpleEvent.Create(nil,True,False,'');
+  {$ENDIF}
   Self.Resume;
 end;
 
-destructor TQuickFileMonitor.Destroy;
+destructor TFileMonitor.Destroy;
 begin
   if not Terminated then Terminate;
-  SetEvent(fTickEvent);
-  CloseHandle(fTickEvent);
+  fTickEvent.SetEvent;
+  fTickEvent.Free;
   inherited;
 end;
 
-procedure TQuickFileMonitor.Execute;
+procedure TFileMonitor.Execute;
 var
   LastModifiedDate : TDateTime;
 begin
@@ -106,7 +115,7 @@ begin
   while not Terminated do
   begin
     fCurrentMonitorNotify := mnNone;
-    if WaitForSingleObject(fTickEvent,fInterval) = WAIT_TIMEOUT then
+    if fTickEvent.WaitFor(fInterval) = TWaitResult.wrTimeout then
     begin
       if fEnabled then
       begin
@@ -154,7 +163,7 @@ begin
   end;
 end;
 
-procedure TQuickFileMonitor.SetStatus(Status : Boolean);
+procedure TFileMonitor.SetStatus(Status : Boolean);
 begin
   if fEnabled <> Status then
   begin
@@ -168,7 +177,7 @@ begin
   end;
 end;
 
-procedure TQuickFileMonitor.NotifyEvent;
+procedure TFileMonitor.NotifyEvent;
 begin
   if Assigned(fOnChangeNotify) then fOnChangeNotify(fCurrentMonitorNotify);
 end;
