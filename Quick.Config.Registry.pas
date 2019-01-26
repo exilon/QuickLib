@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 17/01/2019
+  Modified    : 25/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -127,7 +127,7 @@ begin
   if aHRoot <> HKEY_CURRENT_USER then fRootKey := aHRoot
     else fRootKey := HKEY_CURRENT_USER;
   if aMainKey <> '' then fMainKey := aMainKey
-    else fMainKey := '_AppConfig';
+    else fMainKey := ExtractFileNameWithoutExt(ParamStr(0));
   fRegConfig := TRegistry.Create(KEY_READ or KEY_WRITE);
 end;
 
@@ -234,8 +234,12 @@ begin
     end;
     if fRegConfig.KeyExists(aCurrentKey + '_bak') then fRegConfig.DeleteKey(aCurrentKey + '_bak');
   except
-    fRegConfig.DeleteKey(aCurrentKey);
-    fRegConfig.MoveKey(aCurrentKey+'_bak',aCurrentKey,True);
+    on E : Exception do
+    begin
+      fRegConfig.DeleteKey(aCurrentKey);
+      fRegConfig.MoveKey(aCurrentKey+'_bak',aCurrentKey,True);
+      raise EAppConfig.Create(e.message);
+    end;
   end;
 end;
 
@@ -324,6 +328,7 @@ var
 begin
   Result := False;
   if cCurrentKey <> '' then fRegConfig.OpenKeyReadOnly(cCurrentKey);
+  // else Exit;
   //check if exists RegKey numeric (indicates is a Array)
   RegKeyList := TStringList.Create;
   try
@@ -354,15 +359,15 @@ end;
 
 class function TAppConfigRegistryProvider.IsSimpleJsonValue(v: TJSONValue): Boolean;
 begin
-  Result := (v is TJSONNumber)
-    or (v is TJSONString)
+  Result := (v is {$IFDEF FPC}fpjson.TJsonIntegerNumber{$ELSE}TJSONNumber{$ENDIF})
+    or (v is {$IFDEF FPC}fpjson.{$ENDIF}TJSONString)
     {$IFNDEF FPC}
     or (v is TJSONTrue)
     or (v is TJSONFalse)
     {$ELSE}
-    or (v is TJsonBool)
+    or (v is {$IFDEF FPC}fpjson.TJSONBoolean{$ELSE}TJsonBool{$ENDIF})
     {$ENDIF}
-    or (v is TJSONNull);
+    or (v is {$IFDEF FPC}fpjson.{$ENDIF}TJSONNull);
 end;
 
 function TAppConfigRegistryProvider.ReadRegValue(const cCurrentKey, cName : string) : TJSONValue;
@@ -398,11 +403,15 @@ var
   aValue : string;
 begin
   aName := cName.DeQuotedString('"');
+  {$IFNDEF FPC}
   aValue := cValue.ToString.DeQuotedString('"');
+  {$ELSE}
+  aValue := cValue.AsString;// .DeQuotedString('"');
+  {$ENDIF}
   fRegConfig.OpenKey(cCurrentKey,True);
-  if cValue is TJSONNumber then  fRegConfig.WriteInteger(aName,StrToInt64(aValue))
-   else if cValue is TJSONString then fRegConfig.WriteString(aName,aValue)
-    else if cValue is TJSONBool then fRegConfig.WriteString(aName,aValue);
+  if cValue is {$IFDEF FPC}fpjson.TJSONIntegerNumber{$ELSE}TJSONNumber{$ENDIF} then fRegConfig.WriteInteger(aName,StrToInt64(aValue))
+   else if cValue is {$IFDEF FPC}fpjson.{$ENDIF}TJSONString then fRegConfig.WriteString(aName,aValue)
+    else if cValue is {$IFDEF FPC}fpjson.TJSONBoolean{$ELSE}TJSONBool{$ENDIF} then fRegConfig.WriteString(aName,aValue);
       //else if cValue is TJSONNull then fRegConfig.WriteString(aName,'');
 end;
 
@@ -420,7 +429,14 @@ begin
   //read root values
   RegValueList := TStringList.Create;
   try
+    {$IFNDEF FPC}
     fRegConfig.GetValueNames(RegValueList);
+    {$ELSE}
+    try
+      fRegConfig.GetValueNames(RegValueList);
+    except
+    end;
+    {$ENDIF}
     for RegValue in RegValueList do
     begin
       newObj.AddPair(RegValue,ReadRegValue(cCurrentKey,RegValue));
@@ -431,7 +447,14 @@ begin
   //read root keys
   RegKeyList := TStringList.Create;
   try
+    {$IFNDEF FPC}
     fRegConfig.GetKeyNames(RegKeyList);
+    {$ELSE}
+    try
+      fRegConfig.GetKeyNames(RegKeyList);
+    except
+    end;
+    {$ENDIF}
     for RegKey in RegKeyList do
     begin
       fRegConfig.OpenKeyReadOnly(cCurrentKey + '\' + RegKey);
@@ -514,13 +537,13 @@ begin
     Exit;
   end;
 
-  if jPair.JsonValue is TJSONObject then
+  if jPair.JsonValue is {$IFDEF FPC}fpjson.{$ENDIF}TJSONObject then
   begin
     aCount := TJSONObject(jPair.JsonValue).Count;
     for i := 0 to aCount - 1 do
       ProcessPairWrite(cCurrentKey + '\' + jPair.JsonString{$IFNDEF FPC}.ToString{$ENDIF}.DeQuotedString('"'), TJSONObject(jPair.JsonValue),i);
   end
-  else if jPair.JsonValue is TJSONArray then
+  else if jPair.JsonValue is {$IFDEF FPC}fpjson.{$ENDIF}TJSONArray then
   begin
     aCount := TJSONArray(jPair.JsonValue).Count;
     for i := 0 to aCount - 1 do
@@ -545,13 +568,13 @@ begin
     Exit;
   end;
 
-  if jValue is TJSONObject then
+  if jValue is {$IFDEF FPC}fpjson.{$ENDIF}TJSONObject then
   begin
     aCount := TJSONObject(jValue).Count;
     for i := 0 to aCount - 1 do
       ProcessPairWrite(cCurrentKey + '\' + Zeroes(aIndex,dig),TJSONObject(jValue),i);
   end
-  else if jValue is TJSONArray then
+  else if jValue is {$IFDEF FPC}fpjson.{$ENDIF}TJSONArray then
   begin
     aCount := TJSONArray(jValue).Count;
     for i := 0 to aCount - 1 do
@@ -574,6 +597,7 @@ end;
 
 function TAppConfigRegistry.GetProvider: TAppConfigRegistryProvider;
 begin
+  if not Assigned(fProvider) then raise EAppConfig.Create('No provider assigned!');
   Result := TAppConfigRegistryProvider(fProvider);
 end;
 
