@@ -57,8 +57,8 @@ type
     property SessionName : string read fSessionName write fSessionName;
     property WorkList : TObjectList<TWorker> read fWorkList write fWorkList;
   public
-    constructor Create;
     destructor Destroy; override;
+    procedure Init; override;
     procedure DefaultValues; override;
   end;
 
@@ -73,6 +73,8 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure btnLoadJsonClick(Sender: TObject);
     procedure btnSaveJsonClick(Sender: TObject);
+    procedure OnConfigFileModified;
+    procedure OnConfigReloaded;
   end;
 
 var
@@ -172,24 +174,35 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
-  ConfigJson := TMyConfig.Create;
-  {$IFDEF NEXTGEN}
-  ConfigJson.Provider.Filename := TPath.GetDocumentsPath + '/config.json';
+  {$IF Defined(NEXTGEN) OR Defined(OSX)}
+  ConfigJson := TMyConfig.Create(TPath.GetDocumentsPath + '/config.json');
   {$ELSE}
-  ConfigJson.Provider.Filename := '.\config.json';
+  ConfigJson := TMyConfig.Create('.\config.json');
   {$ENDIF}
+  ConfigJson.Provider.OnFileModified := OnConfigFileModified;
+  ConfigJson.Provider.OnConfigReloaded := OnConfigReloaded;
+  ConfigJson.Provider.ReloadIfFileChanged := True;
   //create config test to compare later
-  ConfigTest := TMyConfig.Create;
+  ConfigTest := TMyConfig.Create('');
   SetConfig(ConfigTest);
+end;
+
+procedure TMainForm.OnConfigFileModified;
+begin
+  meInfo.Lines.Add('Config modified');
+end;
+
+procedure TMainForm.OnConfigReloaded;
+begin
+  meInfo.Lines.Add('Config reloaded');
 end;
 
 { TMyConfig }
 
-constructor TMyConfig.Create;
+procedure TMyConfig.Init;
 begin
-  inherited Create;
+  inherited;
   WorkList := TObjectList<TWorker>.Create(True);
-  DefaultValues;
 end;
 
 procedure TMyConfig.DefaultValues;

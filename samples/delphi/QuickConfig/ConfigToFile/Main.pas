@@ -64,8 +64,8 @@ type
     property SessionName : string read fSessionName write fSessionName;
     property WorkList : TObjectList<TWorker> read fWorkList write fWorkList;
   public
-    constructor Create;
     destructor Destroy; override;
+    procedure Init; override;
     procedure DefaultValues; override;
   end;
 
@@ -79,12 +79,13 @@ type
     procedure SetConfig(cConfig: TMyConfig);
     function TestConfig(cConfig1, cConfig2 : TMyConfig) : Boolean;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure OnFileModified;
   end;
 
 var
   MainForm: TMainForm;
   ConfigTest : TMyConfig;
-  ConfigReg : TMyConfig;
+  ConfigJson : TMyConfig;
 
 implementation
 
@@ -93,16 +94,16 @@ implementation
 procedure TMainForm.btnLoadFileClick(Sender: TObject);
 begin
   meInfo.Lines.Add('Load ConfigReg');
-  ConfigReg.Load;
-  meInfo.Lines.Add(ConfigReg.ToJSON);
-  if TestConfig(configtest,ConfigReg) then meInfo.Lines.Add('Test passed successfully!');
+  ConfigJson.Load;
+  meInfo.Lines.Add(ConfigJson.ToJSON);
+  if TestConfig(configtest,ConfigJson) then meInfo.Lines.Add('Test passed successfully!');
  end;
 
 procedure TMainForm.btnSaveFileClick(Sender: TObject);
 begin
-  SetConfig(ConfigReg);
-  ConfigReg.Save;
-  meInfo.Lines.Add('Saved Config in Registry at ' + DateTimeToStr(ConfigReg.LastSaved));
+  SetConfig(ConfigJson);
+  ConfigJson.Save;
+  meInfo.Lines.Add('Saved Config in Registry at ' + DateTimeToStr(ConfigJson.LastSaved));
 end;
 
 procedure TMainForm.SetConfig(cConfig : TMyConfig);
@@ -171,24 +172,30 @@ end;
 
 procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  if Assigned(ConfigReg) then ConfigReg.Free;
+  if Assigned(ConfigJson) then ConfigJson.Free;
   if Assigned(ConfigTest) then ConfigTest.Free;
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
-  ConfigReg := TMyConfig.Create;
-  ConfigReg.Provider.Filename := '.\config.json';
+  ConfigJson := TMyConfig.Create('.\config.json');
+  ConfigJson.Provider.OnFileModified := OnFileModified;
+  ConfigJson.Provider.ReloadIfFileChanged := True;
   //create config test to compare later
-  ConfigTest := TMyConfig.Create;
+  ConfigTest := TMyConfig.Create('');
   SetConfig(ConfigTest);
+end;
+
+procedure TMainForm.OnFileModified;
+begin
+  meInfo.Lines.Add('Config file modified. Config will be reload');
 end;
 
 { TMyConfig }
 
-constructor TMyConfig.Create;
+procedure TMyConfig.Init;
 begin
-  inherited Create;
+  inherited;
   WorkList := TObjectList<TWorker>.Create(True);
   DefaultValues;
 end;

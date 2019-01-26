@@ -173,7 +173,7 @@ begin
   ConfigTest := TMyConfig.Create;
   SetConfig(ConfigTest);
   ConfigReg := TMyConfig.Create(HKEY_CURRENT_USER,'_AppConfig2');
-  //ConfigReg.Provider.CreateIfNotExists := True;
+  ConfigReg.Provider.CreateIfNotExists := True;
 end;
 
 procedure TForm1.SetConfig(cConfig: TMyConfig);

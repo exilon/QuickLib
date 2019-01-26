@@ -518,7 +518,7 @@ begin
     Result := aObject;
     rValue := nil;
     {$IFNDEF FPC}
-    member := TJSONPair(aJson.GetValue(aName));
+     member := TJSONPair(aJson.GetValue(aName));
     {$ELSE}
     member := TJsonObject(aJson.Find(aName));
     {$ENDIF}
