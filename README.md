@@ -5,6 +5,7 @@
 --------
 
 Small delphi/Firemonkey(Windows,Android,OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+* NEW: QuickConfigJson reload if config file changed
 * NEW: First version with OSX/IOS partial support
 * NEW: Refactorized Quick.Config (more easy)
 * NEW: TScheduledTasks: New schedule methods.
@@ -168,7 +169,7 @@ Log.Add('Error x',etError);
 Log.Add('Error is %s',[ErrorStr],etError);
 ```
 
-**Quick.Config:** Load/Save a config as json file or Windows Registry keys. Create a descend class from TAppConfigJson or TAppConfigRegistry and add private variables will be loaded/saved.
+**Quick.Config:** Load/Save a config as json file or Windows Registry keys. Create a descend class from TAppConfigJson or TAppConfigRegistry and add private variables will be loaded/saved. TAppConfiJson allow detect if config file was changed and do a config reload.
 
 ```delphi
 //create a class heritage
@@ -185,9 +186,9 @@ end;
 
 //create your config to json file
 //Add Quick.Config.Json to your uses
-MyConfig := TMyConfig.Create;
+MyConfig := TMyConfig.Create('Config.json');
 MyConfig.Provider.CreateIfNotExists := True;
-MyConfig.Provider.Filename := 'Config.json';
+MyConfig.Provider.ReloadIfFileModified := True;
 MyConfig.Name := 'John';
 MyConfig.Surname := 'Smith';
 //load
