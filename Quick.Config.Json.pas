@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 17/01/2019
+  Modified    : 25/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -49,25 +49,50 @@ uses
   Rest.Json.Types,
   System.JSON,
   {$ENDIF}
+  Quick.FileMonitor,
   Quick.Config.Base;
 
 type
 
+  TFileModifiedEvent = procedure of object;
+  TLoadConfigEvent = procedure of object;
+
   TAppConfigJsonProvider = class(TAppConfigProvider)
   private
     fFilename : string;
+    fFileMonitor : TFileMonitor;
+    fOnFileModified : TFileModifiedEvent;
+    fLoaded : Boolean;
+    fReloadIfFileChanged : Boolean;
+    fOnConfigLoaded : TLoadConfigEvent;
+    fOnConfigReloaded : TLoadConfigEvent;
+    fNotifyReload : TLoadConfigEvent;
+    procedure CreateFileMonitor;
+    procedure FileModifiedNotify(MonitorNotify : TMonitorNotify);
+    procedure SetFileName(const Value: string);
+    procedure SetReloadIfFileChanged(const Value: Boolean);
+    procedure SetReloadNotify(aNotifyReload : TLoadConfigEvent);
+    procedure DoNofifyReload;
+  protected
     procedure Load(cConfig : TAppConfig); override;
     procedure Save(cConfig : TAppConfig); override;
   public
-    constructor Create(const aFilename : string = ''); virtual;
-    property Filename : string read fFilename write fFilename;
+    constructor Create(const aFilename : string; aReloadIfFileChanged : Boolean = False); virtual;
+    destructor Destroy; override;
+    property Filename : string read fFilename write SetFileName;
+    property ReloadIfFileChanged : Boolean read fReloadIfFileChanged write SetReloadIfFileChanged;
+    property IsLoaded : Boolean read fLoaded;
+    property OnFileModified : TFileModifiedEvent read fOnFileModified write fOnFileModified;
+    property OnConfigLoaded : TLoadConfigEvent read fOnConfigLoaded write fOnConfigLoaded;
+    property OnConfigReloaded : TLoadConfigEvent read fOnConfigReloaded write fOnConfigReloaded;
   end;
 
   TAppConfigJson = class(TAppConfig)
   private
     function GetProvider : TAppConfigJsonProvider;
+    procedure ReloadNotify;
   public
-    constructor Create(const aFileName : string = ''); overload; virtual;
+    constructor Create(const aFilename : string; aReloadIfFileChanged : Boolean = False); virtual;
     destructor Destroy; override;
     property Provider : TAppConfigJsonProvider read GetProvider;
   end;
@@ -94,11 +119,45 @@ type
 
 implementation
 
-constructor TAppConfigJsonProvider.Create(const aFilename : string = '');
+constructor TAppConfigJsonProvider.Create(const aFilename : string; aReloadIfFileChanged : Boolean = False);
 begin
   inherited Create;
   if aFilename = '' then fFilename := TPath.ChangeExtension(ParamStr(0),'json')
     else fFilename := aFilename;
+  fLoaded := False;
+  fReloadIfFileChanged := aReloadIfFileChanged;
+  if aReloadIfFileChanged then CreateFileMonitor;
+end;
+
+procedure TAppConfigJsonProvider.CreateFileMonitor;
+begin
+  fFileMonitor := TQuickFileMonitor.Create;
+  fFileMonitor.FileName := fFilename;
+  fFileMonitor.Interval := 2000;
+  fFileMonitor.Notifies := [TMonitorNotify.mnFileModified];
+  fFileMonitor.OnFileChange := FileModifiedNotify;
+  fFileMonitor.Enabled := True;
+end;
+
+destructor TAppConfigJsonProvider.Destroy;
+begin
+  if Assigned(fFileMonitor) then fFileMonitor.Free;
+  inherited;
+end;
+
+procedure TAppConfigJsonProvider.DoNofifyReload;
+begin
+  if Assigned(fNotifyReload) then fNotifyReload
+    else raise EAppConfig.Create('Not config assigned to reload!');
+end;
+
+procedure TAppConfigJsonProvider.FileModifiedNotify(MonitorNotify : TMonitorNotify);
+begin
+  if MonitorNotify = TMonitorNotify.mnFileModified then
+  begin
+    if Assigned(fOnFileModified) then fOnFileModified;
+    if fReloadIfFileChanged then DoNofifyReload;
+  end;
 end;
 
 procedure TAppConfigJsonProvider.Load(cConfig : TAppConfig);
@@ -106,9 +165,6 @@ var
   json : TStrings;
   Serializer : TJsonSerializer;
 begin
-  //create object with rtti if nil
-  //if not Assigned(Config) then Config := InitObject;
-
   if (not FileExists(fFilename)) and (CreateIfNotExists) then
   begin
     TAppConfig(cConfig).DefaultValues;
@@ -130,8 +186,14 @@ begin
     finally
       json.Free;
     end;
+    if not fLoaded then
+    begin
+      fLoaded := True;
+      if Assigned(fOnConfigLoaded) then fOnConfigLoaded;
+    end
+    else if Assigned(fOnConfigReloaded) then fOnConfigReloaded;
   except
-    on e : Exception do raise e;
+    on e : Exception do raise EAppConfig.Create(e.Message);
   end;
 end;
 
@@ -139,11 +201,8 @@ procedure TAppConfigJsonProvider.Save(cConfig : TAppConfig);
 var
   json : TStrings;
   Serializer : TJsonSerializer;
-  ctx : TRttiContext;
-  rprop : TRttiProperty;
 begin
-  //create object with rtti if nil
-  if not Assigned(cConfig) then cConfig := TAppConfigJson.Create;
+  if not Assigned(cConfig) then cConfig := TAppConfigJson.Create(fFilename,fReloadIfFileChanged);
 
   try
     json := TStringList.Create;
@@ -157,21 +216,40 @@ begin
         serializer.Free;
       end;
       json.SaveToFile(fFilename);
-      cConfig.LastSaved := Now;
     finally
       json.Free;
     end;
   except
-    on e : Exception do raise e;
+    on e : Exception do raise EAppConfig.Create(e.Message);
   end;
 end;
 
 
+procedure TAppConfigJsonProvider.SetFileName(const Value: string);
+begin
+  fFilename := Value;
+  if Assigned(fFileMonitor) then fFileMonitor.Free;
+  if fReloadIfFileChanged then CreateFileMonitor;
+end;
+
+procedure TAppConfigJsonProvider.SetReloadIfFileChanged(const Value: Boolean);
+begin
+  fReloadIfFileChanged := Value;
+  if Assigned(fFileMonitor) then fFileMonitor.Free;
+  if fReloadIfFileChanged then CreateFileMonitor;
+end;
+
+procedure TAppConfigJsonProvider.SetReloadNotify(aNotifyReload: TLoadConfigEvent);
+begin
+  fNotifyReload := aNotifyReload;
+end;
+
 { TAppConfigJson }
 
-constructor TAppConfigJson.Create(const aFileName : string = '');
+constructor TAppConfigJson.Create(const aFilename : string; aReloadIfFileChanged : Boolean = False);
 begin
-  inherited Create(TAppConfigJsonProvider.Create(aFileName));
+  inherited Create(TAppConfigJsonProvider.Create(aFileName,aReloadIfFileChanged));
+  TAppConfigJsonProvider(fProvider).SetReloadNotify(ReloadNotify);
 end;
 
 destructor TAppConfigJson.Destroy;
@@ -181,7 +259,13 @@ end;
 
 function TAppConfigJson.GetProvider: TAppConfigJsonProvider;
 begin
+  if not Assigned(fProvider) then raise EAppConfig.Create('No provider assigned!');
   Result := TAppConfigJsonProvider(fProvider);
+end;
+
+procedure TAppConfigJson.ReloadNotify;
+begin
+  Self.Load;
 end;
 
 end.
