@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 11/09/2017
-  Modified    : 25/01/2019
+  Modified    : 29/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -65,9 +65,10 @@ type
     fModifedDate : TDateTime;
     fCurrentMonitorNotify : TMonitorNotify;
     fOnChangeNotify : TFileChangeNotify;
-    procedure Execute; override;
-    procedure SetStatus(Status : Boolean);
+    procedure SetEnabled(Status : Boolean);
     procedure NotifyEvent;
+  protected
+    procedure Execute; override;
   public
     constructor Create;
     destructor Destroy; override;
@@ -75,7 +76,7 @@ type
     property Interval : Integer read fInterval write fInterval;
     property Notifies : TMonitorWatch read fNotifies write fNotifies;
     property OnFileChange : TFileChangeNotify read fOnChangeNotify write fOnChangeNotify;
-    property Enabled : Boolean read fEnabled write SetStatus;
+    property Enabled : Boolean read fEnabled write SetEnabled;
   end;
 
   TQuickFileMonitor = TFileMonitor;
@@ -96,12 +97,12 @@ begin
   {$ELSE}
   fTickEvent := TSimpleEvent.Create(nil,True,False,'');
   {$ENDIF}
-  Self.Resume;
 end;
 
 destructor TFileMonitor.Destroy;
 begin
   if not Terminated then Terminate;
+  Self.WaitFor;
   fTickEvent.SetEvent;
   fTickEvent.Free;
   inherited;
@@ -111,7 +112,7 @@ procedure TFileMonitor.Execute;
 var
   LastModifiedDate : TDateTime;
 begin
-  inherited;
+   inherited;
   while not Terminated do
   begin
     fCurrentMonitorNotify := mnNone;
@@ -163,8 +164,10 @@ begin
   end;
 end;
 
-procedure TFileMonitor.SetStatus(Status : Boolean);
+procedure TFileMonitor.SetEnabled(Status : Boolean);
 begin
+  if (Status = True) and (Started = False) then Start;
+
   if fEnabled <> Status then
   begin
     fEnabled := Status;
