@@ -399,7 +399,6 @@ type
     fCondVar : TSimpleEvent;
     fTaskList : TScheduledTaskList;
     fRemoveTaskAfterExpiration : Boolean;
-    procedure ExpireTask;
   public
     constructor Create(aTaskList : TScheduledTaskList);
     destructor Destroy; override;
@@ -1586,11 +1585,6 @@ begin
     end;
     fCondVar.WaitFor(250);
   end;
-end;
-
-procedure TScheduler.ExpireTask;
-begin
-
 end;
 
 function TScheduler.Add(aTask: TScheduledTask): Integer;
