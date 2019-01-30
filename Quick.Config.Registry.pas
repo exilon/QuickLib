@@ -328,11 +328,17 @@ var
 begin
   Result := False;
   if cCurrentKey <> '' then fRegConfig.OpenKeyReadOnly(cCurrentKey);
-  // else Exit;
   //check if exists RegKey numeric (indicates is a Array)
   RegKeyList := TStringList.Create;
   try
+    {$IFNDEF FPC}
     fRegConfig.GetKeyNames(RegKeyList);
+    {$ELSE}
+    try
+      fRegConfig.GetKeyNames(RegKeyList);
+    except
+    end;
+    {$ENDIF}
     for RegKey in RegKeyList do
       if TryStrToInt(RegKey,n) then
       begin
@@ -345,7 +351,14 @@ begin
   //check if exists RegValue numeric (indicates is a Array)
   RegValueList := TStringList.Create;
   try
+    {$IFNDEF FPC}
     fRegConfig.GetValueNames(RegValueList);
+    {$ELSE}
+    try
+      fRegConfig.GetValueNames(RegValueList);
+    except
+    end;
+    {$ENDIF}
     for RegValue in RegValueList do
       if TryStrToInt(RegValue,n) then
       begin
@@ -490,7 +503,14 @@ begin
   //read root values
   RegValueList := TStringList.Create;
   try
+    {$IFNDEF FPC}
     fRegConfig.GetValueNames(RegValueList);
+    {$ELSE}
+    try
+      fRegConfig.GetValueNames(RegValueList);
+    except
+    end;
+    {$ENDIF}
     for RegValue in RegValueList do
     begin
       newObj.AddElement(ReadRegValue(cCurrentKey,RegValue));
@@ -501,7 +521,14 @@ begin
   //read root keys
   RegKeyList := TStringList.Create;
   try
+    {$IFNDEF FPC}
     fRegConfig.GetKeyNames(RegKeyList);
+    {$ELSE}
+    try
+      fRegConfig.GetKeyNames(RegKeyList);
+    except
+    end;
+    {$ENDIF}
     for RegKey in RegKeyList do
     begin
       fRegConfig.OpenKeyReadOnly(cCurrentKey + '\' + RegKey);
