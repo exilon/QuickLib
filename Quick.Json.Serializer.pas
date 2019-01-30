@@ -447,7 +447,6 @@ function TRTTIJson.DeserializeList(aObject: TObject; const aName : string; const
 var
   ctx : TRttiContext;
   rType : TRttiType;
-  rfield : TRttiField;
   jarray : TJSONArray;
   member : TJSONPair;
   rvalue : TValue;
@@ -468,7 +467,7 @@ begin
   jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
   try
     rvalue := DeserializeDynArray(rProp.PropertyType.Handle,Result,jArray);
-    i := jarray.Count;
+    //i := jarray.Count;
   finally
     jArray.Free;
   end;
@@ -766,7 +765,6 @@ end;
 function TRTTIJson.IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
 var
   propname : string;
-  cname : string;
 begin
   Result := True;
   propname := aPropertyName.ToLower;
@@ -1010,7 +1008,6 @@ var
   jPair : TJSONPair;
   jValue : TJSONValue;
   i : Integer;
-  s : string;
 begin
   Result := TJSONPair.Create(aName,nil);
   //Result.JsonString := TJSONString(aName);
@@ -1023,6 +1020,7 @@ begin
           try
             for i := 0 to aValue.GetArrayLength - 1 do
             begin
+              jValue := nil;
               jPair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
               try
                 //jValue := TJsonValue(jPair.JsonValue.Clone);
