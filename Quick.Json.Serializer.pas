@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2019 Kike Pérez
 
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/05/2018
-  Modified    : 06/12/2018
+  Modified    : 30/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -350,7 +350,7 @@ begin
           end;
       else
         begin
-          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.toJson);
+          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToString);
         end;
       end;
       if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
