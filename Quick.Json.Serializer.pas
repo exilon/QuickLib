@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/05/2018
-  Modified    : 30/01/2019
+  Modified    : 12/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -111,7 +111,7 @@ type
     procedure LoadSetProperty(aInstance : TObject; aPropInfo: PPropInfo; const aValue: string);
     {$ENDIF}
   public
-    constructor Create(aSerializeLevel : TSerializeLevel);
+    constructor Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
     {$IFNDEF FPC}
     function DeserializeDynArray(aTypeInfo : PTypeInfo; aObject : TObject; const aJsonArray: TJSONArray) : TValue;
@@ -147,7 +147,7 @@ type
   private
     procedure SetUseEnumNames(const Value: Boolean);
   public
-    constructor Create(aSerializeLevel : TSerializeLevel);
+    constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
     destructor Destroy; override;
     property SerializeLevel : TSerializeLevel read fSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
@@ -348,9 +348,30 @@ begin
               end;
             end
           end;
+        tkRecord :
+          begin
+            json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
+            try
+              rValue := DeserializeRecord(rField.GetValue(aRecord.GetReferenceToRawData),aObject,json);
+            finally
+              json.Free;
+            end;
+          end
       else
         begin
-          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToString);
+          //rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJson);
+          {$IFNDEF FPC}
+          //avoid return unicode escaped chars if string
+          if rField.FieldType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
+            {$IFDEF DELPHIRX103_UP}
+            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,TJsonValue(member).value)
+            {$ELSE}
+            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString)
+            {$ENDIF}
+            else rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJSON);
+          {$ELSE}
+          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,aName,member.ToJSON);
+          {$ENDIF}
         end;
       end;
       if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
@@ -362,10 +383,10 @@ begin
 end;
 {$ENDIF}
 
-constructor TRTTIJson.Create(aSerializeLevel: TSerializeLevel);
+constructor TRTTIJson.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
 begin
   fSerializeLevel := aSerializeLevel;
-  fUseEnumNames := True;
+  fUseEnumNames := aUseEnumNames;
 end;
 
 function TRTTIJson.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
@@ -592,7 +613,7 @@ begin
             {$ELSE}
             rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.JsonString.ToString)
             {$ENDIF}
-            else rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToJSON);
+          else rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToJSON);
           {$ELSE}
           rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aName,member.ToJSON);
           if not rValue.IsEmpty then SetPropertyValue(aObject,aName,rValue);
@@ -659,7 +680,9 @@ begin
           end
           else
           begin
-            if fUseEnumNames then TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result)
+            //if fUseEnumNames then TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result)
+            //  else TValue.Make(StrToInt(value),aTypeInfo, Result);
+            if not TryStrToInt(value,i) then TValue.Make(GetEnumValue(aTypeInfo,value),aTypeInfo, Result)
               else TValue.Make(StrToInt(value),aTypeInfo, Result);
           end;
         end;
@@ -786,6 +809,7 @@ end;
 function TRTTIJson.GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
 var
   pinfo : PPropInfo;
+  enum : Integer;
 begin
   Result := nil;
   pinfo := GetPropInfo(Instance,PropertyName);
@@ -1366,15 +1390,15 @@ end;
 
 { TJsonSerializer}
 
-constructor TJsonSerializer.Create(aSerializeLevel: TSerializeLevel);
+constructor TJsonSerializer.Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
 begin
   {$IFDEF FPC}
   if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EJsonSerializeError.Create('FreePascal RTTI only supports published properties');
   {$ENDIF}
   fSerializeLevel := aSerializeLevel;
   fUseEnumNames := True;
-  fRTTIJson := TRTTIJson.Create(aSerializeLevel);
-  fRTTIJson.UseEnumNames := fUseEnumNames;
+  fRTTIJson := TRTTIJson.Create(aSerializeLevel,aUseEnumNames);
+  fRTTIJson.UseEnumNames := aUseEnumNames;
 end;
 
 function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
