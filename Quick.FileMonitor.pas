@@ -166,7 +166,7 @@ end;
 
 procedure TFileMonitor.SetEnabled(Status : Boolean);
 begin
-  if (Status = True) and (Started = False) then Start;
+  if (Status) and {$IFNDEF FPC}(not Started){$ELSE}(Suspended){$ENDIF} then Start;
 
   if fEnabled <> Status then
   begin
