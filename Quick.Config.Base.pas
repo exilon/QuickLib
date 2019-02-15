@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 26/01/2017
-  Modified    : 25/01/2019
+  Modified    : 12/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -65,6 +65,7 @@ type
   private
     fCreateIfNotExists : Boolean;
     fSerializeLevel : TSerializeProperty;
+    fUseEnumNames : Boolean;
   protected
     procedure Load(cConfig : TAppConfig); virtual; abstract;
     procedure Save(cConfig : TAppConfig); virtual; abstract;
@@ -72,6 +73,7 @@ type
     constructor Create; virtual;
     property CreateIfNotExists : Boolean read fCreateIfNotExists write fCreateIfNotExists;
     property SerializeLevel : TSerializeProperty read fSerializeLevel write fSerializeLevel;
+    property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
   end;
 
   TApplyConfigEvent = procedure of object;
@@ -123,6 +125,7 @@ constructor TAppConfigProvider.Create;
 begin
   fCreateIfNotExists := True;
   fSerializeLevel := spPublished;
+  fUseEnumNames := True;
 end;
 
 { TAppConfig }
@@ -158,7 +161,7 @@ var
 begin
   Result := '';
   try
-    serializer := TJsonSerializer.Create(slPublishedProperty);
+    serializer := TJsonSerializer.Create(slPublishedProperty,fProvider.UseEnumNames);
     try
       Result := serializer.ObjectToJSON(Self,fJsonIndent);
     finally
@@ -174,7 +177,7 @@ var
   Serializer : TJsonSerializer;
 begin
   try
-    serializer := TJsonSerializer.Create(slPublishedProperty);
+    serializer := TJsonSerializer.Create(slPublishedProperty,fProvider.UseEnumNames);
     try
       serializer.JsonToObject(Self,json);
     finally

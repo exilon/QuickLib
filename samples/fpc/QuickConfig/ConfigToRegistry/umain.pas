@@ -125,11 +125,18 @@ begin
 end;
 
 procedure TForm1.btnLoadJsonClick(Sender: TObject);
+var
+  NewConfig : TMyConfig;
 begin
   meInfo.Lines.Add('Load ConfigJson');
-  ConfigReg.Load;
-  meInfo.Lines.Add(ConfigReg.ToJSON);
-  if TestConfig(ConfigTest,ConfigReg) then meInfo.Lines.Add('Test passed successfully!');
+  NewConfig := TMyConfig.Create(ConfigReg.Provider.HRoot,ConfigReg.Provider.MainKey);
+  try
+    NewConfig.Load;
+    meInfo.Lines.Add(NewConfig.ToJSON);
+    if TestConfig(ConfigTest,NewConfig) then meInfo.Lines.Add('Test passed successfully!');
+  finally
+    NewConfig.Free;
+  end;
 end;
 
 function  TForm1.TestConfig(cConfig1, cConfig2 : TMyConfig) : Boolean;

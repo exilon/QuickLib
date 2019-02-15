@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 25/01/2019
+  Modified    : 12/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -163,7 +163,7 @@ end;
 procedure TAppConfigJsonProvider.Load(cConfig : TAppConfig);
 var
   json : TStrings;
-  Serializer : TJsonSerializer;
+  serializer : TJsonSerializer;
 begin
   if (not FileExists(fFilename)) and (CreateIfNotExists) then
   begin
@@ -175,7 +175,7 @@ begin
     json := TStringList.Create;
     try
       json.LoadFromFile(fFilename);
-      serializer := TJsonSerializer.Create(slPublishedProperty);
+      serializer := TJsonSerializer.Create(slPublishedProperty,UseEnumNames);
       try
         //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
         //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
@@ -207,7 +207,7 @@ begin
   try
     json := TStringList.Create;
     try
-      serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty);
+      serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty,UseEnumNames);
       try
         //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
         //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';

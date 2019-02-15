@@ -88,11 +88,18 @@ implementation
 
 
 procedure TMainForm.btnLoadJsonClick(Sender: TObject);
+var
+  NewConfig : TMyConfig;
 begin
   meInfo.Lines.Add('Load ConfigReg');
-  ConfigJson.Load;
-  meInfo.Lines.Add(ConfigJson.ToJSON);
-  if TestConfig(configtest,ConfigJson) then meInfo.Lines.Add('Test passed successfully!');
+  NewConfig := TMyConfig.Create(ConfigJson.Provider.Filename,ConfigJson.Provider.ReloadIfFileChanged);
+  try
+    NewConfig.Load;
+    meInfo.Lines.Add(NewConfig.ToJSON);
+    if TestConfig(configtest,NewConfig) then meInfo.Lines.Add('Test passed successfully!');
+  finally
+    NewConfig.Free;
+  end;
 end;
 
 procedure TMainForm.btnSaveJsonClick(Sender: TObject);
