@@ -4,7 +4,8 @@
 **QuickLib**
 --------
 
-Small delphi/Firemonkey(Windows,Android,OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+* NEW: Delphi Linux compatibility
 * NEW: QuickConfigJson reload if config file changed
 * NEW: First version with OSX/IOS partial support
 * NEW: Refactorized Quick.Config (more easy)
