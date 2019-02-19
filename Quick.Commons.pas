@@ -5,9 +5,9 @@
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
-  Version     : 1.5
+  Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 24/01/2019
+  Modified    : 16/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -69,6 +69,9 @@ interface
     Macapi.Helpers,
     FMX.Helpers.Mac,
     Macapi.ObjectiveC,
+    {$ENDIF}
+    {$IFDEF POSIX}
+    Posix.Unistd,
     {$ENDIF}
     DateUtils;
 
@@ -732,7 +735,11 @@ function GetLoggedUserName : string;
   end;
   {$ELSE}
   begin
+    {$IFDEF POSIX}
+    Result := string(getlogin);
+    {$ELSE}
     Result := 'N/A';
+    {$ENDIF}
     //raise ENotImplemented.Create('Not Android GetLoggedUserName implemented!');
   end;
   {$ENDIF}
@@ -766,22 +773,38 @@ function GetComputerName : string;
     Result := pchar(result);
   end;
 {$ELSE}
-  {$IF DEFINED(FPC) OR DEFINED(LINUX)}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
   begin
     Result := GetEnvironmentVariable('COMPUTERNAME');
   end;
   {$ELSE} //Android gets model name
-  begin
     {$IFDEF NEXTGEN}
+    begin
       {$IFDEF ANDROID}
       Result := JStringToString(TJBuild.JavaClass.MODEL);
       {$ELSE} //IOS
       Result := GetDeviceModel;
       {$ENDIF}
-    {$ELSE} //OSX
-    Result := NSStrToStr(TNSHost.Wrap(TNSHost.OCClass.currentHost).localizedName);
+    end;
+    {$ELSE}
+      {$IFDEF DELPHILINUX}
+      var
+        puser : PAnsiChar;
+      begin
+        //puser := '';
+        try
+          if gethostname(puser,_SC_HOST_NAME_MAX) = 0 then Result := string(puser)
+            else Result := 'N/A';
+        except
+          Result := 'N/A';
+        end;
+      end;
+      {$ELSE} //OSX
+      begin
+        Result := NSStrToStr(TNSHost.Wrap(TNSHost.OCClass.currentHost).localizedName);
+      end;
+      {$ENDIF}
     {$ENDIF}
-  end;
   {$ENDIF}
 {$ENDIF}
 
@@ -944,9 +967,13 @@ end;
           Result := UTF8ToString(BuildStr.UTF8String);
 
         except
-          Result := 'N/A';
+          Result := '';
         end;
       end;
+      {$ELSE}
+        begin
+          Result := '';
+        end;
       {$ENDIF}
     {$ENDIF}
   {$ENDIF}
@@ -1025,8 +1052,9 @@ end;
         Result := UTF8ToString(BuildStr.UTF8String);
       end;
       {$ENDIF}
-    {$ELSE} //OSX
-    var
+    {$ELSE}
+      {$IFDEF OSX}
+      var
         AppKey: Pointer;
         AppBundle: NSBundle;
         BuildStr : NSString;
@@ -1036,6 +1064,11 @@ end;
         BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
         Result := UTF8ToString(BuildStr.UTF8String);
       end;
+      {$ELSE}
+        begin
+          Result := 'N/A';
+        end;
+      {$ENDIF}
     {$ENDIF}
   {$ENDIF}
 {$ENDIF}

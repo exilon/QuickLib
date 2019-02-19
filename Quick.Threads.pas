@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 24/01/2019
+  Modified    : 18/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1479,7 +1479,9 @@ end;
 constructor TScheduledWorker.Create(aNumWorker : Integer; aScheduledTask: IScheduledTask);
 begin
   inherited Create(aNumWorker,nil);
+  {$IFNDEF DELPHILINUX}
   NameThreadForDebugging(aScheduledTask.Name,aScheduledTask.IdTask);
+  {$ENDIF}
   FreeOnTerminate := True;
   fCurrentTask := aScheduledTask;
 end;

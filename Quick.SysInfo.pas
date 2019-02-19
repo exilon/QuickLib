@@ -29,6 +29,8 @@
 
 unit Quick.SysInfo;
 
+{$i QuickLib.inc}
+
 interface
 
 {$IFDEF FPC}
@@ -98,7 +100,11 @@ begin
   {$ELSE}
   fAppPath := TPath.GetDocumentsPath;
   {$ENDIf}
+  {$IFDEF DELPHILINUX}
+  fUserName := GetLoggedUserName;
+  {$ELSE}
   fUserName := Trim(GetLoggedUserName);
+  {$ENDIF}
   fHostName := GetComputerName;
   fOSVersion := GetOSVersion;
   fCPUCores := CPUCount;

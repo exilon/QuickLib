@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
-  Version     : 1.8
+  Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 09/03/2018
+  Modified    : 17/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -59,6 +59,7 @@ uses
   {$ENDIF}
   {$IFDEF DELPHILINUX}
   Quick.SyncObjs.Linux.Compatibility,
+  Posix.StdDef,
   {$ENDIF}
   SysUtils,
   Quick.Commons,
@@ -67,6 +68,7 @@ uses
 type
 
   //text colors
+  {$IFNDEF DELPHILINUX}
   TConsoleColor = (
   ccBlack        = 0,
   ccBlue         = 1,
@@ -84,6 +86,25 @@ type
   ccLightMagenta = 13,
   ccYellow       = 14,
   ccWhite        = 15);
+  {$ELSE}
+  TConsoleColor = (
+  ccDarkGray     = 90,
+  ccLightRed     = 91,
+  ccLightGreen   = 92,
+  ccYellow       = 93,
+  ccLightBlue    = 94,
+  ccLightMagenta = 95,
+  ccLightCyan    = 96,
+  ccWhite        = 97,
+  ccBlack        = 30,
+  ccRed          = 31,
+  ccGreen        = 32,
+  ccBrown        = 33,
+  ccBlue         = 34,
+  ccMagenta      = 35,
+  ccCyan         = 36,
+  ccLightGray    = 37);
+  {$ENDIF}
 
   TConsoleProperties = record
     LogVerbose : TLogVerbose;
@@ -171,9 +192,20 @@ type
   procedure ClearLine(Y : Integer); overload;
   procedure ShowCursor;
   procedure HideCursor;
+  {$IFDEF DELPHILINUX}
+  procedure SaveCursor;
+  procedure RestoreCursor;
+  procedure CursorOn;
+  procedure CursorOff;
+  function ReadKey : Char;
+  {$ELSE}
   function GetCursorX: Integer; {$IFDEF INLINES}inline;{$ENDIF}
   function GetCursorY: Integer; {$IFDEF INLINES}inline;{$ENDIF}
+  {$ENDIF}
   function GetCursorMaxBottom : Integer;
+  {$IFDEF DELPHILINUX}
+  procedure GotoXY(x,y : Integer);
+  {$ENDIF}
   procedure SetCursorPos(NewCoord : TCoord); overload;
   procedure SetCursorPos(x ,y : Integer); overload;
   {$IFDEF MSWINDOWS}
@@ -201,6 +233,14 @@ var
   {$ENDIF}
 
 implementation
+
+
+{$IFDEF DELPHILINUX}
+const
+  AEC =chr($1B)+chr($5b);
+  SAVE_CURSOR_POS = chr($1B) + '7';
+  RESTORE_CURSOR_POS = chr($1B) + '8';
+{$ENDIF}
 
 
 procedure cout(const cMsg : Integer; cEventType : TLogEventType);
@@ -286,6 +326,33 @@ begin
   cout(Format(cMsg,params),cEventType);
 end;
 
+{$IFDEF DELPHILINUX}
+procedure SaveCursor;
+begin
+  write(SAVE_CURSOR_POS);
+end;
+
+procedure RestoreCursor;
+begin
+  write(RESTORE_CURSOR_POS);
+end;
+
+procedure CursorOn;
+begin
+  //not implemented yet
+end;
+
+procedure CursorOff;
+begin
+  //not implemented yet
+end;
+
+function ReadKey : Char;
+begin
+  Read(Result);
+end;
+
+{$ELSE}
 function GetCursorX: Integer; {$IFDEF INLINES}inline;{$ENDIF}
 {$IFDEF MSWINDOWS}
 var
@@ -296,7 +363,11 @@ begin
 end;
 {$ELSE}
 begin
+  {$IFDEF FPC}
   Result := WhereX;
+  {$ELSE}
+  Result := Byte(ConData(CD_CURRX))-lo(windmin);
+  {$ENDIF}
 end;
 {$ENDIF}
 
@@ -313,6 +384,7 @@ begin
   Result := WhereY;
 end;
 {$ENDIF}
+{$ENDIF DELPHILINUX}
 
 function GetCursorMaxBottom : Integer;
 {$IFDEF MSWINDOWS}
@@ -324,7 +396,14 @@ begin
 end;
 {$ELSE}
 begin
-  Result := 80;
+  Result := 25;
+end;
+{$ENDIF}
+
+{$IFDEF DELPHILINUX}
+procedure GotoXY(x,y : Integer);
+begin
+  Write(AEC, y, ';', x, 'H');
 end;
 {$ENDIF}
 
@@ -354,8 +433,12 @@ begin
   {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
   {$ENDIF}
+  {$IFNDEF DELPHILINUX}
   LastCoord.X := GetCursorX;
   LastCoord.Y := GetCursorY;
+  {$ELSE}
+  write(SAVE_CURSOR_POS);
+  {$ENDIF}
   NewCoord.X := x;
   NewCoord.Y := y;
   ClearLine(Y);
@@ -363,7 +446,11 @@ begin
   try
     cout(cMsg,cEventType);
   finally
+    {$IFNDEF DELPHILINUX}
     SetCursorPos(LastCoord);
+    {$ELSE}
+    write(RESTORE_CURSOR_POS);
+    {$ENDIF}
   end;
 end;
 
@@ -375,8 +462,12 @@ begin
   {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
   {$ENDIF}
+  {$IFNDEF DELPHILINUX}
   LastCoord.X := GetCursorX;
   LastCoord.Y := GetCursorY;
+  {$ELSE}
+  write(SAVE_CURSOR_POS);
+  {$ENDIF}
   NewCoord.X := x;
   NewCoord.Y := y;
   ClearLine(Y);
@@ -384,7 +475,11 @@ begin
   try
     cout(cMsg,cColor);
   finally
+    {$IFNDEF DELPHILINUX}
     SetCursorPos(LastCoord);
+    {$ELSE}
+    write(RESTORE_CURSOR_POS);
+    {$ENDIF}
   end;
 end;
 
@@ -436,7 +531,11 @@ begin
   TextAttr := (TextAttr and $F0) or (Color and $0F);
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
   {$ELSE}
-  crt.TextColor(Color);
+    {$IFDEF DELPHILINUX}
+    write(AEC,';',Color,'m')
+    {$ELSE}
+    crt.TextColor(Color);
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -453,7 +552,11 @@ begin
   TextAttr := (TextAttr and $0F) or ((Color shl 4) and $F0);
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
   {$ELSE}
-  crt.TextBackground(Color);
+    {$IFDEF DELPHILINUX}
+    write(AEC,0,';',Color+10*10);
+    {$ELSE}
+    crt.TextBackground(Color);
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -508,13 +611,21 @@ begin
 end;
 {$ELSE}
 begin
+  {$IFDEF DELPHILINUX}
+  write(AEC,2,'J');
+  {$ELSE}
   ClrScr;
+  {$ENDIF}
 end;
 {$ENDIF}
 
 procedure ClearLine;
 begin
+  {$IFNDEF DELPHILINUX}
   ClearLine(GetCursorY);
+  {$ELSE}
+  write(AEC,'K');
+  {$ENDIF}
 end;
 
 procedure ClearLine(Y : Integer);
@@ -533,7 +644,11 @@ end;
 {$ELSE}
 begin
   GotoXY(1,Y);
+  {$IFDEF DELPHILINUX}
+  write(AEC,'K');
+  {$ELSE}
   DelLine;
+  {$ENDIF}
   GotoXY(1,Y);
 end;
 {$ENDIF}
@@ -755,7 +870,6 @@ procedure InitConsole;
 var
   BufferInfo: TConsoleScreenBufferInfo;
 begin
-  Console.LogVerbose := LOG_ALL;
   Rewrite(Output);
   hStdOut := TTextRec(Output).Handle;
   {$IFDEF HASERROUTPUT}
@@ -943,19 +1057,28 @@ end;
 
 initialization
 
+Console.LogVerbose := LOG_ALL;
 {$IF DEFINED(FPC) AND DEFINED(LINUX)}
 InitCriticalSection(CSConsole);
 {$ELSE}
-InitializeCriticalSection(CSConsole);
-//init stdout if not a service
-if GetStdHandle(STD_OUTPUT_HANDLE) <> 0 then InitConsole;
+  {$IFNDEF DELPHILINUX}
+  InitializeCriticalSection(CSConsole);
+  //init stdout if not a service
+  if GetStdHandle(STD_OUTPUT_HANDLE) <> 0 then InitConsole;
+  {$ELSE}
+  CSConsole := TRTLCriticalSection.Create;
+  {$ENDIF}
 {$ENDIF}
 
 finalization
 {$IF DEFINED(FPC) AND DEFINED(LINUX)}
 DoneCriticalsection(CSConsole);
 {$ELSE}
-DeleteCriticalSection(CSConsole);
+  {$IFNDEF DELPHILINUX}
+  DeleteCriticalSection(CSConsole);
+  {$ELSE}
+  CSConsole.Free;
+  {$ENDIF}
 {$ENDIF}
 
 end.

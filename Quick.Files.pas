@@ -5,9 +5,9 @@
   Unit        : Quick.Files
   Description : Files functions
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 21/01/2019
+  Modified    : 16/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -44,6 +44,11 @@ uses
     {$IFDEF LINUX}
     baseunix,
     {$ENDIF}
+  {$ENDIF}
+  {$IFDEF POSIX}
+  Posix.Base,
+  Posix.SysStat,
+  Posix.Utime,
   {$ENDIF}
   DateUtils;
 
@@ -87,7 +92,7 @@ type
         procedure Close;
         property EOF: Boolean read GetEOF;
     end;
-    {$IF Defined(MACOS) OR Defined(NEXTGEN)}
+    {$IF Defined(MACOS) OR Defined(NEXTGEN) OR Defined(DELPHILINUX)}
     TFileTime = LongInt;
     {$ENDIF}
   {$ELSE}
@@ -844,7 +849,7 @@ begin
     {$IFDEF FPC}
     if not caseSensitive then UpperCase(SearchFor);
     {$ELSE}
-    if not caseSensitive then AnsiUpper(SearchFor);
+    if not caseSensitive then AnsiUpperCase(SearchFor);
     {$ENDIF}
     GetMem(pBuf, BufferSize);
     filesize := System.Filesize(F);
@@ -863,7 +868,7 @@ begin
         {$IFDEF FPC}
         if not caseSensitive then UpperCase(pScan);
         {$ELSE}
-        if not caseSensitive then AnsiUpper(pScan);
+        if not caseSensitive then AnsiUpperCase(pScan);
         {$ENDIF}
         pPos := StrPos(pScan, SearchFor);
         if pPos <> nil then
@@ -954,38 +959,64 @@ begin
   end;
 end;
 {$ELSE}
-function GetLastAccessTime(const aFileName: string): TDateTime;
-var
-  info : stat;
-begin
-  Result := 0;
-  if fpstat(aFileName,info) <> 0 then
+  {$IFDEF FPC} //FPC Linux
+  function GetLastAccessTime(const aFileName: string): TDateTime;
+  var
+    info : stat;
   begin
-    Result := info.st_atime;
+    Result := 0;
+    if fpstat(aFileName,info) <> 0 then
+    begin
+      Result := info.st_atime;
+    end;
   end;
-end;
 
-function GetCreationTime(const aFilename : string): TDateTime;
-var
-  info : stat;
-begin
-  Result := 0;
-  if fpstat(aFileName,info) <> 0 then
+  function GetCreationTime(const aFilename : string): TDateTime;
+  var
+    info : stat;
   begin
-    Result := info.st_ctime;
+    Result := 0;
+    if fpstat(aFileName,info) <> 0 then
+    begin
+      Result := info.st_ctime;
+    end;
   end;
-end;
 
-function GetLastWriteTime(const aFileName : string): TDateTime;
-var
-  info : stat;
-begin
-  Result := 0;
-  if fpstat(aFileName,info) <> 0 then
+  function GetLastWriteTime(const aFileName : string): TDateTime;
+  var
+    info : stat;
   begin
-    Result := info.st_mtime;
+    Result := 0;
+    if fpstat(aFileName,info) <> 0 then
+    begin
+      Result := info.st_mtime;
+    end;
   end;
-end;
+  {$ELSE} //Delphi Nextgen & Linux
+  function GetLastAccessTime(const aFileName: string): TDateTime;
+  var
+    info : TDateTimeInfoRec;
+  begin
+    if FileGetDateTimeInfo(aFileName,info,True) then Result := info.LastAccessTime
+      else Result := 0.0;
+  end;
+
+  function GetCreationTime(const aFilename : string): TDateTime;
+   var
+    info : TDateTimeInfoRec;
+  begin
+    if FileGetDateTimeInfo(aFileName,info,True) then Result := info.CreationTime
+      else Result := 0.0;
+  end;
+
+  function GetLastWriteTime(const aFileName : string): TDateTime;
+   var
+    info : TDateTimeInfoRec;
+  begin
+    if FileGetDateTimeInfo(aFileName,info,True) then Result := info.TimeStamp
+      else Result := 0.0;
+  end;
+  {$ENDIF}
 {$ENDIF}
 
 {$IFDEF FPC}
@@ -1038,8 +1069,7 @@ begin
 end;
 {$ENDIF}
 {$IFDEF POSIX}
-class function TDirectory.ConvertDateTimeToFileTime(const DateTime: TDateTime;
-  const UseLocalTimeZone: Boolean): time_t;
+function ConvertDateTimeToFileTime(const DateTime: TDateTime; const UseLocalTimeZone: Boolean): TFileTime;
 begin
   { Use the time zone if necessary }
   if not UseLocalTimeZone then
