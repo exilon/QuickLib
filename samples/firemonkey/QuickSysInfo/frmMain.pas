@@ -25,6 +25,9 @@ type
     Layout6: TLayout;
     Label4: TLabel;
     lblAppVersion: TLabel;
+    Layout7: TLayout;
+    Label1: TLabel;
+    lblUserName: TLabel;
     procedure FormCreate(Sender: TObject);
   private
     { Private declarations }
@@ -42,6 +45,7 @@ implementation
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
   lblDeviceName.Text := SystemInfo.HostName;
+  lblUserName.Text := SystemInfo.UserName;
   lblOS.Text := SystemInfo.OsVersion;
   lblAppPath.Text := SystemInfo.AppPath;
   lblAppName.Text := SystemInfo.AppName;

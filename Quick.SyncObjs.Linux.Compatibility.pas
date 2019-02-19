@@ -13,7 +13,7 @@ type
 
   procedure EnterCriticalSection(CS : TCriticalSection);
   procedure LeaveCriticalSection(CS : TCriticalSection);
-  procedure InitializeCriticalSection(CS : TCriticalSection);
+  procedure InitializeCriticalSection(var CS : TCriticalSection);
   procedure DeleteCriticalSection(CS : TCriticalSection);
 
 implementation
@@ -28,7 +28,7 @@ begin
   CS.Leave;
 end;
 
-procedure InitializeCriticalSection(CS : TCriticalSection);
+procedure InitializeCriticalSection(var CS : TCriticalSection);
 begin
   CS := TCriticalSection.Create;
 end;

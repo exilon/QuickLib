@@ -309,7 +309,11 @@ InitCriticalSection(CS);
   {$IF Defined(MACOS) OR Defined(ANDROID)}
   CS := TCriticalSection.Create;
   {$ELSE}
-  InitializeCriticalSection(CS);
+    {$IFDEF DELPHILINUX}
+    CS := TRTLCriticalSection.Create;
+    {$ELSE}
+    InitializeCriticalSection(CS);
+    {$ENDIF}
   {$ENDIF}
 {$ENDIF}
 
@@ -317,7 +321,7 @@ finalization
 {$IF DEFINED(FPC) AND DEFINED(LINUX)}
 DoneCriticalsection(CS);
 {$ELSE}
-  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  {$IF Defined(MACOS) OR Defined(ANDROID) OR Defined(DELPHILINUX)}
   CS.Free;
   {$ELSE}
   DeleteCriticalSection(CS);
