@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 16/02/2019
+  Modified    : 20/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -283,6 +283,7 @@ type
   {$ENDIF}
   function RemoveLastChar(const aText : string) : string;
   function DateTimeToSQL(aDateTime : TDateTime) : string;
+  function IsInteger(const aValue : string) : Boolean;
 
 {$IFDEF MSWINDOWS}
 var
@@ -1283,6 +1284,13 @@ end;
 function DateTimeToSQL(aDateTime : TDateTime) : string;
 begin
   Result := FormatDateTime('YYYYMMDD hh:mm:ss',aDateTime);
+end;
+
+function IsInteger(const aValue : string) : Boolean;
+var
+  i : Integer;
+begin
+  Result := TryStrToInt(aValue,i);
 end;
 
 {$IFDEF MSWINDOWS}
