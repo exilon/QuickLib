@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/05/2018
-  Modified    : 12/02/2019
+  Modified    : 22/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -98,6 +98,7 @@ type
   private
     fSerializeLevel : TSerializeLevel;
     fUseEnumNames : Boolean;
+    fUseJsonCaseSense : Boolean;
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
@@ -113,6 +114,7 @@ type
   public
     constructor Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
+    property UseJsonCaseSense : Boolean read fUseJsonCaseSense write fUseJsonCaseSense;
     {$IFNDEF FPC}
     function DeserializeDynArray(aTypeInfo : PTypeInfo; aObject : TObject; const aJsonArray: TJSONArray) : TValue;
     function DeserializeRecord(aRecord : TValue; aObject : TObject; const aJson : TJSONObject) : TValue;
@@ -137,20 +139,24 @@ type
     function Serialize(const aName : string; aValue : TValue) : TJSONPair;
     {$ENDIF}
     function Serialize(aObject : TObject) : TJSONObject; overload;
+    function GetJsonPairByName(aJson : TJSONObject; const aName : string) : TJSONPair;
   end;
 
   TJsonSerializer = class(TInterfacedObject,IJsonSerializer)
   strict private
     fSerializeLevel : TSerializeLevel;
     fUseEnumNames : Boolean;
+    fUseJsonCaseSense : Boolean;
     fRTTIJson : TRTTIJson;
   private
     procedure SetUseEnumNames(const Value: Boolean);
+    procedure SetUseJsonCaseSense(const Value: Boolean);
   public
     constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
     destructor Destroy; override;
     property SerializeLevel : TSerializeLevel read fSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
+    property UseJsonCaseSense : Boolean read fUseJsonCaseSense write SetUseJsonCaseSense;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
     function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
@@ -315,7 +321,8 @@ begin
     for rField in rRec.GetFields do
     begin
       rValue := nil;
-      member := TJSONPair(aJson.GetValue(rField.Name));
+      //member := TJSONPair(aJson.GetValue(rField.Name));
+      member := GetJsonPairByName(aJson,rField.Name);
       if member <> nil then
       case rField.FieldType.TypeKind of
         tkDynArray :
@@ -387,6 +394,7 @@ constructor TRTTIJson.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : 
 begin
   fSerializeLevel := aSerializeLevel;
   fUseEnumNames := aUseEnumNames;
+  fUseJsonCaseSense := False;
 end;
 
 function TRTTIJson.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
@@ -475,7 +483,8 @@ var
   rProp : TRttiProperty;
 begin
   Result := aObject;
-  member := TJSONPair(aJson.GetValue(aName));
+  member := GetJsonPairByName(aJson,aName);
+  //member := TJSONPair(aJson.GetValue(aName));
 
   rType := ctx.GetType(aObject.ClassInfo);
   try
@@ -538,7 +547,8 @@ begin
     Result := aObject;
     rValue := nil;
     {$IFNDEF FPC}
-     member := TJSONPair(aJson.GetValue(aName));
+     //member := TJSONPair(aJson.GetValue(aName));
+     member := GetJsonPairByName(aJson,aName);
     {$ELSE}
     member := TJsonObject(aJson.Find(aName));
     {$ENDIF}
@@ -804,6 +814,28 @@ var
 begin
   cname := aObject.ClassName;
   Result := (cname.StartsWith('TObjectList')) or (cname.StartsWith('TList'));
+end;
+
+function TRTTIJson.GetJsonPairByName(aJson: TJSONObject; const aName: string): TJSONPair;
+var
+  candidate : TJSONPair;
+  i : Integer;
+begin
+  if fUseJsonCaseSense then
+  begin
+    Result := TJSONPair(aJson.GetValue(aName));
+    Exit;
+  end
+  else
+  begin
+    for i := 0 to aJson.Count - 1 do
+    begin
+      candidate := aJson.Pairs[I];
+      if CompareText(candidate.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then
+        Exit(TJsonPair(candidate.JsonValue));
+    end;
+  end;
+  Result := nil;
 end;
 
 function TRTTIJson.GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
@@ -1396,9 +1428,10 @@ begin
   if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EJsonSerializeError.Create('FreePascal RTTI only supports published properties');
   {$ENDIF}
   fSerializeLevel := aSerializeLevel;
-  fUseEnumNames := True;
+  fUseEnumNames := aUseEnumNames;
+  fUseJsonCaseSense := False;
   fRTTIJson := TRTTIJson.Create(aSerializeLevel,aUseEnumNames);
-  fRTTIJson.UseEnumNames := aUseEnumNames;
+  fRTTIJson.UseJsonCaseSense := fUseJsonCaseSense;
 end;
 
 function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
@@ -1448,6 +1481,12 @@ procedure TJsonSerializer.SetUseEnumNames(const Value: Boolean);
 begin
   fUseEnumNames := Value;
   if Assigned(fRTTIJson) then fRTTIJson.UseEnumNames := Value;
+end;
+
+procedure TJsonSerializer.SetUseJsonCaseSense(const Value: Boolean);
+begin
+  fUseJsonCaseSense := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.UseJsonCaseSense := Value;
 end;
 
 {$IFNDEF FPC}
