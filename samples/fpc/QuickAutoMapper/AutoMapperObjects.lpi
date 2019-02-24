@@ -36,11 +36,11 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="AutoMapperObjects"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\AutoMapperObjects"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\.."/>
+      <OtherUnitFiles Value="..\..\..\..\QuickLib"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
   </CompilerOptions>

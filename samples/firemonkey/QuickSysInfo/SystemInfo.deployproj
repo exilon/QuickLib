@@ -52,6 +52,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="OSX32\Debug\SystemInfo.rsm" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>SystemInfo.app\Contents\MacOS\</RemoteDir>
+            <RemoteName>SystemInfo.rsm</RemoteName>
+            <DeployClass>DebugSymbols</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="OSX32\Debug\SystemInfo" Condition="'$(Config)'=='Debug'">
             <RemoteDir>SystemInfo.app\Contents\MacOS\</RemoteDir>
             <RemoteName>SystemInfo</RemoteName>

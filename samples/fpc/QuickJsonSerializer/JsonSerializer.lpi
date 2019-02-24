@@ -30,7 +30,7 @@
         <PackageName Value="LCL"/>
       </Item1>
     </RequiredPackages>
-    <Units Count="3">
+    <Units Count="2">
       <Unit0>
         <Filename Value="JsonSerializer.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -42,23 +42,18 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit1>
-      <Unit2>
-        <Filename Value="..\..\..\quick.json.fpc.utils.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="Quick.Json.fpc.Utils"/>
-      </Unit2>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="JsonSerializer"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\JsonSerializer"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
       <Libraries Value="..\..\.."/>
-      <OtherUnitFiles Value="..\..\.."/>
+      <OtherUnitFiles Value="..\..\..\..\QuickLib"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

@@ -13,24 +13,13 @@ uses
   Quick.Commons,
   Quick.Console;
 
-var
-  coord : TCoord;
-  x : Integer;
-  y : Integer;
 begin
   {$IFDEF MSWINDOWS}
   Application.Title:='ConsoleDemo';
   {$ENDIF}
   try
     Console.LogVerbose := LOG_DEBUG;
-    //x := 10;
-    //y := 10;
-    //coord.x := x;
-    //coord.y := y;
-    //SetCursorPos(coord);
     writeln('Console Out Example');
-    coutxy(1,1,'hola',etinfo);
-    readln;
     coutXY(10,10,'this line will be replaced by the next',etInfo);
     coutXY(10,10,'this line replaces previous',etSuccess);
     cout('Normal line 1',etInfo);

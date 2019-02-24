@@ -25,11 +25,6 @@
       <FormatVersion Value="2"/>
       <Modes Count="0"/>
     </RunParams>
-    <RequiredPackages Count="1">
-      <Item1>
-        <PackageName Value="QuickLib"/>
-      </Item1>
-    </RequiredPackages>
     <Units Count="1">
       <Unit0>
         <Filename Value="ServiceManagement.pas"/>
@@ -41,10 +36,11 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="ServiceManagement"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\ServiceManagement"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
+      <OtherUnitFiles Value="..\..\..\..\..\QuickLib"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
   </CompilerOptions>

@@ -38,7 +38,6 @@ begin
 end;
 
 begin
-
   try
     if not AppService.IsRunningAsService then
     begin

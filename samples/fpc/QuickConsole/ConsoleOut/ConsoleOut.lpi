@@ -35,7 +35,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\ConsoleOut"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\ConsoleOut\bin"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

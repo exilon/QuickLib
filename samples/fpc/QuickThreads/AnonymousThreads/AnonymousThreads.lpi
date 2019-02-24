@@ -36,17 +36,13 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="AnonymousThreads"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\AnonymousThreads"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\..\.."/>
+      <OtherUnitFiles Value="..\..\..\..\..\QuickLib"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
-    <CodeGeneration>
-      <TargetCPU Value="x86_64"/>
-      <TargetOS Value="linux"/>
-    </CodeGeneration>
   </CompilerOptions>
   <Debugging>
     <Exceptions Count="3">
