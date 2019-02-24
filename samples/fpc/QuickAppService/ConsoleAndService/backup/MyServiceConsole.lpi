@@ -24,14 +24,9 @@
       <FormatVersion Value="2"/>
       <Modes Count="0"/>
     </RunParams>
-    <RequiredPackages Count="1">
-      <Item1>
-        <PackageName Value="QuickLib"/>
-      </Item1>
-    </RequiredPackages>
     <Units Count="1">
       <Unit0>
-        <Filename Value="MyServiceConsole.pas"/>
+        <Filename Value="MyServiceConsole.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
     </Units>
@@ -40,9 +35,11 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="MyServiceConsole"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\MyServiceConsole"/>
     </Target>
     <SearchPaths>
+      <IncludeFiles Value="$(ProjOutDir)"/>
+      <OtherUnitFiles Value="..\..\..\..\..\QuickLib"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
   </CompilerOptions>

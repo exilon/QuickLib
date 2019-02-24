@@ -2,9 +2,7 @@ program ConsoleMenu;
 
 {$APPTYPE CONSOLE}
 
-{$IFDEF FPC}
 {$MODE DELPHI}
-{$ENDIF}
 
 {$R *.res}
 
@@ -57,6 +55,7 @@ begin
 end;
 
 begin
+  Application.Title:='Console Menu';
   try
     conmenu := TConsoleMenu.Create;
     menuop.Caption := 'Option 1';
@@ -68,11 +67,7 @@ begin
 
     conmenu.AddMenu('Option 4',VK_F4,Test.Option4);
 
-    conmenu.AddMenu('Option 5',VK_F5,{$IFDEF FPC}Test.Option5);{$ELSE}procedure
-                                 begin
-                                   coutXY(10,10,'Option 5 pressed',etInfo);
-                                 end);
-                                 {$ENDIF}
+    conmenu.AddMenu('Option 5',VK_F5,Test.Option5);
 
     for i := 0 to 30 do writeln('hola que tal');
 

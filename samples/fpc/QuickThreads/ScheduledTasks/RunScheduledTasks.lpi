@@ -36,11 +36,11 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="RunScheduledTasks"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\RunScheduledTasks"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\..\.."/>
+      <OtherUnitFiles Value="..\..\..\..\..\QuickLib"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
   </CompilerOptions>

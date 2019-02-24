@@ -14,6 +14,7 @@ uses
   Quick.Console;
 
 begin
+  Application.Title:='ConsoleDemo';
   {$IFDEF MSWINDOWS}
   Application.Title:='ConsoleDemo';
   {$ENDIF}
