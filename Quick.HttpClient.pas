@@ -104,6 +104,7 @@ type
     function Get(const aURL : string) : IHttpRequestResponse;
     function Post(const aURL, aInContent : string) : IHttpRequestResponse; overload;
     function Post(const aURL : string; aJsonContent : TJsonObject) : IHttpRequestResponse; overload;
+    function Put(const aURL, aInContent : string) : IHttpRequestResponse;
   end;
 
 implementation
@@ -217,6 +218,48 @@ begin
      Result := Self.Post(aURL,aJsonContent.ToString);
     {$ENDIF}
   {$ENDIF}
+end;
+
+function TJsonHttpClient.Put(const aURL, aInContent : string) : IHttpRequestResponse;
+var
+  {$IFDEF DELPHIXE8_UP}
+  resp : IHTTPResponse;
+  {$ELSE}
+  resp : TIdHTTPResponse;
+  {$ENDIF}
+  responsecontent : TStringStream;
+  postcontent : TStringStream;
+begin
+  postcontent := TStringStream.Create(Utf8Encode(aInContent));
+  try
+    //postcontent.WriteString(aInContent);
+    responsecontent := TStringStream.Create;
+    try
+      {$IFDEF DELPHIXE8_UP}
+      resp := fHTTPClient.Put(aURL,postcontent,responsecontent);
+      {$ELSE}
+        {$IFDEF FPC}
+        try
+           fHTTPClient.Put(aURL,postcontent,responsecontent);
+           fHTTPClient.Disconnect(False);
+        except
+          on E : Exception do
+          begin
+            if e.ClassType <> EIdConnClosedGracefully then raise e;
+          end;
+        end;
+        {$ELSE}
+        fHTTPClient.Post(aURL,postcontent,responsecontent);
+        {$ENDIF}
+      resp := fHTTPClient.Response;
+      {$ENDIF}
+      Result := THttpRequestResponse.Create(resp,responsecontent.DataString);
+    finally
+      responsecontent.Free;
+    end;
+  finally
+    postcontent.Free;
+  end;
 end;
 
 procedure TJsonHttpClient.SetConnectionTimeout(const aValue: Integer);
