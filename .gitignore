@@ -55,3 +55,4 @@ backup/
 *.rsj
 
 *.lps
+bin/
