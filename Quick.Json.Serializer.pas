@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/05/2018
-  Modified    : 22/02/2019
+  Modified    : 26/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -481,6 +481,9 @@ var
   rvalue : TValue;
   i : Integer;
   rProp : TRttiProperty;
+  {$IFNDEF DELPHIRX103_UP}
+  rfield : TRttiField;
+  {$ENDIF}
 begin
   Result := aObject;
   member := GetJsonPairByName(aJson,aName);
