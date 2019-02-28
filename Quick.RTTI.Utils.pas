@@ -1,4 +1,35 @@
+{ ***************************************************************************
+
+  Copyright (c) 2016-2019 Kike Pérez
+
+  Unit        : Quick.RTTI.Utils
+  Description : Files functions
+  Author      : Kike Pérez
+  Version     : 1.5
+  Created     : 09/03/2018
+  Modified    : 20/02/2019
+
+  This file is part of QuickLib: https://github.com/exilon/QuickLib
+
+ ***************************************************************************
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+ *************************************************************************** }
+
 unit Quick.RTTI.Utils;
+
+{$i QuickLib.inc}
 
 interface
 
@@ -23,6 +54,7 @@ type
     class function PropertyExists(aTypeInfo : Pointer; const aPropertyName : string) : Boolean;
     class function GetPropertyValue(aInstance : TObject; const aPropertyName : string) : TValue; overload;
     class function GetPropertyValue(aTypeInfo : Pointer; const aPropertyName : string) : TValue; overload;
+    class function FindClass(const aClassName: string): TClass;
   end;
 
   ERTTIError = class(Exception);
@@ -112,6 +144,23 @@ end;
 class function TRTTI.PropertyExists(aTypeInfo: Pointer; const aPropertyName: string): Boolean;
 begin
   Result := fCtx.GetType(aTypeInfo).GetProperty(aPropertyName) <> nil;
+end;
+
+class function TRTTI.FindClass(const aClassName: string): TClass;
+var
+  rType : TRttiType;
+  rList : TArray<TRttiType>;
+begin
+  Result := nil;
+  rList := fCtx.GetTypes;
+  for rType in rList do
+  begin
+    if (rType.IsInstance) and (aClassName.EndsWith(rType.Name)) then
+      begin
+        Result := rType.AsInstance.MetaClassType;
+        Break;
+      end;
+  end;
 end;
 
 
