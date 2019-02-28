@@ -103,6 +103,7 @@ type
     property HandleRedirects : Boolean read fHandleRedirects write SetHandleRedirects;
     function Get(const aURL : string) : IHttpRequestResponse;
     function Post(const aURL, aInContent : string) : IHttpRequestResponse; overload;
+    function Post(const aURL : string; aInContent : TStream) : IHttpRequestResponse; overload;
     function Post(const aURL : string; aJsonContent : TJsonObject) : IHttpRequestResponse; overload;
     function Put(const aURL, aInContent : string) : IHttpRequestResponse;
   end;
@@ -204,6 +205,42 @@ begin
     end;
   finally
     postcontent.Free;
+  end;
+end;
+
+function TJsonHttpClient.Post(const aURL : string; aInContent : TStream) : IHttpRequestResponse;
+var
+  {$IFDEF DELPHIXE8_UP}
+  resp : IHTTPResponse;
+  {$ELSE}
+  resp : TIdHTTPResponse;
+  {$ENDIF}
+  responsecontent : TStringStream;
+begin
+  //postcontent.WriteString(aInContent);
+  responsecontent := TStringStream.Create;
+  try
+    {$IFDEF DELPHIXE8_UP}
+    resp := fHTTPClient.Post(aURL,aInContent,responsecontent);
+    {$ELSE}
+      {$IFDEF FPC}
+      try
+         fHTTPClient.Post(aURL,aInContent,responsecontent);
+         fHTTPClient.Disconnect(False);
+      except
+        on E : Exception do
+        begin
+          if e.ClassType <> EIdConnClosedGracefully then raise e;
+        end;
+      end;
+      {$ELSE}
+      fHTTPClient.Post(aURL,aInContent,responsecontent);
+      {$ENDIF}
+    resp := fHTTPClient.Response;
+    {$ENDIF}
+    Result := THttpRequestResponse.Create(resp,responsecontent.DataString);
+  finally
+    responsecontent.Free;
   end;
 end;
 
