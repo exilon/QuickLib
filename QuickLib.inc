@@ -1,7 +1,7 @@
 ﻿{
     This file is part of QuickLib: https://github.com/exilon/QuickLib
 
-    QuickLibs. Copyright (C) 2018 Kike Pérez
+    QuickLibs. Copyright (C) 2019 Kike Pérez
       Exilon - https://www.exilon.es
 
      ***************************************************************************

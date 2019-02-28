@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 20/02/2019
+  Modified    : 27/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -949,7 +949,7 @@ end;
           BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
           Result := UTF8ToString(BuildStr.UTF8String);
         except
-          Result := 'N/A';
+          Result := '';
         end;
       end;
       {$ENDIF}
@@ -1067,7 +1067,7 @@ end;
       end;
       {$ELSE}
         begin
-          Result := 'N/A';
+          Result := '';
         end;
       {$ENDIF}
     {$ENDIF}
@@ -1099,7 +1099,7 @@ begin
   FmtSettings.DateSeparator := '-';
   FmtSettings.TimeSeparator := ':';
   FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ" GMT"';
-  Result := DateTimeToStr(aDate,FmtSettings);
+  Result := DateTimeToStr(aDate,FmtSettings).Trim;
 end;
 
 function GMTToDateTime(aDate : string) : TDateTime;

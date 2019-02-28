@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 18/02/2019
+  Modified    : 28/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1402,9 +1402,14 @@ begin
         tmMinutes : fNextExecution := IncMinute(fNextExecution,fTimeInterval);
         tmSeconds : fNextExecution := IncSecond(fNextExecution,fTimeInterval);
       end;
-      fLastExecution := Now();
-      Inc(fExecutionTimes);
-      Result := True;
+
+      if Now() > fNextExecution then Result := False //avoid execution if system time was altered
+      else
+      begin
+        fLastExecution := Now();
+        Inc(fExecutionTimes);
+        Result := True;
+      end;
     end;
   end;
 end;
