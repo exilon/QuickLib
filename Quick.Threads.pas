@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 28/02/2019
+  Modified    : 04/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1140,7 +1140,7 @@ end;
 procedure TWorker.Execute;
 begin
   fStatus := TWorkerStatus.wsIdle;
-  while (not Terminated) and (fTaskQueue.QueueSize > 0) do
+  while not Terminated do
   begin
     fCurrentTask := fTaskQueue.PopItem;
     if fCurrentTask <> nil then
@@ -1193,7 +1193,7 @@ end;
 
 function TScheduledTasks.AddTask_Sync(const aTaskName: string; aTaskProc: TTaskProc): IScheduledTask;
 begin
-  Result := AddTask_Sync(aTaskName,aTaskProc);
+  Result := AddTask_Sync(aTaskName,[],False,aTaskProc);
 end;
 
 constructor TScheduledTasks.Create;
