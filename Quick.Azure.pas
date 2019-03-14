@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2017 Kike Pérez
+  Copyright (c) 2015-2019 Kike Pérez
 
   Unit        : Quick.Azure
   Description : Azure blobs operations
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 27/08/2015
-  Modified    : 13/09/2017
+  Modified    : 11/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -281,7 +281,8 @@ begin
     try
       BlobService.Timeout := fTimeout;
       Content := FileToArray(cFilename);
-      if azBlobName = '' then blobname := cFilename;
+      if azBlobName = '' then blobname := cFilename
+        else blobname := azBlobName;
       if blobname.StartsWith('/') then blobname := Copy(blobname,2,Length(blobname));
       Result := BlobService.PutBlockBlob(container,blobname,Content,EmptyStr,nil,nil,CloudResponseInfo);
       azResponseInfo := GetResponseInfo(CloudResponseInfo);

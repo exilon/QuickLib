@@ -844,7 +844,6 @@ end;
 function TRTTIJson.GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
 var
   pinfo : PPropInfo;
-  enum : Integer;
 begin
   Result := nil;
   pinfo := GetPropInfo(Instance,PropertyName);
