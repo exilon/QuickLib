@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 07/01/2019
-  Modified    : 24/01/2019
+  Modified    : 11/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -213,7 +213,7 @@ type
     function CastToDateTime : TDateTime;
     function CastToObject: TObject;
     function CastToPointer: Pointer;
-    function CastToInterface: Pointer;
+    function CastToInterface: IInterface;
     function CastToVariant: Variant;
     function CastToCardinal : Cardinal;
     procedure SetAsString(const Value : string);
@@ -231,6 +231,7 @@ type
     procedure SetAsDateTime(const Value : TDateTime);
     procedure SetAsVariant(const Value: Variant);
     procedure SetAsCardinal(const Value : Cardinal);
+    procedure SetAsInterface(const Value: IInterface);
   public
     constructor Create(const Value: TVarRec);
     property DataType : TValueDataType read fDataType;
@@ -245,7 +246,7 @@ type
     property AsBoolean : Boolean read CastToBoolean write SetAsBoolean;
     property AsPointer : Pointer read CastToPointer write SetAsPointer;
     property AsClass : TClass read CastToClass write SetAsClass;
-    property AsInterface : Pointer read CastToInterface write SetAsPointer;
+    property AsInterface : IInterface read CastToInterface write SetAsInterface;
     property AsObject : TObject read CastToObject write SetAsObject;
     property AsVariant : Variant  read CastToVariant write SetAsVariant;
     property AsCardinal : Cardinal read CastToCardinal write SetAsCardinal;
@@ -515,12 +516,13 @@ begin
   end;
 end;
 
-function TFlexValue.CastToInterface: Pointer;
+function TFlexValue.CastToInterface: IInterface;
 begin
   try
     case fDataType of
       dtNull : Result := nil;
-      dtInterface : Result := IInterface(fDataIntf);
+      dtInterface : Result := fDataIntf;
+      dtPointer : Result := IInterface(fDataIntf);
       else raise Exception.Create('DataType not supported');
     end;
   except
@@ -718,6 +720,12 @@ begin
   Clear;
   fDataIntf := TValueInteger.Create(Value);
   fDataType := TValueDataType.dtInteger;
+end;
+
+procedure TFlexValue.SetAsInterface(const Value: IInterface);
+begin
+  fDataIntf := Value;
+  fDataType := TValueDataType.dtInterface;
 end;
 
 procedure TFlexValue.SetAsObject(const Value: TObject);
