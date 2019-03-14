@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 07/01/2019
-  Modified    : 11/03/2019
+  Modified    : 14/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -724,7 +724,11 @@ end;
 
 procedure TFlexValue.SetAsInterface(const Value: IInterface);
 begin
+  {$IFNDEF FPC}
   fDataIntf := Value;
+  {$ELSE}
+  fDataIntf := Pointer(Value);
+  {$ENDIF}
   fDataType := TValueDataType.dtInterface;
 end;
 
