@@ -270,6 +270,8 @@ type
   function CountDigits(anInt: Cardinal): Cardinal; inline;
   //save stream to file
   procedure SaveStreamToFile(stream : TStream; const filename : string);
+  //save stream to string
+  function StreamToString(stream : TStream) : string;
   //returns a real comma separated text from stringlist
   function CommaText(aList : TStringList) : string;
   {$IFDEF MSWINDOWS}
@@ -1179,6 +1181,22 @@ begin
     fs.Free;
   end;
 end;
+
+function StreamToString(stream : TStream) : string;
+var
+  ss : TStringStream;
+begin
+  if stream = nil then Exit;
+  ss := TStringStream.Create;
+  try
+    stream.Seek(0,soBeginning);
+    ss.CopyFrom(stream,stream.Size);
+    Result := ss.DataString;
+  finally
+    ss.Free;
+  end;
+end;
+
 
 function CommaText(aList : TStringList) : string;
 var
