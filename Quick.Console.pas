@@ -1064,7 +1064,11 @@ InitCriticalSection(CSConsole);
   {$IFNDEF DELPHILINUX}
   InitializeCriticalSection(CSConsole);
   //init stdout if not a service
-  if GetStdHandle(STD_OUTPUT_HANDLE) <> 0 then InitConsole;
+  try
+    if GetStdHandle(STD_OUTPUT_HANDLE) <> 0 then InitConsole;
+  except
+    //avoid raise exception
+  end;
   {$ELSE}
   CSConsole := TRTLCriticalSection.Create;
   {$ENDIF}
