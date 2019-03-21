@@ -5,9 +5,9 @@
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
-  Version     : 1.5
+  Version     : 1.7
   Created     : 21/05/2018
-  Modified    : 26/02/2019
+  Modified    : 20/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -400,7 +400,7 @@ end;
 function TRTTIJson.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
 begin
   Result := nil;
-  if (aJson = nil) or (aJson.Count = 0) then Exit;
+  if (aJson = nil) or ((aJson as TJSONValue) is TJSONNull) or (aJson.Count = 0) then Exit;
 
   Result := aType.Create;
   try
@@ -426,7 +426,7 @@ var
 begin
   Result := aObject;
 
-  if (aJson = nil) or (aJson.Count = 0) or (Result = nil) then Exit;
+  if (aJson = nil) or ((aJson as TJSONValue) is TJSONNull) or (aJson.Count = 0) or (Result = nil) then Exit;
 
   //if IsGenericList(aObject) then
   //begin
@@ -1171,13 +1171,14 @@ begin
       tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
         begin
           //skip these properties
-          FreeAndNil(Result);
+          //FreeAndNil(Result);
         end
     else
       begin
         raise EJsonSerializeError.CreateFmt(cNotSupportedDataType,[aName,GetTypeName(aValue.TypeInfo)]);
       end;
     end;
+    if Result.JsonValue = nil then Result.JsonValue := TJSONNull.Create;
   except
     on E : Exception do
     begin
@@ -1271,6 +1272,7 @@ begin
         //raise EJsonDeserializeError.CreateFmt('Not supported type "%s":%d',[aName,Integer(aValue.Kind)]);
       end;
     end;
+    if Result.JsonValue = nil then Result.JsonValue := TJSONNull.Create;
   except
     Result.Free;
   end;
@@ -1401,7 +1403,7 @@ begin
       tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
         begin
           //skip these properties
-          FreeAndNil(Result);
+          //FreeAndNil(Result);
         end
     else
       begin
@@ -1409,6 +1411,7 @@ begin
         //raise EJsonDeserializeError.CreateFmt('Not supported type "%s":%d',[aName,Integer(aValue.Kind)]);
       end;
     end;
+    if Result.JsonValue = nil then Result.JsonValue := TJSONNull.Create;
   except
     on E : Exception do
     begin
