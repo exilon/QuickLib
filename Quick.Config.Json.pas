@@ -234,6 +234,7 @@ end;
 
 procedure TAppConfigJsonProvider.SetReloadIfFileChanged(const Value: Boolean);
 begin
+  if Value = fReloadIfFileChanged then Exit;
   fReloadIfFileChanged := Value;
   if Assigned(fFileMonitor) then fFileMonitor.Free;
   if fReloadIfFileChanged then CreateFileMonitor;
