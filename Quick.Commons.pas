@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 27/02/2019
+  Modified    : 28/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -191,6 +191,7 @@ type
   function Is64bitOS : Boolean;
   //checks if is a console app
   function IsConsole : Boolean;
+  function HasConsoleOutput : Boolean;
   //checks if compiled in debug mode
   {$ENDIF}
   function IsDebug : Boolean;
@@ -499,6 +500,21 @@ begin
     Result := False;
   {$ENDIF CONSOLE}
 end;
+{$ENDIF}
+
+function HasConsoleOutput : Boolean;
+{$IFDEF MSWINDOWS}
+  var
+    stout : THandle;
+  begin
+    stout := GetStdHandle(Std_Output_Handle);
+    Win32Check(stout <> Invalid_Handle_Value);
+    Result := stout <> 0;
+  end;
+{$ELSE}
+  begin
+    Result := False;
+  end;
 {$ENDIF}
 
 function IsDebug: Boolean;
@@ -1320,7 +1336,7 @@ initialization
     begin
       if not IsService then
       begin
-        if IsConsole then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
+        if HasConsoleOutput then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
           else raise EEnvironmentPath.Create(Format('Get environment path error: %s',[E.Message]));
       end;
     end;
