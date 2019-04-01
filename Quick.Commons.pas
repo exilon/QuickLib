@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 28/03/2019
+  Modified    : 29/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -513,7 +513,7 @@ function HasConsoleOutput : Boolean;
   end;
 {$ELSE}
   begin
-    Result := False;
+    Result := IsConsole;
   end;
 {$ENDIF}
 
@@ -531,7 +531,7 @@ function IsService : Boolean;
 begin
   //only working with my Quick.AppService unit
   try
-    Result := (IsConsole) and (GetStdHandle(STD_OUTPUT_HANDLE) = 0);
+    Result := (IsConsole) and (not HasConsoleOutput);
   except
     Result := False;
   end;
@@ -1344,3 +1344,4 @@ initialization
 {$ENDIF}
 
 end.
+

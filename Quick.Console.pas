@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 17/02/2019
+  Modified    : 29/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -57,7 +57,7 @@ uses
     crt,
     {$ENDIF}
   {$ENDIF}
-  {$IFDEF DELPHILINUX}
+  {$IF Defined(DELPHILINUX) OR Defined(MACOS)}
   Quick.SyncObjs.Linux.Compatibility,
   Posix.StdDef,
   {$ENDIF}
@@ -118,8 +118,8 @@ type
   TOutputProc<T> = procedure(const aLine : T) of object;
   TExecuteProc = procedure of object;
   {$ENDIF}
-  {$IF DEFINED(FPCLINUX) OR DEFINED(DELPHILINUX)}
-    {$IFDEF DELPHILINUX}
+  {$IF DEFINED(FPCLINUX) OR DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
+    {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
     tcrtcoord = Byte;
     {$ENDIF}
   TCoord = record
@@ -192,7 +192,7 @@ type
   procedure ClearLine(Y : Integer); overload;
   procedure ShowCursor;
   procedure HideCursor;
-  {$IFDEF DELPHILINUX}
+  {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
   procedure SaveCursor;
   procedure RestoreCursor;
   procedure CursorOn;
@@ -235,7 +235,7 @@ var
 implementation
 
 
-{$IFDEF DELPHILINUX}
+{$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
 const
   AEC =chr($1B)+chr($5b);
   SAVE_CURSOR_POS = chr($1B) + '7';
@@ -326,7 +326,7 @@ begin
   cout(Format(cMsg,params),cEventType);
 end;
 
-{$IFDEF DELPHILINUX}
+{$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
 procedure SaveCursor;
 begin
   write(SAVE_CURSOR_POS);
@@ -400,7 +400,7 @@ begin
 end;
 {$ENDIF}
 
-{$IFDEF DELPHILINUX}
+{$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
 procedure GotoXY(x,y : Integer);
 begin
   Write(AEC, y, ';', x, 'H');
@@ -433,7 +433,7 @@ begin
   {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
   {$ENDIF}
-  {$IFNDEF DELPHILINUX}
+  {$IF NOT DEFINED(DELPHILINUX) AND NOT DEFINED(MACOS)}
   LastCoord.X := GetCursorX;
   LastCoord.Y := GetCursorY;
   {$ELSE}
@@ -462,7 +462,7 @@ begin
   {$IFDEF MSWINDOWS}
   if hStdOut = 0 then Exit;
   {$ENDIF}
-  {$IFNDEF DELPHILINUX}
+  {$IF NOT DEFINED(DELPHILINUX) AND NOT DEFINED(MACOS)}
   LastCoord.X := GetCursorX;
   LastCoord.Y := GetCursorY;
   {$ELSE}
@@ -531,7 +531,7 @@ begin
   TextAttr := (TextAttr and $F0) or (Color and $0F);
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
   {$ELSE}
-    {$IFDEF DELPHILINUX}
+    {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
     write(AEC,';',Color,'m')
     {$ELSE}
     crt.TextColor(Color);
@@ -552,7 +552,7 @@ begin
   TextAttr := (TextAttr and $0F) or ((Color shl 4) and $F0);
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
   {$ELSE}
-    {$IFDEF DELPHILINUX}
+    {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
     write(AEC,0,';',Color+10*10);
     {$ELSE}
     crt.TextBackground(Color);
@@ -611,7 +611,7 @@ begin
 end;
 {$ELSE}
 begin
-  {$IFDEF DELPHILINUX}
+  {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
   write(AEC,2,'J');
   {$ELSE}
   ClrScr;
@@ -621,7 +621,7 @@ end;
 
 procedure ClearLine;
 begin
-  {$IFNDEF DELPHILINUX}
+  {$IF NOT DEFINED(DELPHILINUX) AND NOT DEFINED(MACOS)}
   ClearLine(GetCursorY);
   {$ELSE}
   write(AEC,'K');
@@ -644,7 +644,7 @@ end;
 {$ELSE}
 begin
   GotoXY(1,Y);
-  {$IFDEF DELPHILINUX}
+  {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
   write(AEC,'K');
   {$ELSE}
   DelLine;
@@ -1061,11 +1061,11 @@ Console.LogVerbose := LOG_ALL;
 {$IF DEFINED(FPC) AND DEFINED(LINUX)}
 InitCriticalSection(CSConsole);
 {$ELSE}
-  {$IFNDEF DELPHILINUX}
+  {$IF NOT DEFINED(DELPHILINUX) AND NOT DEFINED(MACOS)}
   InitializeCriticalSection(CSConsole);
   //init stdout if not a service
   try
-    if GetStdHandle(STD_OUTPUT_HANDLE) <> 0 then InitConsole;
+    if HasConsoleOutput then InitConsole;
   except
     //avoid raise exception
   end;
