@@ -77,7 +77,11 @@ begin
   isEOL := True;
   isIntoString := False;
   isEscape := False;
+  {$IFNDEF NEXTGEN}
   for i := 1 to json.Length do
+  {$ELSE}
+  for i := 0 to json.Length - 1 do
+  {$ENDIF}
   begin
     c := json[i];
     if isIntoString then
