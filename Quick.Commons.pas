@@ -455,10 +455,10 @@ begin
   path.ALLUSERSPROFILE := SysUtils.GetEnvironmentVariable('AllUsersProfile');
   path.INSTDRIVE := path.HOMEDRIVE;
   path.TEMP := SysUtils.GetEnvironmentVariable('TEMP');
-  path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
-  path.APPDATA:=GetSpecialFolderPath(CSIDL_APPDATA);
   //these paths fail if user is SYSTEM
   try
+    path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
+    path.APPDATA := GetSpecialFolderPath(CSIDL_APPDATA);
     path.DESKTOP := GetSpecialFolderPath(CSIDL_DESKTOP);
     path.DESKTOP_ALLUSERS := GetSpecialFolderPath(CSIDL_COMMON_DESKTOPDIRECTORY);
     path.STARTMENU:=GetSpecialFolderPath(CSIDL_PROGRAMS);
