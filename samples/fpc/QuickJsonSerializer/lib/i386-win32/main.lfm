@@ -1,0 +1,40 @@
+object Form1: TForm1
+  Left = 343
+  Height = 621
+  Top = 226
+  Width = 1025
+  Caption = 'Form1'
+  ClientHeight = 621
+  ClientWidth = 1025
+  OnClose = FormClose
+  OnCreate = FormCreate
+  LCLVersion = '1.9.0.0'
+  object Memo1: TMemo
+    Left = 8
+    Height = 540
+    Top = 8
+    Width = 1008
+    Lines.Strings = (
+      'Memo1'
+    )
+    TabOrder = 0
+  end
+  object btnFromJson: TButton
+    Left = 920
+    Height = 25
+    Top = 582
+    Width = 94
+    Caption = 'FromJson'
+    OnClick = btnFromJsonClick
+    TabOrder = 1
+  end
+  object btnToJson: TButton
+    Left = 808
+    Height = 25
+    Top = 582
+    Width = 99
+    Caption = 'ToJson'
+    OnClick = btnToJsonClick
+    TabOrder = 2
+  end
+end

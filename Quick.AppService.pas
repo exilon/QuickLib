@@ -29,17 +29,25 @@
 
 unit Quick.AppService;
 
+{$i QuickLib.inc}
+
 interface
 
-{$IF CompilerVersion > 20}
+{$IFNDEF FPC}
+{$IFDEF DELPHI2010_UP}
   {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
   {$WEAKLINKRTTI ON}
 {$ENDIF}
+{$ENDIF}
 
 uses
+  {$IFDEF MSWINDOWS}
   Windows,
-  System.SysUtils,
+  {$ENDIF}
+  SysUtils,
+  {$IFNDEF FPC}
   WinSvc,
+  {$ENDIF}
   Quick.Commons;
 
 const
@@ -56,7 +64,11 @@ type
                 ssPaused = SERVICE_PAUSED);
 
   TSvcInitializeEvent = procedure of object;
+  {$IFDEF FPC}
+  TSvcAnonMethod = procedure of object;
+  {$ELSE}
   TSvcAnonMethod = reference to procedure;
+  {$ENDIF}
   TSvcRemoveEvent = procedure of object;
 
   TAppService = class
@@ -348,7 +360,11 @@ begin
     ServiceTable[0].lpServiceProc := @RegisterService;
     ServiceTable[1].lpServiceName := nil;
     ServiceTable[1].lpServiceProc := nil;
+    {$IFDEF FPC}
+    StartServiceCtrlDispatcher(@ServiceTable[0]);
+    {$ELSE}
     StartServiceCtrlDispatcher(ServiceTable[0]);
+    {$ENDIF}
   end;
 end;
 

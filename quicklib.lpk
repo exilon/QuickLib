@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="4">
+    <PathDelim Value="\"/>
+    <Name Value="QuickLib"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <PathDelim Value="\"/>
+      <SearchPaths>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+      <Parsing>
+        <SyntaxOptions>
+          <SyntaxMode Value="DelphiUnicode"/>
+        </SyntaxOptions>
+      </Parsing>
+    </CompilerOptions>
+    <Version Major="1"/>
+    <Files Count="19">
+      <Item1>
+        <Filename Value="Quick.Console.pas"/>
+        <UnitName Value="Quick.Console"/>
+      </Item1>
+      <Item2>
+        <Filename Value="Quick.AppService.pas"/>
+        <AddToUsesPkgSection Value="False"/>
+        <UnitName Value="Quick.AppService"/>
+      </Item2>
+      <Item3>
+        <Filename Value="Quick.Base64.pas"/>
+        <UnitName Value="Quick.Base64"/>
+      </Item3>
+      <Item4>
+        <Filename Value="Quick.Chrono.pas"/>
+        <AddToUsesPkgSection Value="False"/>
+        <UnitName Value="Quick.Chrono"/>
+      </Item4>
+      <Item5>
+        <Filename Value="Quick.Commons.pas"/>
+        <UnitName Value="Quick.Commons"/>
+      </Item5>
+      <Item6>
+        <Filename Value="Quick.FileMonitor.pas"/>
+        <UnitName Value="Quick.FileMonitor"/>
+      </Item6>
+      <Item7>
+        <Filename Value="Quick.Files.pas"/>
+        <UnitName Value="Quick.Files"/>
+      </Item7>
+      <Item8>
+        <Filename Value="Quick.Format.pas"/>
+        <UnitName Value="Quick.Format"/>
+      </Item8>
+      <Item9>
+        <Filename Value="Quick.Log.pas"/>
+        <UnitName Value="Quick.Log"/>
+      </Item9>
+      <Item10>
+        <Filename Value="Quick.Network.pas"/>
+        <UnitName Value="Quick.Network"/>
+      </Item10>
+      <Item11>
+        <Filename Value="Quick.Process.pas"/>
+        <UnitName Value="Quick.Process"/>
+      </Item11>
+      <Item12>
+        <Filename Value="Quick.Service.pas"/>
+        <UnitName Value="Quick.Service"/>
+      </Item12>
+      <Item13>
+        <Filename Value="Quick.SMTP.pas"/>
+        <UnitName Value="Quick.SMTP"/>
+      </Item13>
+      <Item14>
+        <Filename Value="Quick.Threads.pas"/>
+        <UnitName Value="Quick.Threads"/>
+      </Item14>
+      <Item15>
+        <Filename Value="Quick.Config.pas"/>
+        <UnitName Value="Quick.Config"/>
+      </Item15>
+      <Item16>
+        <Filename Value="Quick.Config.Provider.Json.pas"/>
+        <UnitName Value="Quick.Config.Provider.Json"/>
+      </Item16>
+      <Item17>
+        <Filename Value="Quick.Config.Provider.Registry.pas"/>
+        <UnitName Value="Quick.Config.Provider.Registry"/>
+      </Item17>
+      <Item18>
+        <Filename Value="Quick.Json.fpc.Compatibility.pas"/>
+        <UnitName Value="Quick.Json.fpc.Compatibility"/>
+      </Item18>
+      <Item19>
+        <Filename Value="Quick.JSONRecord.pas"/>
+        <UnitName Value="Quick.JSONRecord"/>
+      </Item19>
+    </Files>
+    <RequiredPkgs Count="1">
+      <Item1>
+        <PackageName Value="indylaz"/>
+      </Item1>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pï¿½rez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike Pérez
-  Version     : 1.4
+  Author      : Kike Pï¿½rez
+  Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 29/03/2018
+  Modified    : 29/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -33,34 +33,51 @@
 
 unit Quick.Commons;
 
+{$i QuickLib.inc}
+
 interface
+
   uses
     Classes,
-    {$IFnDEF FPC}
-    System.SysUtils,
-    System.Types,
-    {$ELSE}
     SysUtils,
     Types,
-    {$ENDIF}
     {$IFDEF MSWINDOWS}
       Windows,
-      {$IFnDEF FPC}
-        Winapi.ShlObj,
-        System.Win.Registry,
-      {$ELSE}
-      jwawinuser,
       ShlObj,
       Registry,
-      {$ENDIF}
     {$ENDIF MSWINDOWS}
-    {$IFnDEF FPC}
-    System.IOUtils,
-    System.DateUtils;
+    {$IFDEF FPC}
+    Quick.Files,
+      {$IFDEF LINUX}
+      FileInfo,
+      {$ENDIF}
     {$ELSE}
-      FileUtil,
-      dateutils;
+    IOUtils,
     {$ENDIF}
+    {$IFDEF ANDROID}
+    Androidapi.JNI.Os,
+    Androidapi.Helpers,
+    Androidapi.JNI.JavaTypes,
+    Androidapi.JNI.GraphicsContentViewText,
+    {$ENDIF}
+    {$IFDEF IOS}
+    iOSapi.UIKit,
+    Posix.SysSysctl,
+    Posix.StdDef,
+    iOSapi.Foundation,
+    Macapi.ObjectiveC,
+    Macapi.Helpers,
+    {$ENDIF}
+    {$IFDEF OSX}
+    Macapi.Foundation,
+    Macapi.Helpers,
+    FMX.Helpers.Mac,
+    Macapi.ObjectiveC,
+    {$ENDIF}
+    {$IFDEF POSIX}
+    Posix.Unistd,
+    {$ENDIF}
+    DateUtils;
 
 type
 
@@ -73,10 +90,8 @@ const
   LOG_TRACE = [etInfo,etError,etWarning,etTrace];
   LOG_ALL = [etInfo,etSuccess,etWarning,etError,etTrace];
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
-  {$IFDEF CompilerVersion}
-  {$IF CompilerVersion > 27}
+  {$IFDEF DELPHIXE7_UP}
   EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','TRACE'];
-  {$ENDIF}
   {$ELSE}
   EventStr : array[0..5] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','TRACE');
   {$ENDIF}
@@ -104,9 +119,10 @@ type
     ALLUSERSPROFILE : string;
   end;
   {$ENDIF MSWINDOWS}
+
   {$IFNDEF FPC}
   TFileHelper = record helper for TFile
-    {$IFDEF MSWINDOWS}
+    {$IF DEFINED(MSWINDOWS) OR DEFINED(DELPHILINUX)}
     class function IsInUse(const FileName : string) : Boolean; static;
     {$ENDIF}
     class function GetSize(const FileName: String): Int64; static;
@@ -115,17 +131,23 @@ type
   TDirectoryHelper = record helper for TDirectory
     class function GetSize(const Path: String): Int64; static;
   end;
-  {$ELSE}
-    TFileHelper = class
-      {$IFDEF MSWINDOWS}
-      class function IsInUse(const FileName : string) : Boolean; static;
-      {$ENDIF}
-      class function GetSize(const FileName: String): Int64; static;
-    end;
+  {$ENDIF}
 
-    TDirectoryHelper = class
-      class function GetSize(const Path: String): Int64; static;
-    end;
+  {$IFDEF FPC}
+    {$IFDEF LINUX}
+    UINT = cardinal;
+    {$ENDIF}
+  PLASTINPUTINFO = ^LASTINPUTINFO;
+  tagLASTINPUTINFO = record
+    cbSize: UINT;
+    dwTime: DWORD;
+  end;
+  LASTINPUTINFO = tagLASTINPUTINFO;
+  TLastInputInfo = LASTINPUTINFO;
+
+  type
+  TCmdLineSwitchType = (clstValueNextParam, clstValueAppended);
+  TCmdLineSwitchTypes = set of TCmdLineSwitchType;
   {$ENDIF}
 
   TCounter = record
@@ -173,8 +195,11 @@ type
   function Is64bitOS : Boolean;
   //checks if is a console app
   function IsConsole : Boolean;
+  function HasConsoleOutput : Boolean;
   //checks if compiled in debug mode
+  {$ENDIF}
   function IsDebug : Boolean;
+  {$IFDEF MSWINDOWS}
   //checks if running as a service
   function IsService : Boolean;
   //gets number of seconds without user interaction (mouse, keyboard)
@@ -186,10 +211,21 @@ type
   {$ENDIF MSWINDOWS}
   //returns last day of current month
   function LastDayCurrentMonth: TDateTime;
+  {$IFDEF FPC}
+  function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
+  {$ENDIF}
   //checks if two datetimes are in same day
   function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
+  //change Time of a DateTime
+  function ChangeTimeOfADay(aDate : TDateTime; aHour, aMinute, aSecond : Word; aMilliSecond : Word = 0) : TDateTime;
+  //change Date of a DateTime
+  function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
   //returns n times a char
   function FillStr(const C : Char; const Count : Byte) : string;
+  //checks if string exists in array of string
+  function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+  //checks if integer exists in array of integer
+  function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
   //returns a number leading zero
   function Zeroes(const Number, Len : Int64) : string;
   //converts a number to thousand delimeter string
@@ -219,32 +255,44 @@ type
   function ParamFindSwitch(const Switch : string) : Boolean;
   //gets value for a switch if exists
   function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
-  {$IFDEF MSWINDOWS}
+  //returns app name (filename based)
+  function GetAppName : string;
   //returns app version (major & minor)
   function GetAppVersionStr: string;
   //returns app version full (major, minor, release & compiled)
   function GetAppVersionFullStr: string;
-  {$ENDIF}
-  //UTC DateTime to Local DateTime
+  //convert UTC DateTime to Local DateTime
   function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
-  //Local DateTime to UTC DateTime
+  //convert Local DateTime to UTC DateTime
   function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
+  //convert DateTime to GTM Time string
+  function DateTimeToGMT(aDate : TDateTime) : string;
+  //convert GMT Time string to DateTime
+  function GMTToDateTime(aDate : string) : TDateTime;
+  //convert DateTime to Json Date format
+  function DateTimeToJsonDate(aDateTime : TDateTime) : string;
+  //convert Json Date format to DateTime
+  function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
   //count number of digits of a Integer
   function CountDigits(anInt: Cardinal): Cardinal; inline;
   //save stream to file
   procedure SaveStreamToFile(stream : TStream; const filename : string);
+  //save stream to string
+  function StreamToString(stream : TStream) : string;
+  //returns a real comma separated text from stringlist
+  function CommaText(aList : TStringList) : string;
   {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
   //get last error message
   function GetLastOSError : String;
   {$ENDIF}
-  {$IFDEF FPC}
-  //implement our delphi time range functions becasue FPC hasn't yet
-  function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
-  function DateInRange(ADate: TDate; AStartDate, AEndDate: TDate; AInclusive: Boolean = True): Boolean;
-  function TimeInRange(ATime: TTime; AStartTime, AEndTime: TTime; AInclusive: Boolean = True): Boolean;
+  {$IF DEFINED(FPC) AND DEFINED(MSWINDOWS)}
+  function GetLastInputInfo(var plii: TLastInputInfo): BOOL;stdcall; external 'user32' name 'GetLastInputInfo';
   {$ENDIF}
+  function RemoveLastChar(const aText : string) : string;
+  function DateTimeToSQL(aDateTime : TDateTime) : string;
+  function IsInteger(const aValue : string) : Boolean;
 
 {$IFDEF MSWINDOWS}
 var
@@ -255,6 +303,7 @@ implementation
 
 {TFileHelper}
 
+{$IFNDEF FPC}
 {$IFDEF MSWINDOWS}
 class function TFileHelper.IsInUse(const FileName : string) : Boolean;
 var
@@ -279,6 +328,21 @@ begin
   except
     Result := True;
   end;
+end;
+{$ENDIF}
+{$IFDEF DELPHILINUX}
+class function TFileHelper.IsInUse(const FileName : string) : Boolean;
+var
+  fs : TFileStream;
+begin
+  try
+    fs := TFileStream.Create(FileName, fmOpenReadWrite, fmShareExclusive);
+    Result := True;
+    fs.Free;
+  except
+    Result := False;
+  end;
+
 end;
 {$ENDIF}
 
@@ -317,17 +381,6 @@ begin
   for filename in TDirectory.GetFiles(Path) do
   begin
     Result := Result + TFile.GetSize(filename);
-  end;
-end;
-{$ELSE}
-class function TDirectoryHelper.GetSize(const Path: String): Int64;
-var
-  filename : string;
-begin
-  Result := -1;
-  for filename in FindAllFiles(Path) do
-  begin
-    Result := Result + TFileHelper.GetSize(filename);
   end;
 end;
 {$ENDIF}
@@ -410,26 +463,15 @@ begin
   //gets path
   {$IFNDEF FPC}
   path.EXEPATH := TPath.GetDirectoryName(ParamStr(0));
-  path.WINDOWS := GetEnvironmentVariable('windir');
-  path.PROGRAMFILES := GetEnvironmentVariable('ProgramFiles');
-  path.COMMONFILES := GetEnvironmentVariable('CommonProgramFiles(x86)');
-  path.HOMEDRIVE := GetEnvironmentVariable('SystemDrive');
-  path.USERPROFILE := GetEnvironmentVariable('USERPROFILE');
-  path.PROGRAMDATA := GetEnvironmentVariable('ProgramData');
-  path.ALLUSERSPROFILE := GetEnvironmentVariable('AllUsersProfile');
-  path.TEMP := GetEnvironmentVariable('TEMP');
-  {$ELSE}
-  path.EXEPATH:=ExtractFileDir(ParamStr(0));
-  path.WINDOWS := Sysutils.GetEnvironmentVariable('windir');
-  path.PROGRAMFILES := Sysutils.GetEnvironmentVariable('ProgramFiles');
-  path.COMMONFILES := Sysutils.GetEnvironmentVariable('CommonProgramFiles(x86)');
-  path.HOMEDRIVE := Sysutils.GetEnvironmentVariable('SystemDrive');
-  path.USERPROFILE := Sysutils.GetEnvironmentVariable('USERPROFILE');
-  path.PROGRAMDATA := Sysutils.GetEnvironmentVariable('ProgramData');
-  path.ALLUSERSPROFILE := Sysutils.GetEnvironmentVariable('AllUsersProfile');
-  path.TEMP := Sysutils.GetEnvironmentVariable('TEMP');
-  {$ENDIF}
+  path.WINDOWS := SysUtils.GetEnvironmentVariable('windir');
+  path.PROGRAMFILES := SysUtils.GetEnvironmentVariable('ProgramFiles');
+  path.COMMONFILES := SysUtils.GetEnvironmentVariable('CommonProgramFiles(x86)');
+  path.HOMEDRIVE := SysUtils.GetEnvironmentVariable('SystemDrive');
+  path.USERPROFILE := SysUtils.GetEnvironmentVariable('USERPROFILE');
+  path.PROGRAMDATA := SysUtils.GetEnvironmentVariable('ProgramData');
+  path.ALLUSERSPROFILE := SysUtils.GetEnvironmentVariable('AllUsersProfile');
   path.INSTDRIVE := path.HOMEDRIVE;
+  path.TEMP := SysUtils.GetEnvironmentVariable('TEMP');
   path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
   path.APPDATA:=GetSpecialFolderPath(CSIDL_APPDATA);
   //these paths fail if user is SYSTEM
@@ -451,11 +493,11 @@ var
 begin
   SHGetSpecialFolderLocation(0, folderID, ppidl);
   SetLength(Result, MAX_PATH);
-  if not SHGetPathFromIDList(ppidl, PChar(Result)) then
+  if not SHGetPathFromIDList(ppidl,{$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}) then
   begin
     raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
   end;
-  SetLength(Result, lStrLen(PChar(Result)));
+  SetLength(Result, lStrLen({$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}));
 end;
 
 function Is64bitOS : Boolean;
@@ -475,6 +517,22 @@ begin
     Result := False;
   {$ENDIF CONSOLE}
 end;
+{$ENDIF}
+
+function HasConsoleOutput : Boolean;
+{$IFDEF MSWINDOWS}
+  var
+    stout : THandle;
+  begin
+    stout := GetStdHandle(Std_Output_Handle);
+    Win32Check(stout <> Invalid_Handle_Value);
+    Result := stout <> 0;
+  end;
+{$ELSE}
+  begin
+    Result := IsConsole;
+  end;
+{$ENDIF}
 
 function IsDebug: Boolean;
 begin
@@ -485,11 +543,12 @@ begin
   {$ENDIF DEBUG}
 end;
 
+{$IFDEF MSWINDOWS}
 function IsService : Boolean;
 begin
   //only working with my Quick.AppService unit
   try
-    Result := (IsConsole) and (GetStdHandle(STD_OUTPUT_HANDLE) = 0);
+    Result := (IsConsole) and (not HasConsoleOutput);
   except
     Result := False;
   end;
@@ -533,10 +592,36 @@ begin
   Result := EncodeDate(YearOf(Now),MonthOf(Now), DaysInMonth(Now));
 end;
 
+{$IFDEF FPC}
+function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
+begin
+  if aInclusive then
+    Result := (AStartDateTime <= ADateTime) and (ADateTime <= AEndDateTime)
+  else
+    Result := (AStartDateTime < ADateTime) and (ADateTime < AEndDateTime);
+end;
+{$ENDIF}
+
 function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
 begin
   //Test: Result := MinutesBetween(cBefore,cNow) < 1;
   Result := DateTimeInRange(cNow,StartOfTheDay(cBefore),EndOfTheDay(cBefore),True);
+end;
+
+function ChangeTimeOfADay(aDate : TDateTime; aHour, aMinute, aSecond : Word; aMilliSecond : Word = 0) : TDateTime;
+var
+  y, m, d : Word;
+begin
+  DecodeDate(aDate,y,m,d);
+  Result := EncodeDateTime(y,m,d,aHour,aMinute,aSecond,aMilliSecond);
+end;
+
+function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
+var
+  h, m, s, ms : Word;
+begin
+  DecodeTime(aDate,h,m,s,ms);
+  Result := EncodeDateTime(aYear,aMonth,aDay,h,m,s,0);
 end;
 
 function FillStr(const C : Char; const Count : Byte) : string;
@@ -545,6 +630,29 @@ var
 begin
   Result := '';
   for i := 1 to Count do Result := Result + C;
+end;
+
+
+function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+var
+  s : string;
+begin
+  for s in aInArray do
+  begin
+    if s = aValue then Exit(True);
+  end;
+  Result := False;
+end;
+
+function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
+var
+  i : Integer;
+begin
+  for i in aInArray do
+  begin
+    if i = aValue then Exit(True);
+  end;
+  Result := False;
 end;
 
 function Zeroes(const Number, Len : Int64) : string;
@@ -587,7 +695,6 @@ var
   match : Boolean;
   wildcard : Boolean;
   CurrentPattern : Char;
-  aux : string;
 begin
   Result := False;
   wildcard := False;
@@ -609,7 +716,6 @@ begin
 
     if wildcard then
     begin
-      aux := Copy(Pattern,i+1,Pattern.Length);
       n := Pos(Copy(Pattern,i+1,Pattern.Length),cText);
       if (n > i) or (Pattern.Length = i) then
       begin
@@ -659,28 +765,97 @@ end;
 
 {$IFDEF MSWINDOWS}
 function GetLoggedUserName : string;
-const
-  cnMaxUserNameLen = 254;
+{$IFDEF MSWINDOWS}
+  const
+    cnMaxUserNameLen = 254;
+  var
+    sUserName     : string;
+    dwUserNameLen : DWord;
+  begin
+    dwUserNameLen := cnMaxUserNameLen-1;
+    SetLength( sUserName, cnMaxUserNameLen );
+    GetUserName(PChar( sUserName ),dwUserNameLen );
+    SetLength( sUserName, dwUserNameLen );
+    Result := sUserName;
+  end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  begin
+    Result := GetEnvironmentVariable('USERNAME');
+  end;
+  {$ELSE}
+  begin
+    {$IFDEF POSIX}
+    Result := string(getlogin);
+    {$ELSE}
+    Result := 'N/A';
+    {$ENDIF}
+    //raise ENotImplemented.Create('Not Android GetLoggedUserName implemented!');
+  end;
+  {$ENDIF}
+{$ENDIF}
+
+{$IFDEF IOS}
+function GetDeviceModel : String;
 var
-  sUserName     : string;
-  dwUserNameLen : DWord;
+  size : size_t;
+  buffer : array of Byte;
 begin
-  dwUserNameLen := cnMaxUserNameLen-1;
-  SetLength( sUserName, cnMaxUserNameLen );
-  GetUserName(PChar( sUserName ),dwUserNameLen );
-  SetLength( sUserName, dwUserNameLen );
-  Result := sUserName;
+  sysctlbyname('hw.machine',nil,@size,nil,0);
+  if size > 0 then
+  begin
+    SetLength(buffer, size);
+    sysctlbyname('hw.machine',@buffer[0],@size,nil,0);
+    Result := UTF8ToString(MarshaledAString(buffer));
+  end
+  else Result := EmptyStr;
 end;
+{$ENDIF}
 
 function GetComputerName : string;
-var
-  dwLength: dword;
-begin
-  dwLength := 253;
-  SetLength(Result, dwLength+1);
-  if not Windows.GetComputerName(pchar(result), dwLength) then Result := 'Not detected!';
-  Result := pchar(result);
-end;
+{$IFDEF MSWINDOWS}
+  var
+    dwLength: dword;
+  begin
+    dwLength := 253;
+    SetLength(Result, dwLength+1);
+    if not Windows.GetComputerName(pchar(result), dwLength) then Result := 'Not detected!';
+    Result := pchar(result);
+  end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  begin
+    Result := GetEnvironmentVariable('COMPUTERNAME');
+  end;
+  {$ELSE} //Android gets model name
+    {$IFDEF NEXTGEN}
+    begin
+      {$IFDEF ANDROID}
+      Result := JStringToString(TJBuild.JavaClass.MODEL);
+      {$ELSE} //IOS
+      Result := GetDeviceModel;
+      {$ENDIF}
+    end;
+    {$ELSE}
+      {$IFDEF DELPHILINUX}
+      var
+        puser : PAnsiChar;
+      begin
+        //puser := '';
+        try
+          if gethostname(puser,_SC_HOST_NAME_MAX) = 0 then Result := string(puser)
+            else Result := 'N/A';
+        except
+          Result := 'N/A';
+        end;
+      end;
+      {$ELSE} //OSX
+      begin
+        Result := NSStrToStr(TNSHost.Wrap(TNSHost.OCClass.currentHost).localizedName);
+      end;
+      {$ENDIF}
+    {$ENDIF}
+  {$ENDIF}
 {$ENDIF}
 
 function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
@@ -723,6 +898,52 @@ begin
   Result := FindCmdLineSwitch(Switch,['-', '/'],True);
 end;
 
+{$IFDEF FPC}
+function FindCmdLineSwitch(const Switch: string; var Value: string; IgnoreCase: Boolean = True;
+  const SwitchTypes: TCmdLineSwitchTypes = [clstValueNextParam, clstValueAppended]): Boolean; overload;
+type
+  TCompareProc = function(const S1, S2: string): Boolean;
+var
+  Param: string;
+  I, ValueOfs,
+  SwitchLen, ParamLen: Integer;
+  SameSwitch: TCompareProc;
+begin
+  Result := False;
+  Value := '';
+  if IgnoreCase then
+    SameSwitch := SameText else
+    SameSwitch := SameStr;
+  SwitchLen := Switch.Length;
+
+  for I := 1 to ParamCount do
+  begin
+    Param := ParamStr(I);
+    if CharInSet(Param.Chars[0], SwitchChars) and SameSwitch(Param.SubString(1,SwitchLen), Switch) then
+    begin
+      ParamLen := Param.Length;
+      // Look for an appended value if the param is longer than the switch
+      if (ParamLen > SwitchLen + 1) then
+      begin
+        // If not looking for appended value switches then this is not a matching switch
+        if not (clstValueAppended in SwitchTypes) then
+          Continue;
+        ValueOfs := SwitchLen + 1;
+        if Param.Chars[ValueOfs] = ':' then
+          Inc(ValueOfs);
+        Value := Param.SubString(ValueOfs, MaxInt);
+      end
+      // If the next param is not a switch, then treat it as the value
+      else if (clstValueNextParam in SwitchTypes) and (I < ParamCount) and
+              not CharInSet(ParamStr(I+1).Chars[0], SwitchChars) then
+        Value := ParamStr(I+1);
+      Result := True;
+      Break;
+    end;
+  end;
+end;
+{$ENDIF}
+
 function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
 begin
   {$IFNDEF FPC}
@@ -734,8 +955,13 @@ begin
 end;
 
 
-{$IFDEF MSWINDOWS}
+function GetAppName : string;
+begin
+  Result := ExtractFilenameWithoutExt(ParamStr(0));
+end;
+
 function GetAppVersionStr: string;
+{$IFDEF MSWINDOWS}
 var
   Rec: LongRec;
   ver : Cardinal;
@@ -748,8 +974,68 @@ begin
   end
   else Result := '';
 end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  var
+    version : TProgramVersion;
+  begin
+    if GetProgramVersion(version) then Result := Format('%d.%d', [version.Major, version.Minor])
+      else Result := '';
+  end;
+  {$ELSE}
+    {$IFDEF NEXTGEN}
+      {$IFDEF ANDROID}
+      var
+        PkgInfo : JPackageInfo;
+      begin
+        PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        Result := IntToStr(PkgInfo.VersionCode);
+      end;
+      {$ELSE} //IOS
+      var
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        try
+          AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+          AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+          BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+          Result := UTF8ToString(BuildStr.UTF8String);
+        except
+          Result := '';
+        end;
+      end;
+      {$ENDIF}
+    {$ELSE} //OSX
+      {$IFDEF OSX}
+      var
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        try
+          AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+
+          AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+          BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+          Result := UTF8ToString(BuildStr.UTF8String);
+
+        except
+          Result := '';
+        end;
+      end;
+      {$ELSE}
+        begin
+          Result := '';
+        end;
+      {$ENDIF}
+    {$ENDIF}
+  {$ENDIF}
+{$ENDIF}
 
 function GetAppVersionFullStr: string;
+{$IFDEF MSWINDOWS}
 var
   Exe: string;
   Size, Handle: DWORD;
@@ -792,25 +1078,133 @@ begin
      LongRec(FixedPtr.dwFileVersionLS).Lo]); //build
   end;
 end;
+{$ELSE}
+  {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  var
+    version : TProgramVersion;
+  begin
+    if GetProgramVersion(version) then Result := Format('%d.%d.%d.%d', [version.Major, version.Minor, version.Revision, version.Build])
+      else Result := '';
+  end;
+  {$ELSE}
+    {$IFDEF NEXTGEN}
+      {$IFDEF ANDROID}
+      var
+        PkgInfo : JPackageInfo;
+      begin
+        PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        Result := JStringToString(PkgInfo.versionName);
+      end;
+      {$ELSE} //IOS
+      var
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+        AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+        BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+        Result := UTF8ToString(BuildStr.UTF8String);
+      end;
+      {$ENDIF}
+    {$ELSE}
+      {$IFDEF OSX}
+      var
+        AppKey: Pointer;
+        AppBundle: NSBundle;
+        BuildStr : NSString;
+      begin
+        AppKey := (StrToNSStr('CFBundleVersion') as ILocalObject).GetObjectID;
+        AppBundle := TNSBundle.Wrap(TNSBundle.OCClass.mainBundle);
+        BuildStr := TNSString.Wrap(AppBundle.infoDictionary.objectForKey(AppKey));
+        Result := UTF8ToString(BuildStr.UTF8String);
+      end;
+      {$ELSE}
+        begin
+          Result := '';
+        end;
+      {$ENDIF}
+    {$ENDIF}
+  {$ENDIF}
 {$ENDIF}
 
 function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
 begin
-  {$IFNDEF FPC}
-  Result :=  TTimeZone.Local.ToLocalTime(GMTTime);
+  {$IFDEF FPC}
+  Result := LocalTimeToUniversal(GMTTime);
   {$ELSE}
-  //TODO
-  raise ENotImplemented.Create('Not implemented yet');
+  Result :=  TTimeZone.Local.ToLocalTime(GMTTime);
   {$ENDIF}
 end;
 
 function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
 begin
-  {$IFNDEF FPC}
-  Result := TTimeZone.Local.ToUniversalTime(LocalTime);
+  {$IFDEF FPC}
+  Result := UniversalTimeToLocal(Localtime);
   {$ELSE}
-  //TODO
-  raise ENotImplemented.Create('Not implemented yet');  ;
+  Result := TTimeZone.Local.ToUniversalTime(LocalTime);
+  {$ENDIF}
+end;
+
+function DateTimeToGMT(aDate : TDateTime) : string;
+var
+  FmtSettings : TFormatSettings;
+begin
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ" GMT"';
+  Result := DateTimeToStr(aDate,FmtSettings).Trim;
+end;
+
+function GMTToDateTime(aDate : string) : TDateTime;
+var
+  FmtSettings : TFormatSettings;
+begin
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ" GMT"';
+  Result := StrToDateTime(aDate,FmtSettings);
+end;
+
+function DateTimeToJsonDate(aDateTime : TDateTime) : string;
+{$IFNDEF DELPHIXE7_UP}
+var
+  FmtSettings : TFormatSettings;
+{$ENDIF}
+begin
+  {$IFDEF DELPHIXE7_UP}
+  Result := DateToISO8601(aDateTime);
+  {$ELSE}
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ"Z"';
+  Result := DateTimeToStr(aDateTime,FmtSettings).Trim;
+  {$ENDIF}
+end;
+
+function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
+{$IFNDEF DELPHIXE7_UP}
+var
+  FmtSettings : TFormatSettings;
+{$ENDIF}
+{$IFDEF FPC}
+var
+  jdate : string;
+{$ENDIF}
+begin
+  {$IFDEF DELPHIXE7_UP}
+  Result := ISO8601ToDate(aJsonDate);
+  {$ELSE}
+  FmtSettings.DateSeparator := '-';
+  FmtSettings.TimeSeparator := ':';
+  FmtSettings.ShortDateFormat := 'YYYY-MM-DD"T"HH:NN:SS.ZZZ"Z"';
+    {$IFDEF FPC}
+    jdate := StringReplace(aJsondate,'T',' ',[rfIgnoreCase]);
+    jdate := Copy(jdate,1,Pos('.',jdate)-1);
+    Result := StrToDateTime(jdate,FmtSettings);
+    {$ELSE}
+    Result := StrToDateTime(aJsonDate,FmtSettings);
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -837,6 +1231,41 @@ begin
     fs.CopyFrom(stream,stream.Size);
   finally
     fs.Free;
+  end;
+end;
+
+function StreamToString(stream : TStream) : string;
+var
+  ss : TStringStream;
+begin
+  if stream = nil then Exit;
+  ss := TStringStream.Create;
+  try
+    stream.Seek(0,soBeginning);
+    ss.CopyFrom(stream,stream.Size);
+    Result := ss.DataString;
+  finally
+    ss.Free;
+  end;
+end;
+
+
+function CommaText(aList : TStringList) : string;
+var
+  value : string;
+  sb : TStringBuilder;
+begin
+  if aList.Text = '' then Exit;
+  sb := TStringBuilder.Create;
+  try
+    for value in aList do
+    begin
+      sb.Append(value);
+      sb.Append(',');
+    end;
+    if sb.Length > 1 then Result := sb.ToString(0, sb.Length - 1);
+  finally
+    sb.Free;
   end;
 end;
 
@@ -902,7 +1331,6 @@ end;
 {$IFDEF MSWINDOWS}
 procedure ProcessMessages;
 var
-  {$IFNDEF FPC}
   Msg: TMsg;
 begin
   while integer(PeekMessage(Msg, 0, 0, 0, PM_REMOVE)) <> 0 do
@@ -910,63 +1338,32 @@ begin
     TranslateMessage(Msg);
     DispatchMessage(Msg);
   end;
-  {$ELSE}
-  Msg: Windows.TMsg;
-begin
-  while integer(Windows.PeekMessage(Msg, 0, 0, 0, PM_REMOVE)) <> 0 do
-  begin
-    Windows.TranslateMessage(Msg);
-    Windows.DispatchMessage(Msg);
-  end;
-  {$ENDIF}
 end;
 
 function GetLastOSError: String;
 begin
   Result := SysErrorMessage(Windows.GetLastError);
 end;
-
 {$ENDIF}
 
-{$IFDEF FPC}
-function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
+function RemoveLastChar(const aText : string) : string;
 begin
-  if aInclusive then
-    Result := (AStartDateTime <= ADateTime) and (ADateTime <= AEndDateTime)
-  else
-    Result := (AStartDateTime < ADateTime) and (ADateTime < AEndDateTime);
+  Result := aText.Remove(aText.Length - 1);
 end;
 
-function TimeInRange(ATime: TTime; AStartTime, AEndTime: TTime; AInclusive: Boolean = True): Boolean;
+function DateTimeToSQL(aDateTime : TDateTime) : string;
+begin
+  Result := FormatDateTime('YYYYMMDD hh:mm:ss',aDateTime);
+end;
+
+function IsInteger(const aValue : string) : Boolean;
 var
-  LTime, LStartTime, LEndTime: TTime;
+  i : Integer;
 begin
-  LTime := TimeOf(ATime);
-  LStartTime := TimeOf(AStartTime);
-  LEndTime := TimeOF(AEndTime);
-
-  if LEndTime < LStartTime then
-    if AInclusive then
-      Result := (LStartTime <= LTime) or (LTime <= LEndTime)
-    else
-      Result := (LStartTime < LTime) or (LTime < LEndTime)
-  else
-    if AInclusive then
-      Result := (LStartTime <= LTime) and (LTime <= LEndTime)
-    else
-      Result := (LStartTime < LTime) and (LTime < LEndTime);
+  Result := TryStrToInt(aValue,i);
 end;
 
-function DateInRange(ADate: TDate; AStartDate, AEndDate: TDate; AInclusive: Boolean = True): Boolean;
-begin
-  if AInclusive then
-    Result := (DateOf(AStartDate) <= DateOf(ADate)) and (DateOf(ADate) <= DateOf(AEndDate))
- else
-    Result := (DateOf(AStartDate) < DateOf(ADate)) and (DateOf(ADate) < DateOf(AEndDate));
-end;
-
-{$ENDIF}
-
+{$IFDEF MSWINDOWS}
 initialization
 {$IFDEF MSWINDOWS}
   try
@@ -976,7 +1373,7 @@ initialization
     begin
       if not IsService then
       begin
-        if IsConsole then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
+        if HasConsoleOutput then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
           else raise EEnvironmentPath.Create(Format('Get environment path error: %s',[E.Message]));
       end;
     end;
@@ -984,3 +1381,4 @@ initialization
 {$ENDIF}
 
 end.
+

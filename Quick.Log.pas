@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2017 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Log
   Description : Threadsafe Log
   Author      : Kike Pérez
-  Version     : 1.17
+  Version     : 1.19
   Created     : 10/04/2016
-  Modified    : 17/09/2017
+  Modified    : 21/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -29,21 +29,34 @@
 
 unit Quick.Log;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
+  {$IFDEF MSWINDOWS}
   Windows,
+  {$ENDIF}
   Classes,
   Quick.Commons,
-  System.SysUtils,
-  System.IOUtils;
+  {$IFNDEF FPC}
+  System.IOUtils,
+    {$IFDEF DELPHILINUX}
+    Quick.SyncObjs.Linux.Compatibility,
+    {$ENDIF}
+  {$ELSE}
+  Quick.Files,
+  {$ENDIF}
+  {$IF Defined(NEXTGEN) OR Defined(LINUX) or Defined(MACOS)}
+  syncObjs,
+  {$ENDIF}
+  SysUtils;
 
 type
 
   TMemoryLog = class
   private
     fLines : TStrings;
-    fText : string;
     fEnabled : Boolean;
     function GetLogText : string;
   public
@@ -80,12 +93,16 @@ type
     constructor Create;
     destructor Destroy; override;
     function SetLog(logname : string; AddCurrentDateToFileName : Boolean; LimitSizeInMB : Integer = 0) : Boolean;
-    procedure Add(const cMsg : string; cEventType : TEventType = etInfo); overload;
-    procedure Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TEventType = etInfo); overload;
+    procedure Add(const cMsg : string; cEventType : TLogEventType = TLogEventType.etInfo); overload;
+    procedure Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = TLogEventType.etInfo); overload;
   end;
 
 var
+  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  CS : TCriticalSection;
+  {$ELSE}
   CS : TRTLCriticalSection;
+  {$ENDIF}
   Log : TQuickLog;
 
 implementation
@@ -146,6 +163,13 @@ begin
   else Result := fLogFileName;
 end;
 
+{$IFDEF FPC}
+function OSVersion: String;
+begin
+  Result:={$I %FPCTARGETOS%}+'-'+{$I %FPCTARGETCPU%};
+end;
+{$ENDIF}
+
 function TQuickLog.SetLog(logname : string; AddCurrentDateToFileName : Boolean; LimitSizeInMB : Integer = 0) : Boolean;
 begin
   if logname = '' then logname := TPath.GetDirectoryName(ParamStr(0)) + '\' + TPath.GetFileNameWithoutExtension(ParamStr(0)) + '.log';
@@ -155,39 +179,46 @@ begin
   fLogFileName := logname;
   //Checks if logfile is too big and deletes
   fLimitLogSize := LimitSizeInMB * 1024 * 1024;
-  if (fLimitLogSize > 0) and (TFile.Exists(logname,True)) then
+  if (fLimitLogSize > 0) and (TFile.Exists(logname)) then
   begin
     try
       fCurrentLogSize := TFile.GetSize(logname);
-      if fCurrentLogSize > fLimitLogSize Then if DeleteFile(logname) then fCurrentLogSize := 0;
+      if fCurrentLogSize > fLimitLogSize then if DeleteFile(logname) then fCurrentLogSize := 0;
     except
       raise Exception.Create('can''t access to log file!');
     end;
   end;
   //Checks if it's in use
+  {$IF NOT Defined(MACOS) AND NOT Defined(ANDROID)}
   if (fCheckFileInUse) and (TFile.IsInUse(logname)) Then fLogFileName := Format('%s_(1).%s',[ExtractFileNameWithoutExt(logname),ExtractFileExt(logname)]);
+  {$ENDIF}
 
   //writes header info
   if fShowHeaderInfo then
   begin
-    Self.WriteLog(FillStr('-',70));
-    Self.WriteLog(Format('Application : %s %s',[ExtractFilenameWithoutExt(ParamStr(0)),GetAppVersionFullStr]));
-    Self.WriteLog(Format('Path        : %s',[ExtractFilePath(ParamStr(0))]));
-    Self.WriteLog(Format('CPU cores   : %d',[CPUCount]));
-    Self.WriteLog(Format('OS version  : %s',[TOSVersion.ToString]));
-    Self.WriteLog(Format('Host        : %s',[GetComputerName]));
-    Self.WriteLog(Format('Username    : %s',[Trim(GetLoggedUserName)]));
-    Self.WriteLog(Format('Started     : %s',[NowStr]));
-    if IsService then Self.WriteLog('AppType     : Service')
-      else if System.IsConsole then Self.WriteLog('AppType     : Console');
-
-    if IsDebug then Self.WriteLog('Debug mode  : On');
-    Self.WriteLog(FillStr('-',70));
+    try
+      Self.WriteLog(FillStr('-',70));
+      Self.WriteLog(Format('Application : %s %s',[ExtractFilenameWithoutExt(ParamStr(0)),GetAppVersionFullStr]));
+      Self.WriteLog(Format('Path        : %s',[ExtractFilePath(ParamStr(0))]));
+      Self.WriteLog(Format('CPU cores   : %d',[CPUCount]));
+      Self.WriteLog(Format('OS version  : %s',{$IFDEF FPC}[OSVersion]{$ELSE}[TOSVersion.ToString]{$ENDIF}));
+      Self.WriteLog(Format('Host        : %s',[GetComputerName]));
+      Self.WriteLog(Format('Username    : %s',[Trim(GetLoggedUserName)]));
+      Self.WriteLog(Format('Started     : %s',[NowStr]));
+      {$IFDEF MSWINDOWS}
+      if IsService then Self.WriteLog('AppType     : Service')
+        else if System.IsConsole then Self.WriteLog('AppType     : Console');
+      {$ENDIF}
+      if IsDebug then Self.WriteLog('Debug mode  : On');
+      Self.WriteLog(FillStr('-',70));
+    except
+      on E : Exception do Self.WriteLog('Can''t get info: ' + e.message);
+    end;
   end;
   Result := True;
 end;
 
-procedure TQuickLog.Add(const cMsg : string; cEventType : TEventType = etInfo);
+procedure TQuickLog.Add(const cMsg : string; cEventType : TLogEventType = TLogEventType.etInfo);
 begin
   //Check Log Verbose level
   if cEventType in fVerbose then
@@ -208,7 +239,11 @@ var
 begin
   //Checks if need to add date to filename
   logname := GetLogFileName;
+  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  CS.Enter;
+  {$ELSE}
   EnterCriticalSection(CS);
+  {$ENDIF}
   try
     cMsg := cMsg + #13#10;
     LEncoding:= TEncoding.Unicode;
@@ -219,7 +254,7 @@ begin
     LBuffer := LEncoding.Convert(LEncoding, DestEncoding, LBuffer,
                                   LOffset, Length(LBuffer) - LOffset);
 
-    if TFile.Exists(logname,True) then
+    if TFile.Exists(logname) then
     begin
       stream := TFileStream.Create(logname, fmOpenReadWrite or fmShareDenyWrite);
       stream.Position := stream.Size;
@@ -254,19 +289,43 @@ begin
       //
     end;
   finally
+    {$IF Defined(MACOS) OR Defined(ANDROID)}
+    CS.Leave;
+    {$ELSE}
     LeaveCriticalSection(CS);
+    {$ENDIF}
   end;
 end;
 
-procedure TQuickLog.Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TEventType = etInfo);
+procedure TQuickLog.Add(const cFormat : string; cParams : array of TVarRec ; cEventType : TLogEventType = TLogEventType.etInfo);
 begin
   Self.Add(Format(cFormat,cParams),cEventType);
 end;
 
 initialization
-InitializeCriticalSection(CS);
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+InitCriticalSection(CS);
+{$ELSE}
+  {$IF Defined(MACOS) OR Defined(ANDROID)}
+  CS := TCriticalSection.Create;
+  {$ELSE}
+    {$IFDEF DELPHILINUX}
+    CS := TRTLCriticalSection.Create;
+    {$ELSE}
+    InitializeCriticalSection(CS);
+    {$ENDIF}
+  {$ENDIF}
+{$ENDIF}
 
 finalization
-DeleteCriticalSection(CS);
+{$IF DEFINED(FPC) AND DEFINED(LINUX)}
+DoneCriticalsection(CS);
+{$ELSE}
+  {$IF Defined(MACOS) OR Defined(ANDROID) OR Defined(DELPHILINUX)}
+  CS.Free;
+  {$ELSE}
+  DeleteCriticalSection(CS);
+  {$ENDIF}
+{$ENDIF}
 
 end.

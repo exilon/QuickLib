@@ -1,0 +1,187 @@
+object MainForm: TMainForm
+  Left = 0
+  Top = 0
+  Caption = 'System Info'
+  ClientHeight = 468
+  ClientWidth = 564
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  DesignerMasterStyle = 0
+  object Layout1: TLayout
+    Align = MostTop
+    Size.Width = 564.000000000000000000
+    Size.Height = 41.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 6
+  end
+  object Layout2: TLayout
+    Align = MostTop
+    Position.Y = 41.000000000000000000
+    Size.Width = 564.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 5
+    object Label2: TLabel
+      Align = MostLeft
+      StyledSettings = [Family, Size, FontColor]
+      Margins.Left = 7.000000000000000000
+      Position.X = 7.000000000000000000
+      Size.Width = 106.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.StyleExt = {00060000000000000004000000}
+      Text = 'DeviceName'
+      TabOrder = 5
+    end
+    object lblDeviceName: TLabel
+      Align = Client
+      Size.Width = 451.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'N/A'
+      TabOrder = 3
+    end
+  end
+  object Layout3: TLayout
+    Align = MostTop
+    Position.Y = 211.000000000000000000
+    Size.Width = 564.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 2
+    object Label3: TLabel
+      Align = MostLeft
+      StyledSettings = [Family, Size, FontColor]
+      Margins.Left = 7.000000000000000000
+      Position.X = 7.000000000000000000
+      Size.Width = 106.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.StyleExt = {00060000000000000004000000}
+      Text = 'Path'
+      TabOrder = 5
+    end
+    object lblAppPath: TLabel
+      Align = Client
+      Size.Width = 451.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'N/A'
+      TabOrder = 3
+    end
+  end
+  object Layout4: TLayout
+    Align = MostTop
+    Position.Y = 177.000000000000000000
+    Size.Width = 564.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    object Label5: TLabel
+      Align = MostLeft
+      StyledSettings = [Family, Size, FontColor]
+      Margins.Left = 7.000000000000000000
+      Position.X = 7.000000000000000000
+      Size.Width = 106.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.StyleExt = {00060000000000000004000000}
+      Text = 'OS'
+      TabOrder = 5
+    end
+    object lblOS: TLabel
+      Align = Client
+      Size.Width = 451.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'N/A'
+      TabOrder = 3
+    end
+  end
+  object Layout5: TLayout
+    Align = MostTop
+    Position.Y = 109.000000000000000000
+    Size.Width = 564.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    object Label7: TLabel
+      Align = MostLeft
+      StyledSettings = [Family, Size, FontColor]
+      Margins.Left = 7.000000000000000000
+      Position.X = 7.000000000000000000
+      Size.Width = 106.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.StyleExt = {00060000000000000004000000}
+      Text = 'App name'
+      TabOrder = 5
+    end
+    object lblAppName: TLabel
+      Align = Client
+      Size.Width = 451.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'N/A'
+      TabOrder = 3
+    end
+  end
+  object Layout6: TLayout
+    Align = MostTop
+    Position.Y = 143.000000000000000000
+    Size.Width = 564.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 3
+    object Label4: TLabel
+      Align = MostLeft
+      StyledSettings = [Family, Size, FontColor]
+      Margins.Left = 7.000000000000000000
+      Position.X = 7.000000000000000000
+      Size.Width = 106.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.StyleExt = {00060000000000000004000000}
+      Text = 'App Version'
+      TabOrder = 5
+    end
+    object lblAppVersion: TLabel
+      Align = Client
+      Size.Width = 451.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'N/A'
+      TabOrder = 3
+    end
+  end
+  object Layout7: TLayout
+    Align = MostTop
+    Position.Y = 75.000000000000000000
+    Size.Width = 564.000000000000000000
+    Size.Height = 34.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 4
+    object Label1: TLabel
+      Align = MostLeft
+      StyledSettings = [Family, Size, FontColor]
+      Margins.Left = 7.000000000000000000
+      Position.X = 7.000000000000000000
+      Size.Width = 106.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.StyleExt = {00060000000000000004000000}
+      Text = 'UserName'
+      TabOrder = 5
+    end
+    object lblUserName: TLabel
+      Align = Client
+      Size.Width = 451.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'N/A'
+      TabOrder = 3
+    end
+  end
+end

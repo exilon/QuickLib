@@ -1,0 +1,17 @@
+{
+    "id": "{039708CE-1DC1-4FC5-A58E-A77B3177A9C8}",
+    "name": "",
+    "picture": "QuickLib.png",
+    "license_type": "Apache-2.0",
+    "license_file": "LICENSE.txt",
+    "platforms": "Win32;Win64;Linux64",
+    "package_compiler_min": 22,
+    "package_compiler_max": 32,
+    "compiler_min": 22,
+    "compiler_max": 32,
+    "first_version": "1.0",
+    "report_url": "",
+    "dependencies":
+     [
+     ]
+}
