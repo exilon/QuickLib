@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 29/03/2019
+  Modified    : 02/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1332,14 +1332,16 @@ initialization
   try
     GetEnvironmentPaths;
   except
+    {$IFDEF SHOW_ENVIRONMENTPATH_ERRORS}
     on E : Exception do
     begin
       if not IsService then
       begin
         if HasConsoleOutput then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
-          else raise EEnvironmentPath.Create(Format('Get environment path error: %s',[E.Message]));
+          else MessageBox(0,PWideChar(Format('Get environment path error: %s',[E.Message])),'GetEnvironmentPaths',MB_ICONEXCLAMATION);
       end;
     end;
+    {$ENDIF}
   end;
 {$ENDIF}
 

@@ -150,4 +150,6 @@
   {.$WARN UNIT_PLATFORM OFF}
 {$endif}
 
+{.$define SHOW_ENVIRONMENTPATH_ERRORS}
+
 
