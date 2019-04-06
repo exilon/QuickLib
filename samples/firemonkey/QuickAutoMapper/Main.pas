@@ -5,7 +5,7 @@ interface
 uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
-  Quick.AutoMapper, Quick.JSONRecord, FMX.Controls.Presentation,
+  Quick.AutoMapper, Quick.JSONRecord, FMX.Controls.Presentation, Quick.Arrays,
   FMX.ScrollBox, FMX.Memo, System.Generics.Collections;
 
 type
@@ -61,7 +61,7 @@ type
     property Agent : TAgent read fAgent write fAgent;
   end;
 
-  TPointsList = TList<Integer>;
+  TPointsList = TXArray<Integer>;
 
   TUser = class(TUserBase)
   private
@@ -129,7 +129,7 @@ constructor TUser.Create;
 begin
   fCar := TCar.Create;
   fCarList := TCarList.Create(True);
-  fPoints := TPointsList.Create;
+  //fPoints := TPointsList.Create;
   fAgentList := TAgentList.Create;
 end;
 
@@ -137,7 +137,7 @@ destructor TUser.Destroy;
 begin
   fCar.Free;
   fCarList.Free;
-  fPoints.Free;
+  //fPoints.Free;
   fAgentList.Free;
   inherited;
 end;
@@ -148,7 +148,7 @@ constructor TUser2.Create;
 begin
   fCar := TCar.Create;
   fCarList := TCarList.Create(True);
-  fPoints := TPointsList.Create;
+  //fPoints := TPointsList.Create;
   fAgentList := TAgentList.Create;
 end;
 
@@ -156,7 +156,7 @@ destructor TUser2.Destroy;
 begin
   fCar.Free;
   fCarList.Free;
-  fPoints.Free;
+  //fPoints.Free;
   fAgentList.Free;
   inherited;
 end;

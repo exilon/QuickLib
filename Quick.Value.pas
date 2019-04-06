@@ -5,9 +5,9 @@
   Unit        : Quick.Value
   Description : Autofree value record
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 07/01/2019
-  Modified    : 14/03/2019
+  Modified    : 03/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -265,7 +265,7 @@ type
     procedure Clear; inline;
     procedure _AddRef; inline;
     procedure _Release; inline;
-    {$IFNDEF FPC}
+    {$IFNDEF FPCS}
     class operator Implicit(const Value : TFlexValue) : string;
     class operator Implicit(Value : TFlexValue) : Integer;
     class operator Implicit(Value : TFlexValue) : Int64;
@@ -275,7 +275,23 @@ type
     class operator Implicit(Value : TFlexValue) : TClass;
     class operator Implicit(Value : TFlexValue) : TObject;
     class operator Implicit(Value : TFlexValue) : Pointer;
+    class operator Implicit(Value : TFlexValue) : Variant;
+    class operator Implicit(const Value : string) : TFlexValue;
+    class operator Implicit(Value : Integer) : TFlexValue;
+    class operator Implicit(Value : Int64) : TFlexValue;
+    class operator Implicit(Value : Extended) : TFlexValue;
+    class operator Implicit(Value : TDateTime) : TFlexValue;
+    class operator Implicit(Value : Boolean) : TFlexValue;
+    class operator Implicit(Value : TClass) : TFlexValue;
+    class operator Implicit(Value : TObject) : TFlexValue;
+    class operator Implicit(Value : Pointer) : TFlexValue;
+    class operator Implicit(Value : Variant) : TFlexValue;
     {$ENDIF}
+  end;
+
+  TFlexPair = record
+    Name : string;
+    Value : TFlexValue;
   end;
 
 implementation
@@ -478,7 +494,11 @@ begin
     case fDataType of
       dtObject,
       dtOwnedObject : Result := (fDataIntf as IValueObject).Value;
+      {$IFNDEF FPC}
       dtPointer : Result := TObject((fDataIntf as IValueObject).Value);
+      {$ELSE}
+      dtPointer : Result := TObject((fDataIntf as IValuePointer).Value);
+      {$ENDIF}
       dtNull : Result := nil;
       else raise Exception.Create('DataType not supported');
     end;
@@ -566,7 +586,7 @@ begin
   {$ENDIF}
 end;
 
-{$IFNDEF FPC}
+{$IFNDEF FPCS}
 class operator TFlexValue.Implicit(Value: TFlexValue): Boolean;
 begin
   Result := Value.AsBoolean;
@@ -610,6 +630,61 @@ end;
 class operator TFlexValue.Implicit(Value: TFlexValue): Extended;
 begin
   Result := Value.AsExtended;
+end;
+
+class operator TFlexValue.Implicit(Value: TFlexValue): Variant;
+begin
+  Result := Value.AsVariant;
+end;
+
+class operator TFlexValue.Implicit(Value: Variant): TFlexValue;
+begin
+  Result.AsVariant := Value;
+end;
+
+class operator TFlexValue.Implicit(const Value : string) : TFlexValue;
+begin
+  Result.AsString := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : Integer) : TFlexValue;
+begin
+  Result.AsInteger := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : Int64) : TFlexValue;
+begin
+  Result.AsInt64 := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : Extended) : TFlexValue;
+begin
+  Result.AsExtended := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : TDateTime) : TFlexValue;
+begin
+  Result.AsDateTime := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : Boolean) : TFlexValue;
+begin
+  Result.AsBoolean := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : TClass) : TFlexValue;
+begin
+  Result.AsClass := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : TObject) : TFlexValue;
+begin
+  Result.AsObject := Value;
+end;
+
+class operator TFlexValue.Implicit(Value : Pointer) : TFlexValue;
+begin
+  Result.AsPointer := Value;
 end;
 
 {$ENDIF}
@@ -916,5 +991,6 @@ procedure TValueObject.SetValue(const Value: TObject);
 begin
   fData := Value;
 end;
+
 
 end.
