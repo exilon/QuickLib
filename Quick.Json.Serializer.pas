@@ -5,9 +5,9 @@
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
-  Version     : 1.7
+  Version     : 1.8
   Created     : 21/05/2018
-  Modified    : 20/03/2019
+  Modified    : 01/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -103,7 +103,12 @@ type
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
     function IsGenericList(aObject : TObject) : Boolean;
+    function IsGenericXArray(const aClassName : string) : Boolean;
     function GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
+    function GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
+    {$IFNDEF FPC}
+    function GetFieldValueFromRecord(aValue : TValue; const FieldName : string) : TValue;
+    {$ENDIF}
     procedure SetPropertyValue(Instance : TObject; aPropInfo : PPropInfo; aValue : TValue); overload;
     procedure SetPropertyValue(Instance : TObject; const PropertyName : string; aValue : TValue); overload;
     {$IFDEF FPC}
@@ -125,6 +130,7 @@ type
     function DeserializeObject(aObject : TObject; const aJson : TJSONObject) : TObject; overload;
     {$IFNDEF FPC}
     function DeserializeList(aObject: TObject; const aName : string; const aJson: TJSONObject) : TObject;
+    procedure DeserializeXArray(Instance : TObject; aRecord : TValue; aProperty : TRttiProperty; const aPropertyName : string; aJson : TJsonObject);
     {$ENDIF}
     function DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject; overload;
     {$IFNDEF FPC}
@@ -160,6 +166,7 @@ type
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
     function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
+    function ObjectToJsonString(aObject : TObject; aIndent : Boolean = False): string;
   end;
 
   PPByte = ^PByte;
@@ -428,12 +435,6 @@ begin
 
   if (aJson = nil) or ((aJson as TJSONValue) is TJSONNull) or (aJson.Count = 0) or (Result = nil) then Exit;
 
-  //if IsGenericList(aObject) then
-  //begin
-  //  Result := DeserializeList(Result,aObject.ClassName,aJson);
-  //  Exit;
-  //end;
-
   try
     rType := ctx.GetType(aObject.ClassInfo);
     try
@@ -452,6 +453,14 @@ begin
             if rProp.Name = 'List' then
             begin
               Result := DeserializeList(Result,propertyname,aJson);
+            end
+            else if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
+            begin
+              DeserializeList(rProp.GetValue(aObject).AsObject,'List',TJSONObject(aJson.GetValue(propertyname)));
+            end
+            else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+            begin
+              DeserializeXArray(Result,rProp.GetValue(aObject),rProp,propertyname,aJson);
             end
             else
             {$ENDIF}
@@ -486,8 +495,6 @@ var
   {$ENDIF}
 begin
   Result := aObject;
-  member := GetJsonPairByName(aJson,aName);
-  //member := TJSONPair(aJson.GetValue(aName));
 
   rType := ctx.GetType(aObject.ClassInfo);
   try
@@ -497,7 +504,9 @@ begin
     ctx.Free;
   end;
 
-  jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+  member := GetJsonPairByName(aJson,aName);
+  if member = nil then jArray := TJSONObject.ParseJSONValue(aJson.ToJSON) as TJSONArray
+    else jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
   try
     rvalue := DeserializeDynArray(rProp.PropertyType.Handle,Result,jArray);
     //i := jarray.Count;
@@ -510,6 +519,7 @@ begin
     {$IFDEF DELPHIRX103_UP}
     if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
     begin
+      TObjectList<TObject>(aObject).Clear;
       for i := 0 to rvalue.GetArrayLength - 1 do
       begin
         TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
@@ -531,6 +541,42 @@ begin
     rProp := rType.GetProperty('Count');
     rProp.SetValue(aObject,i);
     {$ENDIF}
+  end;
+end;
+{$ENDIF}
+
+{$IFNDEF FPC}
+procedure TRTTIJson.DeserializeXArray(Instance : TObject; aRecord : TValue; aProperty : TRttiProperty; const aPropertyName : string; aJson : TJsonObject);
+var
+  ctx : TRttiContext;
+  rRec : TRttiRecordType;
+  rfield : TRttiField;
+  rValue : TValue;
+  member : TJSONPair;
+  jArray : TJSONArray;
+begin
+  rRec := ctx.GetType(aRecord.TypeInfo).AsRecord;
+  try
+    rfield := rRec.GetField('fArray');
+    if rfield <> nil then
+    begin
+      rValue := nil;
+      //member := TJSONPair(aJson.GetValue(rField.Name));
+      member := GetJsonPairByName(aJson,aPropertyName);
+      if (member <> nil) and (rField.FieldType.TypeKind = tkDynArray) then
+      begin
+        jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+        try
+          rValue := DeserializeDynArray(rField.FieldType.Handle,nil,jArray);
+        finally
+          jArray.Free;
+        end;
+      end;
+    end;
+    if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
+    aProperty.SetValue(Instance,aRecord);
+  finally
+    ctx.Free;
   end;
 end;
 {$ENDIF}
@@ -815,8 +861,15 @@ function TRTTIJson.IsGenericList(aObject : TObject) : Boolean;
 var
   cname : string;
 begin
+  if aObject = nil then Exit(False);
+
   cname := aObject.ClassName;
   Result := (cname.StartsWith('TObjectList')) or (cname.StartsWith('TList'));
+end;
+
+function TRTTIJson.IsGenericXArray(const aClassName : string) : Boolean;
+begin
+  Result := aClassName.StartsWith('TXArray');
 end;
 
 function TRTTIJson.GetJsonPairByName(aJson: TJSONObject; const aName: string): TJSONPair;
@@ -834,6 +887,7 @@ begin
     for i := 0 to aJson.Count - 1 do
     begin
       candidate := aJson.Pairs[I];
+      if candidate.JsonValue = nil then Exit(nil);
       if CompareText(candidate.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then
         Exit(TJsonPair(candidate.JsonValue));
     end;
@@ -883,6 +937,29 @@ begin
     tkDynArray : Result := GetDynArrayProp(Instance,pinfo);
   end;
 end;
+
+function TRTTIJson.GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
+var
+  ctx : TRttiContext;
+  rprop : TRttiProperty;
+begin
+  rprop := ctx.GetType(Instance.ClassInfo).GetProperty(PropertyName);
+  Result := rprop.GetValue(Instance);
+end;
+
+{$IFNDEF FPC}
+function TRTTIJson.GetFieldValueFromRecord(aValue : TValue; const FieldName : string) : TValue;
+var
+  ctx : TRttiContext;
+  rec : TRttiRecordType;
+  rfield : TRttiField;
+begin
+  rec := ctx.GetType(aValue.TypeInfo).AsRecord;
+  rfield := rec.GetField(FieldName);
+  if rfield <> nil then Result := rField.GetValue(aValue.GetReferenceToRawData)
+    else Result := nil;
+end;
+{$ENDIF}
 
 procedure TRTTIJson.SetPropertyValue(Instance : TObject; const PropertyName : string; aValue : TValue);
 var
@@ -999,27 +1076,25 @@ begin
             {$IFNDEF FPC}
             if comment <> '' then Result.AddPair(TJSONPair.Create('#Comment#->'+propertyname,Comment));
             {$ENDIF}
-            //listtype := ctx.GetType(rProp.GetValue(aObject).TypeInfo);
-            //if (listtype.ClassParent.ClassName.StartsWith('TObjectList')) then
-            //begin
-            //  jpair := Serialize(propertyname,rProp.GetValue(aObject));
-            //  Result.AddPair(propertyname,(jpair.JsonValue as TJSONObject).GetValue('List').Clone as TJsonValue);
-            //  jpair.Free;
-              //listtype := ctx.GetType(rProp.GetValue(aObject).AsObject.ClassInfo);
-              //listprop := listtype.GetProperty('List');
-              //listvalue := listprop.GetValue(aObject);
-              //jpair := Serialize('Groups',listvalue);
-              //if jpair <> nil then Result.AddPair(jpair)
-              // else jpair.Free;
-              //Exit;
-            //end
-            //else
             begin
+              if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
+              begin
+                jpair := Serialize(propertyname,GetPropertyValueFromObject(rProp.GetValue(aObject).AsObject,'List'));
+              end
               {$IFNDEF FPC}
-              jpair := Serialize(propertyname,rProp.GetValue(aObject));
-              {$ELSE}
-              jpair := Serialize(aObject,rProp.PropertyType.TypeKind,propertyname);
+              else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+              begin
+                jpair := Serialize(propertyname,GetFieldValueFromRecord(rProp.GetValue(aObject),'fArray'));
+              end
               {$ENDIF}
+              else
+              begin
+                {$IFNDEF FPC}
+                jpair := Serialize(propertyname,rProp.GetValue(aObject));
+                {$ELSE}
+                jpair := Serialize(aObject,rProp.PropertyType.TypeKind,propertyname);
+                {$ENDIF}
+              end;
               //s := jpair.JsonValue.ToString;
               if jpair <> nil then
               begin
@@ -1078,19 +1153,22 @@ begin
           try
             for i := 0 to aValue.GetArrayLength - 1 do
             begin
-              jValue := nil;
-              jPair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
-              try
-                //jValue := TJsonValue(jPair.JsonValue.Clone);
-                jValue := jPair.JsonValue;
-                if jValue <> nil then
-                begin
-                  jArray.AddElement(jValue);
-                  jPair.JsonValue.Owned := False;
+              if not GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).IsEmpty then
+              begin
+                jValue := nil;
+                jPair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
+                try
+                  //jValue := TJsonValue(jPair.JsonValue.Clone);
+                  jValue := jPair.JsonValue;
+                  if jValue <> nil then
+                  begin
+                    jArray.AddElement(jValue);
+                    jPair.JsonValue.Owned := False;
+                  end;
+                finally
+                  jPair.Free;
+                  if jValue <> nil then jValue.Owned := True;
                 end;
-              finally
-                jPair.Free;
-                if jValue <> nil then jValue.Owned := True;
               end;
             end;
             Result.JsonValue := jArray;
@@ -1476,6 +1554,19 @@ begin
   json := fRTTIJson.Serialize(aObject);
   try
     Result := json.ToJSON;
+    if aIndent then Result := TJsonUtils.JsonFormat(Result);
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ObjectToJsonString(aObject : TObject; aIndent : Boolean = False): string;
+var
+  json: TJSONObject;
+begin
+  json := fRTTIJson.Serialize(aObject);
+  try
+    Result := json.ToString;
     if aIndent then Result := TJsonUtils.JsonFormat(Result);
   finally
     json.Free;

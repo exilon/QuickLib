@@ -5,9 +5,9 @@
   Unit        : Quick.AutoMapper
   Description : Auto Mapper object properties
   Author      : Kike Pérez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 25/08/2018
-  Modified    : 23/09/2018
+  Modified    : 31/03/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,12 +36,28 @@ interface
 uses
   SysUtils,
   Generics.Collections,
-  //{$IFDEF FPC}
   typinfo,
-  //{$ENDIF}
+  Quick.Value,
+  {$IFDEF FPC}
+  Variants,
+  {$ENDIF}
   RTTI;
 
 type
+
+  {$IFNDEF FPC}
+  TFlexValue = TValue;
+  {$ELSE}
+  TFlexValue = variant;
+  {$ENDIF}
+
+  {$IFNDEF FPC}
+  TMappingProc<TClass1> = reference to procedure(const aSrcObj : TClass1; const aTargetName : string; out Value : TFlexValue);
+  TAfterMappingProc<TClass1,TClass2> = reference to procedure(const aSrcObj : TClass1; aTgtObj : TClass2);
+  {$ELSE}
+  TMappingProc<TObject> = procedure(const aSrcObj : TObject; const aTargetName : string; out Value : TFlexValue) of object;
+  TAfterMappingProc<TClass1,TClass2> = procedure(const aSrcObj : TClass1; aTgtObj : TClass2) of object;
+  {$ENDIF}
 
   TCustomMapping = class
   private
@@ -55,7 +71,12 @@ type
 
   TObjMapper = class
   public
-    class procedure Map(aSrcObj : TObject; aTgtObj : TObject; aCustomMapping: TCustomMapping = nil);
+    class procedure Map(aSrcObj : TObject; aTgtObj : TObject; aCustomMapping: TCustomMapping = nil); overload;
+    {$IFNDEF FPC}
+    class procedure Map<Tm>(aSrcObj : TObject; aTgtObj : TObject; aDoMappingProc : TMappingProc<Tm>; aCustomMapping: TCustomMapping = nil); overload;
+    {$ELSE}
+    class procedure Map(aSrcObj : TObject; aTgtObj : TObject; aDoMappingProc : TMappingProc<TObject>; aCustomMapping: TCustomMapping = nil); overload;
+    {$ENDIF}
   end;
 
   TListMapper = class
@@ -65,22 +86,46 @@ type
 
   TObjListMapper = class
   public
-    class procedure Map(aSrcObjList : TObject; aTgtObjList : TObject; aCustomMapping : TCustomMapping = nil);
+    class procedure Map(aSrcObjList : TObject; aTgtObjList : TObject; aCustomMapping : TCustomMapping = nil); overload;
+    {$IFNDEF FPC}
+    class procedure Map<Tm>(aSrcObjList : TObject; aTgtObjList : TObject; aDoMappingProc : TMappingProc<Tm>; aCustomMapping : TCustomMapping = nil); overload;
+    {$ELSE}
+    class procedure Map(aSrcObjList : TObject; aTgtObjList : TObject; aDoMappingProc : TMappingProc<TObject>; aCustomMapping : TCustomMapping = nil); overload;
+    {$ENDIF}
   end;
 
   TMapper<T : class, constructor> = class
   public
     class function Map(aSrcObj : TObject; aCustomMapping: TCustomMapping = nil): T; overload;
     class procedure Map(aSrcObj : TObject; aTgtObj : T; aCustomMapping : TCustomMapping = nil); overload;
+    {$IFNDEF FPC}
+    class function Map<Tm>(aSrcObj : TObject; aDoMappingProc : TMappingProc<Tm>; aCustomMapping: TCustomMapping = nil): T; overload;
+    class procedure Map<Tm>(aSrcObj : TObject; aTgtObj : T; aDoMappingProc : TMappingProc<Tm>; aCustomMapping: TCustomMapping = nil); overload;
+    {$ELSE}
+    class function Map(aSrcObj : TObject; aDoMappingProc : TMappingProc<TObject>; aCustomMapping: TCustomMapping = nil): T; overload;
+    class procedure Map(aSrcObj : TObject; aTgtObj : T; aDoMappingProc : TMappingProc<TObject>; aCustomMapping: TCustomMapping);
+    {$ENDIF}
   end;
 
   TAutoMapper<TClass1, TClass2 : class, constructor> = class
   private
     fCustomMapping : TCustomMapping;
+    {$IFNDEF FPC}
+    fOnDoMapping : TMappingProc<TClass1>;
+    {$ELSE}
+    fOnDoMapping : TMappingProc<TObject>;
+    {$ENDIF}
+    fOnAfterMapping : TAfterMappingProc<TClass1,TClass2>;
   public
     constructor Create;
     destructor Destroy; override;
     property CustomMapping : TCustomMapping read fCustomMapping write fCustomMapping;
+    {$IFNDEF FPC}
+    property OnDoMapping : TMappingProc<TClass1> read fOnDoMapping write fOnDoMapping;
+    {$ELSE}
+    property OnDoMapping : TMappingProc<TObject> read fOnDoMapping write fOnDoMapping;
+    {$ENDIF}
+    property OnAfterMapping : TAfterMappingProc<TClass1,TClass2> read fOnAfterMapping write fOnAfterMapping;
     function Map(aSrcObj : TClass1) : TClass2; overload;
     {$IFNDEF FPC}
     function Map(aSrcObj : TClass2) : TClass1; overload;
@@ -97,26 +142,42 @@ implementation
 { TObjMapper }
 
 class procedure TObjMapper.Map(aSrcObj : TObject; aTgtObj : TObject; aCustomMapping: TCustomMapping = nil);
+begin
+  Map{$IFNDEF FPC}<TObject>{$ENDIF}(aSrcObj,aTgtObj,nil,aCustomMapping);
+end;
+
+{$IFNDEF FPC}
+class procedure TObjMapper.Map<Tm>(aSrcObj : TObject; aTgtObj : TObject; aDoMappingProc : TMappingProc<Tm>; aCustomMapping: TCustomMapping = nil);
+{$ELSE}
+class procedure TObjMapper.Map(aSrcObj : TObject; aTgtObj : TObject; aDoMappingProc : TMappingProc<TObject>; aCustomMapping: TCustomMapping = nil);
+{$ENDIF}
 var
   ctx : TRttiContext;
   rType : TRttiType;
   tgtprop : TRttiProperty;
   mapname : string;
   obj : TObject;
+  manualmapping : Boolean;
+  value : TFlexValue;
+  {$IFNDEF FPC}
   clname : string;
+  objvalue : TValue;
+  {$ENDIF}
 begin
-  if aTgtObj = nil then aTgtObj := GetTypeData(aTgtObj.ClassInfo).classType.Create;
+  //if aTgtObj = nil then aTgtObj := GetTypeData(aTgtObj.ClassInfo).classType.Create;
+  if aTgtObj = nil then raise EAutoMapperError.Create('TObjMapper: Target Object passed must be created before');
 
+  {$IFNDEF FPC}
+  objvalue := TValue.From(aSrcObj);
+  {$ENDIF}
   rType := ctx.GetType(aSrcObj.ClassInfo);
   for tgtprop in ctx.GetType(aTgtObj.ClassInfo).GetProperties do
   begin
     if tgtprop.IsWritable then
     begin
-      if tgtprop.Name = 'Agent'
-        then Sleep(0);
       if not tgtprop.PropertyType.IsInstance then
       begin
-        if Assigned(aCustomMapping) then
+        if Assigned(aCustomMapping) and (not Assigned(aDoMappingProc)) then
         begin
           if aCustomMapping.GetMap(tgtprop.Name,mapname) then
           begin
@@ -144,11 +205,34 @@ begin
         else
         begin
           try
-            {$IFNDEF FPC}
-            if rType.GetProperty(tgtprop.Name) <> nil then tgtprop.SetValue(aTgtObj,rType.GetProperty(tgtprop.Name).GetValue(aSrcObj));
-            {$ELSE}
-            if rType.GetProperty(tgtprop.Name) <> nil then SetPropValue(aTgtObj,tgtprop.Name,GetPropValue(aSrcObj,tgtprop.Name));
-            {$ENDIF}
+            if Assigned(aDoMappingProc) then
+            begin
+              {$IFNDEF FPC}
+              aDoMappingProc(objvalue.AsType<Tm>,tgtprop.Name,value);
+              manualmapping := not value.IsEmpty;
+              {$ELSE}
+              aDoMappingProc(aSrcObj,tgtprop.Name,value);
+              manualmapping := not varType(value) = varEmpty;
+              {$ENDIF}
+            end
+            else manualmapping := False;
+
+            if manualmapping then
+            begin
+              {$IFNDEF FPC}
+              tgtprop.SetValue(aTgtObj,value);
+              {$ELSE}
+              SetPropValue(aTgtObj,tgtprop.Name,value);
+              {$ENDIF}
+            end
+            else
+            begin
+              {$IFNDEF FPC}
+              if rType.GetProperty(tgtprop.Name) <> nil then tgtprop.SetValue(aTgtObj,rType.GetProperty(tgtprop.Name).GetValue(aSrcObj));
+              {$ELSE}
+              if rType.GetProperty(tgtprop.Name) <> nil then SetPropValue(aTgtObj,tgtprop.Name,GetPropValue(aSrcObj,tgtprop.Name));
+              {$ENDIF}
+            end;
           except
             on E : Exception do raise EAUtoMapperError.CreateFmt('Error mapping property "%s" : %s',[tgtprop.Name,e.message]);
           end;
@@ -168,8 +252,7 @@ begin
           {$IFNDEF FPC}
           clname := rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject.ClassName;
           if clname.StartsWith('TObjectList') then TObjListMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
-            else if clname.StartsWith('TList') then TListMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
-              else TObjMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
+            else TObjMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
           {$ELSE}
           TObjMapper.Map(GetObjectProp(aSrcObj,tgtprop.Name),obj,aCustomMapping);
           SetObjectProp(aTgtObj,tgtprop.Name,obj);
@@ -182,45 +265,93 @@ begin
 end;
 
 class function TMapper<T>.Map(aSrcObj : TObject; aCustomMapping: TCustomMapping = nil) : T;
+begin
+  Result := Map{$IFNDEF FPC}<TObject>{$ENDIF}(aSrcObj,nil,aCustomMapping);
+end;
+
+{$IFNDEF FPC}
+class function TMapper<T>.Map<Tm>(aSrcObj : TObject; aDoMappingProc : TMappingProc<Tm>; aCustomMapping: TCustomMapping = nil): T;
+{$ELSE}
+class function TMapper<T>.Map(aSrcObj : TObject; aDoMappingProc : TMappingProc<TObject>; aCustomMapping: TCustomMapping = nil): T;
+{$ENDIF}
 var
   obj : T;
 begin
   obj := T.Create;
-  TObjMapper.Map(aSrcObj,obj,aCustomMapping);
+  {$IFNDEF FPC}
+  TObjMapper.Map<Tm>(aSrcObj,obj,aDoMappingProc,aCustomMapping);
+  {$ELSE}
+  TObjMapper.Map(aSrcObj,obj,aDoMappingProc,aCustomMapping);
+  {$ENDIF}
   Result := obj;
 end;
 
 class procedure TMapper<T>.Map(aSrcObj : TObject; aTgtObj : T; aCustomMapping : TCustomMapping = nil);
 begin
-  TObjMapper.Map(aSrcObj, aTgtObj, aCustomMapping);
+  {$IFNDEF FPC}
+  Map<T>(aSrcObj,aTgtObj,nil,aCustomMapping);
+  {$ELSE}
+  Map(aSrcObj,aTgtObj,nil,aCustomMapping);
+  {$ENDIF}
 end;
+
+{$IFNDEF FPC}
+class procedure TMapper<T>.Map<Tm>(aSrcObj : TObject; aTgtObj : T; aDoMappingProc : TMappingProc<Tm>; aCustomMapping : TCustomMapping = nil);
+{$ELSE}
+class procedure TMapper<T>.Map(aSrcObj : TObject; aTgtObj : T; aDoMappingProc : TMappingProc<TObject>; aCustomMapping : TCustomMapping);
+{$ENDIF}
+begin
+  {$IFNDEF FPC}
+  TObjMapper.Map<Tm>(aSrcObj, aTgtObj, aDoMappingProc, aCustomMapping);
+  {$ELSE}
+  TObjMapper.Map(aSrcObj, aTgtObj, aDoMappingProc, aCustomMapping);
+  {$ENDIF}
+end;
+
 
 { TAutoMapper<TClass1, TClass2> }
 
 constructor TAutoMapper<TClass1, TClass2>.Create;
 begin
   fCustomMapping := TCustomMapping.Create;
+  fOnDoMapping := nil;
+  fOnAfterMapping := nil;
 end;
 
 destructor TAutoMapper<TClass1, TClass2>.Destroy;
 begin
   if Assigned(fCustomMapping) then fCustomMapping.Free;
+  fOnDoMapping := nil;
+  fOnAfterMapping := nil;
   inherited;
 end;
 
 function TAutoMapper<TClass1, TClass2>.Map(aSrcObj: TClass1): TClass2;
+var
+  objvalue : TValue;
+  obj : TObject;
 begin
-  Result := TMapper<TClass2>.Map(aSrcObj,fCustomMapping);
+  obj := aSrcObj as TObject;
+  //objvalue := TValue.From(aSrcObj).AsObject;
+  {$IFNDEF FPC}
+  Result := TMapper<TClass2>.Map<TClass1>(obj,fOnDoMapping,fCustomMapping);
+  {$ELSE}
+  Result := TMapper<TClass2>.Map(obj,fOnDoMapping,fCustomMapping);
+  {$ENDIF}
+  if Assigned(fOnAfterMapping) then fOnAfterMapping(aSrcObj,Result);
 end;
 
 {$IFNDEF FPC}
 function TAutoMapper<TClass1, TClass2>.Map(aSrcObj: TClass2): TClass1;
+begin
+  Result := TMapper<TClass1>.Map<TClass1>(aSrcObj,fOnDoMapping,fCustomMapping);
+end;
 {$ELSE}
 function TAutoMapper<TClass1, TClass2>.Map(aSrcObj: TClass2; dummy : Boolean = True): TClass1;
-{$ENDIF}
 begin
-  Result := TMapper<TClass1>.Map(aSrcObj,fCustomMapping);
+  Result := TMapper<TClass1>.Map(aSrcObj,fOnDoMapping,fCustomMapping);
 end;
+{$ENDIF}
 
 { TCustomMappingFields }
 
@@ -283,11 +414,6 @@ begin
         TObjMapper.Map(value.GetArrayElement(i).AsObject,obj,aCustomMapping);
         TList<TObject>(aTgtList).Add(obj);
       end
-      else if typinfo.Kind = tkRecord then
-      begin
-        valuecop := value.GetArrayElement(i);
-        //??
-      end
       else
       begin
         valuecop := value.GetArrayElement(i);
@@ -310,7 +436,16 @@ end;
 { TObjListMapper }
 
 class procedure TObjListMapper.Map(aSrcObjList, aTgtObjList: TObject; aCustomMapping: TCustomMapping);
+begin
+  {$IFNDEF FPC}
+  Map<TObject>(aSrcObjList,aTgtObjList,nil,aCustomMapping);
+  {$ELSE}
+  Map(aSrcObjList,aTgtObjList,nil,aCustomMapping);
+  {$ENDIF}
+end;
+
 {$IFNDEF FPC}
+class procedure TObjListMapper.Map<Tm>(aSrcObjList : TObject; aTgtObjList : TObject; aDoMappingProc : TMappingProc<Tm>; aCustomMapping : TCustomMapping = nil);
 var
   rtype: TRttiType;
   rtype2 : TRttiType;
@@ -336,12 +471,13 @@ begin
     for i := 0 to value.GetArrayLength - 1 do
     begin
       obj := typinfo.TypeData.ClassType.Create;
-      TObjMapper.Map(value.GetArrayElement(i).AsObject,obj,aCustomMapping);
+      TObjMapper.Map<Tm>(value.GetArrayElement(i).AsObject,obj,aDoMappingProc,aCustomMapping);
       TObjectList<TObject>(aTgtObjList).Add(obj);
     end;
   end;
 end;
 {$ELSE}
+class procedure TObjListMapper.Map(aSrcObjList : TObject; aTgtObjList : TObject; aDoMappingProc : TMappingProc<TObject>; aCustomMapping : TCustomMapping = nil);
 begin
 
 end;

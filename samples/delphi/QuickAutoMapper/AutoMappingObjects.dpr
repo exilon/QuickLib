@@ -189,8 +189,26 @@ begin
     //User2 := TMapper<TUser2>.Map(User);
     AutoMapper := TAutoMapper<TUser,TUser2>.Create;
     try
+
+      //option1: you can define auto map different named properties
       AutoMapper.CustomMapping.AddMap('Cash','Money');
       AutoMapper.CustomMapping.AddMap('Id','IdUser');
+
+      //option2: you can decide to modify each property manually or allow to auto someones
+      AutoMapper.OnDoMapping := procedure(const aSrcObj : TUser; const aTargetName : string; out Value : TFlexValue)
+                                begin
+                                  if aTargetName = 'Money' then Value := aSrcObj.Cash * 2
+                                  else if aTargetName = 'IdUser' then Value := aSrcObj.Id;
+                                end;
+
+      //option3: you can modify some properties after automapping done
+      AutoMapper.OnAfterMapping := procedure(const aSrcObj : TUser; aTgtObj : TUser2)
+                                     begin
+                                       aTgtObj.Money := aSrcObj.Cash * 2;
+                                       aTgtObj.IdUser := aSrcObj.Id;
+                                     end;
+
+
       User2 := AutoMapper.Map(User);
       //User2 := TUser2.Create;
       //User.MapTo(User2);
