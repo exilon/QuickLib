@@ -7,7 +7,7 @@
   Author      : Kike P�rez
   Version     : 1.7
   Created     : 14/07/2017
-  Modified    : 29/03/2019
+  Modified    : 02/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -472,10 +472,10 @@ begin
   path.ALLUSERSPROFILE := SysUtils.GetEnvironmentVariable('AllUsersProfile');
   path.INSTDRIVE := path.HOMEDRIVE;
   path.TEMP := SysUtils.GetEnvironmentVariable('TEMP');
-  path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
-  path.APPDATA:=GetSpecialFolderPath(CSIDL_APPDATA);
   //these paths fail if user is SYSTEM
   try
+    path.SYSTEM := GetSpecialFolderPath(CSIDL_SYSTEM);
+    path.APPDATA := GetSpecialFolderPath(CSIDL_APPDATA);
     path.DESKTOP := GetSpecialFolderPath(CSIDL_DESKTOP);
     path.DESKTOP_ALLUSERS := GetSpecialFolderPath(CSIDL_COMMON_DESKTOPDIRECTORY);
     path.STARTMENU:=GetSpecialFolderPath(CSIDL_PROGRAMS);
@@ -1369,14 +1369,16 @@ initialization
   try
     GetEnvironmentPaths;
   except
+    {$IFDEF SHOW_ENVIRONMENTPATH_ERRORS}
     on E : Exception do
     begin
       if not IsService then
       begin
         if HasConsoleOutput then Writeln(Format('[WARN] GetEnvironmentPaths: %s',[E.Message]))
-          else raise EEnvironmentPath.Create(Format('Get environment path error: %s',[E.Message]));
+          else MessageBox(0,PWideChar(Format('Get environment path error: %s',[E.Message])),'GetEnvironmentPaths',MB_ICONEXCLAMATION);
       end;
     end;
+    {$ENDIF}
   end;
 {$ENDIF}
 

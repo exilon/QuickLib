@@ -1,5 +1,7 @@
 program AutoMapperObjects;
 
+{$mode delphi}
+
 uses
   SysUtils,
   Generics.Collections,
@@ -34,7 +36,7 @@ type
     property CarType : TCarType read fCarType write fCarType;
   end;
 
-  TCarList = specialize TObjectList<TCar>;
+  TCarList = TObjectList<TCar>;
 
   TAgent = class
   private
@@ -45,7 +47,7 @@ type
     property Status : TAgentStatus read fStatus write fStatus;
   end;
 
-  TAgentList = specialize TList<TAgent>;
+  TAgentList = TList<TAgent>;
 
   TArrayNumbers = array of Integer;
 
@@ -64,7 +66,7 @@ type
     property Agent : TAgent read fAgent write fAgent;
   end;
 
-  TPointsList = specialize TList<Integer>;
+  TPointsList = TList<Integer>;
 
   TUser = class(TUserBase)
   private
@@ -110,10 +112,15 @@ type
     property AgentList : TAgentList read fAgentList write fAgentList;
   end;
 
+  TUserMapping = class
+    class procedure DoMapping(const aSrcObj : TObject; const aTargetName : string; out Value : TFlexValue);
+    class Procedure DoAfterMapping(const aSrcObj : TUser; aTgtObj : TUser2);
+  end;
+
 var
   User : TUser;
   User2 : TUser2;
-  AutoMapper : specialize TAutoMapper<TUser,TUser2>;
+  AutoMapper : TAutoMapper<TUser,TUser2>;
   job : TJob;
   car : TCar;
   agent : TAgent;
@@ -164,6 +171,18 @@ begin
   inherited;
 end;
 
+class procedure TUserMapping.DoMapping(const aSrcObj : TObject; const aTargetName : string; out Value : TFlexValue);
+begin
+  if aTargetName = 'Money' then Value := TUser(aSrcObj).Cash * 2
+  else if aTargetName = 'IdUser' then Value := TUser(aSrcObj).Id;
+end;
+
+class procedure TUserMapping.DoAfterMapping(const aSrcObj : TUser; aTgtObj : TUser2);
+begin
+ aTgtObj.Money := aSrcObj.Cash * 2;
+ aTgtObj.IdUser := aSrcObj.Id;
+end;
+
 begin
   try
     Console.LogVerbose := LOG_ALL;
@@ -201,10 +220,18 @@ begin
     agent.Status := TAgentStatus.stFail;
     User.AgentList.Add(agent);
     //User2 := TMapper<TUser2>.Map(User);
-    AutoMapper := specialize TAutoMapper<TUser,TUser2>.Create;
+    AutoMapper := TAutoMapper<TUser,TUser2>.Create;
     try
+      //option1: you can define auto map different named properties
       AutoMapper.CustomMapping.AddMap('Cash','Money');
       AutoMapper.CustomMapping.AddMap('Id','IdUser');
+
+      //option2: you can decide to modify each property manually or allow to auto someones
+      AutoMapper.OnDoMapping := TUserMapping.DoMapping;
+
+      //option3: you can modify some properties after automapping done
+      AutoMapper.OnAfterMapping := TUserMapping.DoAfterMapping;
+
       User2 := AutoMapper.Map(User);
       //User2 := TUser2.Create;
       //User.MapTo(User2);

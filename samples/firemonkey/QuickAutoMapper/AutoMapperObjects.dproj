@@ -1,12 +1,12 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{A09BFAB7-22BC-423E-9483-447ECD470543}</ProjectGuid>
-        <ProjectVersion>18.5</ProjectVersion>
+        <ProjectVersion>18.6</ProjectVersion>
         <FrameworkType>FMX</FrameworkType>
         <MainSource>AutoMapperObjects.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
-        <Platform Condition="'$(Platform)'==''">Win64</Platform>
+        <Platform Condition="'$(Platform)'==''">Android</Platform>
         <TargetedPlatforms>1119</TargetedPlatforms>
         <AppType>Application</AppType>
     </PropertyGroup>
@@ -130,7 +130,7 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_iOSDevice32)'!=''">
         <DCC_UsePackage>DBXSqliteDriver;DBXInterBaseDriver;tethering;bindcompfmx;FmxTeeUI;fmx;dbexpress;IndyCore;dsnap;bindengine;bindcompdbx;IndyIPCommon;IndyIPServer;IndySystem;fmxFireDAC;ibmonitor;FMXTee;DbxCommonDriver;ibxpress;xmlrtl;ibxbindings;rtl;DbxClientDriver;CustomIPTransport;bindcomp;IndyIPClient;dbxcds;dsnapxml;dbrtl;IndyProtocols;fmxase;$(DCC_UsePackage)</DCC_UsePackage>
-        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDevelopmentRegion=en;CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleInfoDictionaryVersion=7.1;CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;LSRequiresIPhoneOS=true;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);UIDeviceFamily=iPhone &amp; iPad;CFBundleResourceSpecification=ResourceRules.plist;NSLocationAlwaysUsageDescription=The reason for accessing the location information of the user;NSLocationWhenInUseUsageDescription=The reason for accessing the location information of the user;FMLocalNotificationPermission=false;UIBackgroundModes=;NSContactsUsageDescription=The reason for accessing the contacts;NSPhotoLibraryUsageDescription=The reason for accessing the photo library;NSCameraUsageDescription=The reason for accessing the camera;NSPhotoLibraryAddUsageDescription=The reason for adding to the photo library;NSFaceIDUsageDescription=The reason for accessing the face id;NSLocationAlwaysAndWhenInUseUsageDescription=The reason for accessing the location information of the user;NSMicrophoneUsageDescription=The reason for accessing the microphone;NSSiriUsageDescription=The reason for accessing Siri</VerInfo_Keys>
+        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDevelopmentRegion=en;CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleInfoDictionaryVersion=7.1;CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;LSRequiresIPhoneOS=true;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);UIDeviceFamily=iPhone &amp; iPad;CFBundleResourceSpecification=ResourceRules.plist;NSLocationAlwaysUsageDescription=The reason for accessing the location information of the user;NSLocationWhenInUseUsageDescription=The reason for accessing the location information of the user;FMLocalNotificationPermission=false;UIBackgroundModes=;NSContactsUsageDescription=The reason for accessing the contacts;NSPhotoLibraryUsageDescription=The reason for accessing the photo library;NSCameraUsageDescription=The reason for accessing the camera;NSPhotoLibraryAddUsageDescription=The reason for adding to the photo library;NSFaceIDUsageDescription=The reason for accessing the face id;NSLocationAlwaysAndWhenInUseUsageDescription=The reason for accessing the location information of the user;NSMicrophoneUsageDescription=The reason for accessing the microphone;NSSiriUsageDescription=The reason for accessing Siri;ITSAppUsesNonExemptEncryption=false</VerInfo_Keys>
         <VerInfo_UIDeviceFamily>iPhoneAndiPad</VerInfo_UIDeviceFamily>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <BT_BuildType>Debug</BT_BuildType>
@@ -171,10 +171,25 @@
         <iPad_SpotLight100>$(BDS)\bin\Artwork\iOS\iPad\FM_SpotlightSearchIcon_100x100.png</iPad_SpotLight100>
         <iPad_Setting29>$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_29x29.png</iPad_Setting29>
         <iPad_Setting58>$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_58x58.png</iPad_Setting58>
+        <iPhone_Spotlight120>$(BDS)\bin\Artwork\iOS\iPhone\FM_SpotlightSearchIcon_120x120.png</iPhone_Spotlight120>
+        <iPhone_Launch828>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_828x1792.png</iPhone_Launch828>
+        <iPhone_Launch1136x640>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1136x640.png</iPhone_Launch1136x640>
+        <iPhone_Launch1242x2688>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1242x2688.png</iPhone_Launch1242x2688>
+        <iPhone_Launch1334>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1334x750.png</iPhone_Launch1334>
+        <iPhone_Launch1792>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1792x828.png</iPhone_Launch1792>
+        <iPhone_Launch2688x1242>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_2688x1242.png</iPhone_Launch2688x1242>
+        <iPad_AppIcon83_5>$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_83.5x83.5.png</iPad_AppIcon83_5>
+        <iPad_AppIcon167>$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_167x167.png</iPad_AppIcon167>
+        <iPad_Launch1668>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2224.png</iPad_Launch1668>
+        <iPad_Launch1668x2388>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2388.png</iPad_Launch1668x2388>
+        <iPad_Launch2048x2732>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_2048x2732.png</iPad_Launch2048x2732>
+        <iPad_Launch2224>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2224x1668.png</iPad_Launch2224>
+        <iPad_Launch2388x1668>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2388x1668.png</iPad_Launch2388x1668>
+        <iPad_Launch2732x2048>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2732x2048.png</iPad_Launch2732x2048>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_iOSDevice64)'!=''">
         <DCC_UsePackage>DBXSqliteDriver;DBXInterBaseDriver;tethering;bindcompfmx;FmxTeeUI;fmx;dbexpress;IndyCore;dsnap;bindengine;bindcompdbx;IndyIPCommon;IndyIPServer;IndySystem;fmxFireDAC;FrameViewer;ibmonitor;FMXTee;DbxCommonDriver;ibxpress;xmlrtl;ibxbindings;rtl;DbxClientDriver;CustomIPTransport;bindcomp;IndyIPClient;TMSFMXPackPkgDXE11;dbxcds;dsnapxml;dbrtl;IndyProtocols;fmxase;$(DCC_UsePackage)</DCC_UsePackage>
-        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDevelopmentRegion=en;CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleInfoDictionaryVersion=7.1;CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;LSRequiresIPhoneOS=true;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);UIDeviceFamily=iPhone &amp; iPad;CFBundleResourceSpecification=ResourceRules.plist;NSLocationAlwaysUsageDescription=The reason for accessing the location information of the user;NSLocationWhenInUseUsageDescription=The reason for accessing the location information of the user;FMLocalNotificationPermission=false;UIBackgroundModes=;NSContactsUsageDescription=The reason for accessing the contacts;NSPhotoLibraryUsageDescription=The reason for accessing the photo library;NSCameraUsageDescription=The reason for accessing the camera;NSPhotoLibraryAddUsageDescription=The reason for adding to the photo library;NSFaceIDUsageDescription=The reason for accessing the face id;NSLocationAlwaysAndWhenInUseUsageDescription=The reason for accessing the location information of the user;NSMicrophoneUsageDescription=The reason for accessing the microphone;NSSiriUsageDescription=The reason for accessing Siri</VerInfo_Keys>
+        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDevelopmentRegion=en;CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleInfoDictionaryVersion=7.1;CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;LSRequiresIPhoneOS=true;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);UIDeviceFamily=iPhone &amp; iPad;CFBundleResourceSpecification=ResourceRules.plist;NSLocationAlwaysUsageDescription=The reason for accessing the location information of the user;NSLocationWhenInUseUsageDescription=The reason for accessing the location information of the user;FMLocalNotificationPermission=false;UIBackgroundModes=;NSContactsUsageDescription=The reason for accessing the contacts;NSPhotoLibraryUsageDescription=The reason for accessing the photo library;NSCameraUsageDescription=The reason for accessing the camera;NSPhotoLibraryAddUsageDescription=The reason for adding to the photo library;NSFaceIDUsageDescription=The reason for accessing the face id;NSLocationAlwaysAndWhenInUseUsageDescription=The reason for accessing the location information of the user;NSMicrophoneUsageDescription=The reason for accessing the microphone;NSSiriUsageDescription=The reason for accessing Siri;ITSAppUsesNonExemptEncryption=false</VerInfo_Keys>
         <VerInfo_UIDeviceFamily>iPhoneAndiPad</VerInfo_UIDeviceFamily>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <BT_BuildType>Debug</BT_BuildType>
@@ -215,10 +230,25 @@
         <iPad_SpotLight100>$(BDS)\bin\Artwork\iOS\iPad\FM_SpotlightSearchIcon_100x100.png</iPad_SpotLight100>
         <iPad_Setting29>$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_29x29.png</iPad_Setting29>
         <iPad_Setting58>$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_58x58.png</iPad_Setting58>
+        <iPhone_Spotlight120>$(BDS)\bin\Artwork\iOS\iPhone\FM_SpotlightSearchIcon_120x120.png</iPhone_Spotlight120>
+        <iPhone_Launch828>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_828x1792.png</iPhone_Launch828>
+        <iPhone_Launch1136x640>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1136x640.png</iPhone_Launch1136x640>
+        <iPhone_Launch1242x2688>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1242x2688.png</iPhone_Launch1242x2688>
+        <iPhone_Launch1334>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1334x750.png</iPhone_Launch1334>
+        <iPhone_Launch1792>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1792x828.png</iPhone_Launch1792>
+        <iPhone_Launch2688x1242>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_2688x1242.png</iPhone_Launch2688x1242>
+        <iPad_AppIcon83_5>$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_83.5x83.5.png</iPad_AppIcon83_5>
+        <iPad_AppIcon167>$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_167x167.png</iPad_AppIcon167>
+        <iPad_Launch1668>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2224.png</iPad_Launch1668>
+        <iPad_Launch1668x2388>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2388.png</iPad_Launch1668x2388>
+        <iPad_Launch2048x2732>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_2048x2732.png</iPad_Launch2048x2732>
+        <iPad_Launch2224>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2224x1668.png</iPad_Launch2224>
+        <iPad_Launch2388x1668>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2388x1668.png</iPad_Launch2388x1668>
+        <iPad_Launch2732x2048>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2732x2048.png</iPad_Launch2732x2048>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_iOSSimulator)'!=''">
         <DCC_UsePackage>DBXSqliteDriver;DBXInterBaseDriver;tethering;bindcompfmx;FmxTeeUI;fmx;dbexpress;IndyCore;dsnap;bindengine;bindcompdbx;IndyIPCommon;IndyIPServer;IndySystem;fmxFireDAC;ibmonitor;FMXTee;DbxCommonDriver;ibxpress;xmlrtl;ibxbindings;rtl;DbxClientDriver;CustomIPTransport;bindcomp;IndyIPClient;dbxcds;dsnapxml;dbrtl;IndyProtocols;fmxase;$(DCC_UsePackage)</DCC_UsePackage>
-        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDevelopmentRegion=en;CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleInfoDictionaryVersion=7.1;CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;LSRequiresIPhoneOS=true;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);UIDeviceFamily=iPhone &amp; iPad;CFBundleResourceSpecification=ResourceRules.plist;NSLocationAlwaysUsageDescription=The reason for accessing the location information of the user;NSLocationWhenInUseUsageDescription=The reason for accessing the location information of the user;FMLocalNotificationPermission=false;UIBackgroundModes=;NSContactsUsageDescription=The reason for accessing the contacts;NSPhotoLibraryUsageDescription=The reason for accessing the photo library;NSCameraUsageDescription=The reason for accessing the camera;NSPhotoLibraryAddUsageDescription=The reason for adding to the photo library;NSFaceIDUsageDescription=The reason for accessing the face id;NSLocationAlwaysAndWhenInUseUsageDescription=The reason for accessing the location information of the user;NSMicrophoneUsageDescription=The reason for accessing the microphone;NSSiriUsageDescription=The reason for accessing Siri</VerInfo_Keys>
+        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDevelopmentRegion=en;CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleInfoDictionaryVersion=7.1;CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;LSRequiresIPhoneOS=true;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);UIDeviceFamily=iPhone &amp; iPad;CFBundleResourceSpecification=ResourceRules.plist;NSLocationAlwaysUsageDescription=The reason for accessing the location information of the user;NSLocationWhenInUseUsageDescription=The reason for accessing the location information of the user;FMLocalNotificationPermission=false;UIBackgroundModes=;NSContactsUsageDescription=The reason for accessing the contacts;NSPhotoLibraryUsageDescription=The reason for accessing the photo library;NSCameraUsageDescription=The reason for accessing the camera;NSPhotoLibraryAddUsageDescription=The reason for adding to the photo library;NSFaceIDUsageDescription=The reason for accessing the face id;NSLocationAlwaysAndWhenInUseUsageDescription=The reason for accessing the location information of the user;NSMicrophoneUsageDescription=The reason for accessing the microphone;NSSiriUsageDescription=The reason for accessing Siri;ITSAppUsesNonExemptEncryption=false</VerInfo_Keys>
         <VerInfo_UIDeviceFamily>iPhoneAndiPad</VerInfo_UIDeviceFamily>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <iPhone_AppIcon57>$(BDS)\bin\Artwork\iOS\iPhone\FM_ApplicationIcon_57x57.png</iPhone_AppIcon57>
@@ -257,10 +287,25 @@
         <iPad_SpotLight100>$(BDS)\bin\Artwork\iOS\iPad\FM_SpotlightSearchIcon_100x100.png</iPad_SpotLight100>
         <iPad_Setting29>$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_29x29.png</iPad_Setting29>
         <iPad_Setting58>$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_58x58.png</iPad_Setting58>
+        <iPhone_Spotlight120>$(BDS)\bin\Artwork\iOS\iPhone\FM_SpotlightSearchIcon_120x120.png</iPhone_Spotlight120>
+        <iPhone_Launch828>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_828x1792.png</iPhone_Launch828>
+        <iPhone_Launch1136x640>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1136x640.png</iPhone_Launch1136x640>
+        <iPhone_Launch1242x2688>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1242x2688.png</iPhone_Launch1242x2688>
+        <iPhone_Launch1334>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1334x750.png</iPhone_Launch1334>
+        <iPhone_Launch1792>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1792x828.png</iPhone_Launch1792>
+        <iPhone_Launch2688x1242>$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_2688x1242.png</iPhone_Launch2688x1242>
+        <iPad_AppIcon83_5>$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_83.5x83.5.png</iPad_AppIcon83_5>
+        <iPad_AppIcon167>$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_167x167.png</iPad_AppIcon167>
+        <iPad_Launch1668>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2224.png</iPad_Launch1668>
+        <iPad_Launch1668x2388>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2388.png</iPad_Launch1668x2388>
+        <iPad_Launch2048x2732>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_2048x2732.png</iPad_Launch2048x2732>
+        <iPad_Launch2224>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2224x1668.png</iPad_Launch2224>
+        <iPad_Launch2388x1668>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2388x1668.png</iPad_Launch2388x1668>
+        <iPad_Launch2732x2048>$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2732x2048.png</iPad_Launch2732x2048>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_OSX32)'!=''">
         <DCC_UsePackage>DBXSqliteDriver;DBXInterBaseDriver;tethering;bindcompfmx;inetdb;FmxTeeUI;fmx;fmxdae;dbexpress;IndyCore;dsnap;bindengine;DBXMySQLDriver;FireDACMySQLDriver;FireDACCommonODBC;bindcompdbx;IndyIPCommon;IndyIPServer;IndySystem;fmxFireDAC;FireDACPgDriver;ibmonitor;FMXTee;DbxCommonDriver;ibxpress;xmlrtl;ibxbindings;fmxobj;rtl;DbxClientDriver;CustomIPTransport;bindcomp;IndyIPClient;dbxcds;dsnapxml;dbrtl;inetdbxpress;IndyProtocols;fmxase;$(DCC_UsePackage)</DCC_UsePackage>
-        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);NSHighResolutionCapable=true;LSApplicationCategoryType=public.app-category.utilities;NSLocationAlwaysUsageDescription=The reason for accessing the location information of the user;NSLocationWhenInUseUsageDescription=The reason for accessing the location information of the user;NSContactsUsageDescription=The reason for accessing the contacts;NSLocationAlwaysAndWhenInUseUsageDescription=The reason for accessing the location information of the user</VerInfo_Keys>
+        <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDisplayName=$(MSBuildProjectName);CFBundleIdentifier=$(MSBuildProjectName);CFBundleVersion=1.0.0;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);NSHighResolutionCapable=true;LSApplicationCategoryType=public.app-category.utilities;NSContactsUsageDescription=The reason for accessing the contacts;NSLocationUsageDescription=The reason for accessing the location information of the user</VerInfo_Keys>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <Debugger_Launcher>/usr/X11/bin/xterm -e &quot;%debuggee%&quot;</Debugger_Launcher>
@@ -374,9 +419,21 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_2048x2732.png" Configuration="Debug" Class="iPad_Launch2048x2732">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-2048w-2732h@2x~ipad.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="$(BDS)\bin\Artwork\Android\FM_LauncherIcon_36x36.png" Configuration="Debug" Class="Android_LauncherIcon36">
                     <Platform Name="Android">
                         <RemoteName>ic_launcher.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2224.png" Configuration="Debug" Class="iPad_Launch1668">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-1668w-2224h@2x~ipad.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -425,9 +482,15 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="OSX32\Debug\AutoMapperObjects.info.plist" Configuration="Debug" Class="ProjectOSXInfoPList">
+                <DeployFile LocalName="bin\OSX32\Debug\AutoMapperObjects.info.plist" Configuration="Debug" Class="ProjectOSXInfoPList">
                     <Platform Name="OSX32">
                         <RemoteName>Info.plist</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2388.png" Configuration="Debug" Class="iPad_Launch1668x2388">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-1668w-2388h@2x~ipad.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -436,7 +499,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="iOSSimulator\Debug\AutoMapperObjects.info.plist" Configuration="Debug" Class="ProjectiOSInfoPList">
+                <DeployFile LocalName="bin\iOSSimulator\Debug\AutoMapperObjects.info.plist" Configuration="Debug" Class="ProjectiOSInfoPList">
                     <Platform Name="iOSSimulator">
                         <RemoteName>Info.plist</RemoteName>
                         <Overwrite>true</Overwrite>
@@ -459,7 +522,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="iOSSimulator\Debug\AutoMapperObjects" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="bin\iOSSimulator\Debug\AutoMapperObjects" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="iOSSimulator">
                         <RemoteName>AutoMapperObjects</RemoteName>
                         <Overwrite>true</Overwrite>
@@ -472,6 +535,23 @@
                 </DeployFile>
                 <DeployFile LocalName="Android\Debug\splash_image_def.xml" Configuration="Debug" Class="AndroidSplashImageDef">
                     <Platform Name="Android">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_83.5x83.5.png" Configuration="Debug" Class="iPad_AppIcon83_5">
+                    <Platform Name="iOSSimulator">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1136x640.png" Configuration="Debug" Class="iPhone_Launch1136x640">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-Landscape-640w-1136h@2x.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1334x750.png" Configuration="Debug" Class="iPhone_Launch1334">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-Landscape-750w-1334h@2x.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -543,6 +623,13 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="bin\OSX32\Debug\AutoMapperObjects.rsm" Configuration="Debug" Class="DebugSymbols">
+                    <Platform Name="OSX32">
+                        <RemoteDir>Contents\MacOS\</RemoteDir>
+                        <RemoteName>AutoMapperObjects.rsm</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgunwind.1.0.dylib" Class="DependencyModule">
                     <Platform Name="OSX32">
                         <Overwrite>true</Overwrite>
@@ -571,6 +658,29 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_167x167.png" Configuration="Debug" Class="iPad_AppIcon167">
+                    <Platform Name="iOSSimulator">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2732x2048.png" Configuration="Debug" Class="iPad_Launch2732x2048">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-Landscape-2048w-2732h@2x~ipad.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2224x1668.png" Configuration="Debug" Class="iPad_Launch2224">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-Landscape-1668w-2224h@2x~ipad.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="bin\iOSSimulator\Debug\AutoMapperObjects.rsm" Configuration="Debug" Class="DebugSymbols">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>AutoMapperObjects.rsm</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2048x1536.png" Configuration="Debug" Class="iPad_Launch2048x1536">
                     <Platform Name="iOSSimulator">
                         <RemoteName>Default-Landscape@2x~ipad.png</RemoteName>
@@ -594,8 +704,20 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1242x2688.png" Configuration="Debug" Class="iPhone_Launch1242x2688">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-1242w-2688h@3x.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_ApplicationIcon_180x180.png" Configuration="Debug" Class="iPhone_AppIcon180">
                     <Platform Name="iOSSimulator">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_828x1792.png" Configuration="Debug" Class="iPhone_Launch828">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-828w-1792h@2x.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -675,13 +797,13 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="OSX32\Debug\AutoMapperObjects" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="bin\OSX32\Debug\AutoMapperObjects" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="OSX32">
                         <RemoteName>AutoMapperObjects</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="OSX32\Debug\AutoMapperObjects.entitlements" Configuration="Debug" Class="ProjectOSXEntitlements">
+                <DeployFile LocalName="bin\OSX32\Debug\AutoMapperObjects.entitlements" Configuration="Debug" Class="ProjectOSXEntitlements">
                     <Platform Name="OSX32">
                         <Overwrite>true</Overwrite>
                     </Platform>
@@ -697,7 +819,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="iOSSimulator\Debug\AutoMapperObjects.entitlements" Configuration="Debug" Class="ProjectiOSEntitlements">
+                <DeployFile LocalName="bin\iOSSimulator\Debug\AutoMapperObjects.entitlements" Configuration="Debug" Class="ProjectiOSEntitlements">
                     <Platform Name="iOSSimulator">
                         <Overwrite>true</Overwrite>
                     </Platform>
@@ -713,8 +835,19 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_SpotlightSearchIcon_120x120.png" Configuration="Debug" Class="iPhone_Spotlight120">
+                    <Platform Name="iOSSimulator">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_SpotlightSearchIcon_50x50.png" Configuration="Debug" Class="iPad_SpotLight50">
                     <Platform Name="iOSSimulator">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1792x828.png" Configuration="Debug" Class="iPhone_Launch1792">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-Landscape-828w-1792h@2x.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -729,6 +862,12 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2388x1668.png" Configuration="Debug" Class="iPad_Launch2388x1668">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-Landscape-1668w-2388h@2x~ipad.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="$(BDS)\Redist\osx64\libcgsqlite3.dylib" Class="DependencyModule">
                     <Platform Name="OSX64">
                         <Overwrite>true</Overwrite>
@@ -736,6 +875,12 @@
                 </DeployFile>
                 <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_29x29.png" Configuration="Debug" Class="iPad_Setting29">
                     <Platform Name="iOSSimulator">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_2688x1242.png" Configuration="Debug" Class="iPhone_Launch2688x1242">
+                    <Platform Name="iOSSimulator">
+                        <RemoteName>Default-Landscape-1242w-2688h@3x.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

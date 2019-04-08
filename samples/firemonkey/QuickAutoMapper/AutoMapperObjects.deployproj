@@ -7,7 +7,7 @@
         <DeviceId Condition="'$(Platform)'=='Android'">emulator-5554</DeviceId>
         <DeviceId Condition="'$(Platform)'=='iOSDevice32'"/>
         <DeviceId Condition="'$(Platform)'=='iOSDevice64'"/>
-        <DeviceId Condition="'$(Platform)'=='iOSSimulator'">18177134-9BFD-46EA-8567-C7B81A17DACE</DeviceId>
+        <DeviceId Condition="'$(Platform)'=='iOSSimulator'">0F914BDD-6E4A-40C7-8007-74A3CA5DE432</DeviceId>
     </PropertyGroup>
     <ItemGroup Condition="'$(Platform)'=='iOSDevice64'"/>
     <ItemGroup Condition="'$(Platform)'=='Win64'"/>
@@ -25,15 +25,6 @@
         </DeployFile>
     </ItemGroup>
     <ItemGroup Condition="'$(Platform)'=='OSX32'">
-        <DeployFile Include="OSX32\Debug\AutoMapperObjects.info.plist" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>AutoMapperObjects.app\Contents\</RemoteDir>
-            <RemoteName>Info.plist</RemoteName>
-            <DeployClass>ProjectOSXInfoPList</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
         <DeployFile Include="$(BDS)\bin\delphi_PROJECTICNS.icns" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\Contents\Resources\</RemoteDir>
             <RemoteName>AutoMapperObjects.icns</RemoteName>
@@ -52,6 +43,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="bin\OSX32\Debug\AutoMapperObjects.entitlements" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\..\</RemoteDir>
+            <RemoteName>AutoMapperObjects.entitlements</RemoteName>
+            <DeployClass>ProjectOSXEntitlements</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\Redist\osx32\libcgunwind.1.0.dylib">
             <RemoteDir>AutoMapperObjects.app\Contents\MacOS\</RemoteDir>
             <RemoteName>libcgunwind.1.0.dylib</RemoteName>
@@ -61,7 +61,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="OSX32\Debug\AutoMapperObjects" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="bin\OSX32\Debug\AutoMapperObjects" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\Contents\MacOS\</RemoteDir>
             <RemoteName>AutoMapperObjects</RemoteName>
             <DeployClass>ProjectOutput</DeployClass>
@@ -71,10 +71,10 @@
             <Overwrite>True</Overwrite>
             <Required>True</Required>
         </DeployFile>
-        <DeployFile Include="OSX32\Debug\AutoMapperObjects.entitlements" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>AutoMapperObjects.app\..\</RemoteDir>
-            <RemoteName>AutoMapperObjects.entitlements</RemoteName>
-            <DeployClass>ProjectOSXEntitlements</DeployClass>
+        <DeployFile Include="bin\OSX32\Debug\AutoMapperObjects.info.plist" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\Contents\</RemoteDir>
+            <RemoteName>Info.plist</RemoteName>
+            <DeployClass>ProjectOSXInfoPList</DeployClass>
             <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -109,6 +109,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="bin\Android\Debug\classes.dex" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\classes\</RemoteDir>
+            <RemoteName>classes.dex</RemoteName>
+            <DeployClass>AndroidClassesDexFile</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_SplashImage_426x320.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\res\drawable-small\</RemoteDir>
             <RemoteName>splash_image.png</RemoteName>
@@ -127,7 +136,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="Android\Debug\splash_image_def.xml" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="bin\Android\Debug\splash_image_def.xml" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\res\drawable\</RemoteDir>
             <RemoteName>splash_image_def.xml</RemoteName>
             <DeployClass>AndroidSplashImageDef</DeployClass>
@@ -145,7 +154,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="Android\Debug\AndroidManifest.xml" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="bin\Android\Debug\AndroidManifest.xml" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\</RemoteDir>
             <RemoteName>AndroidManifest.xml</RemoteName>
             <DeployClass>ProjectAndroidManifest</DeployClass>
@@ -226,7 +235,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="Android\Debug\styles.xml" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="bin\Android\Debug\styles.xml" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\res\values\</RemoteDir>
             <RemoteName>styles.xml</RemoteName>
             <DeployClass>AndroidSplashStyles</DeployClass>
@@ -244,7 +253,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="Android\Debug\libAutoMapperObjects.so" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="bin\Android\Debug\libAutoMapperObjects.so" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\library\lib\armeabi-v7a\</RemoteDir>
             <RemoteName>libAutoMapperObjects.so</RemoteName>
             <DeployClass>ProjectOutput</DeployClass>
@@ -254,7 +263,7 @@
             <Overwrite>True</Overwrite>
             <Required>True</Required>
         </DeployFile>
-        <DeployFile Include="Android\Debug\styles-v21.xml" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="bin\Android\Debug\styles-v21.xml" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\res\values-v21\</RemoteDir>
             <RemoteName>styles.xml</RemoteName>
             <DeployClass>AndroidSplashStylesV21</DeployClass>
@@ -269,6 +278,24 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>FM_ApplicationIcon_144x144.png</RemoteName>
             <DeployClass>iPad_AppIcon144</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_2048x2732.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-2048w-2732h@2x~ipad.png</RemoteName>
+            <DeployClass>iPad_Launch2048x2732</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2224.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-1668w-2224h@2x~ipad.png</RemoteName>
+            <DeployClass>iPad_Launch1668</DeployClass>
             <Operation>0</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -310,20 +337,20 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_ApplicationIcon_60x60.png" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImagePortrait_1668x2388.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
-            <RemoteName>FM_ApplicationIcon_60x60.png</RemoteName>
-            <DeployClass>iPhone_AppIcon60</DeployClass>
+            <RemoteName>Default-1668w-2388h@2x~ipad.png</RemoteName>
+            <DeployClass>iPad_Launch1668x2388</DeployClass>
             <Operation>0</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="iOSSimulator\Debug\AutoMapperObjects.info.plist" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_ApplicationIcon_60x60.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
-            <RemoteName>Info.plist</RemoteName>
-            <DeployClass>ProjectiOSInfoPList</DeployClass>
-            <Operation>1</Operation>
+            <RemoteName>FM_ApplicationIcon_60x60.png</RemoteName>
+            <DeployClass>iPhone_AppIcon60</DeployClass>
+            <Operation>0</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -346,20 +373,37 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="iOSSimulator\Debug\AutoMapperObjects" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
-            <RemoteName>AutoMapperObjects</RemoteName>
-            <DeployClass>ProjectOutput</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-            <Required>True</Required>
-        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_152x152.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>FM_ApplicationIcon_152x152.png</RemoteName>
             <DeployClass>iPad_AppIcon152</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1136x640.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-Landscape-640w-1136h@2x.png</RemoteName>
+            <DeployClass>iPhone_Launch1136x640</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_83.5x83.5.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>FM_ApplicationIcon_83.5x83.5.png</RemoteName>
+            <DeployClass>iPad_AppIcon83_5</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1334x750.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-Landscape-750w-1334h@2x.png</RemoteName>
+            <DeployClass>iPhone_Launch1334</DeployClass>
             <Operation>0</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -446,6 +490,33 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_ApplicationIcon_167x167.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>FM_ApplicationIcon_167x167.png</RemoteName>
+            <DeployClass>iPad_AppIcon167</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2732x2048.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-Landscape-2048w-2732h@2x~ipad.png</RemoteName>
+            <DeployClass>iPad_Launch2732x2048</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2224x1668.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-Landscape-1668w-2224h@2x~ipad.png</RemoteName>
+            <DeployClass>iPad_Launch2224</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2048x1536.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape@2x~ipad.png</RemoteName>
@@ -482,10 +553,47 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1242x2688.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-1242w-2688h@3x.png</RemoteName>
+            <DeployClass>iPhone_Launch1242x2688</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="bin\iOSSimulator\Debug\AutoMapperObjects" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>AutoMapperObjects</RemoteName>
+            <DeployClass>ProjectOutput</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+            <Required>True</Required>
+        </DeployFile>
+        <DeployFile Include="bin\iOSSimulator\Debug\AutoMapperObjects.info.plist" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Info.plist</RemoteName>
+            <DeployClass>ProjectiOSInfoPList</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_ApplicationIcon_180x180.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>FM_ApplicationIcon_180x180.png</RemoteName>
             <DeployClass>iPhone_AppIcon180</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_828x1792.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-828w-1792h@2x.png</RemoteName>
+            <DeployClass>iPhone_Launch828</DeployClass>
             <Operation>0</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -581,15 +689,6 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="iOSSimulator\Debug\AutoMapperObjects.entitlements" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
-            <RemoteName>AutoMapperObjects.entitlements</RemoteName>
-            <DeployClass>ProjectiOSEntitlements</DeployClass>
-            <Operation>0</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
         <DeployFile Include="$(BDS)\Redist\iossimulator\libpcre.dylib">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>libpcre.dylib</RemoteName>
@@ -599,10 +698,37 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_SpotlightSearchIcon_120x120.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>FM_SpotlightSearchIcon_120x120.png</RemoteName>
+            <DeployClass>iPhone_Spotlight120</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_SpotlightSearchIcon_50x50.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>FM_SpotlightSearchIcon_50x50.png</RemoteName>
             <DeployClass>iPad_SpotLight50</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="bin\iOSSimulator\Debug\AutoMapperObjects.entitlements" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>AutoMapperObjects.entitlements</RemoteName>
+            <DeployClass>ProjectiOSEntitlements</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_1792x828.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-Landscape-828w-1792h@2x.png</RemoteName>
+            <DeployClass>iPhone_Launch1792</DeployClass>
             <Operation>0</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -626,10 +752,28 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_LaunchImageLandscape_2388x1668.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-Landscape-1668w-2388h@2x~ipad.png</RemoteName>
+            <DeployClass>iPad_Launch2388x1668</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPad\FM_SettingIcon_29x29.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>FM_SettingIcon_29x29.png</RemoteName>
             <DeployClass>iPad_Setting29</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\iOS\iPhone\FM_LaunchImage_2688x1242.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects.app\</RemoteDir>
+            <RemoteName>Default-Landscape-1242w-2688h@3x.png</RemoteName>
+            <DeployClass>iPhone_Launch2688x1242</DeployClass>
             <Operation>0</Operation>
             <LocalCommand/>
             <RemoteCommand/>

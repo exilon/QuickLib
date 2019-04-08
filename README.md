@@ -5,6 +5,10 @@
 --------
 
 Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+* NEW: FlexArray, FlexPair & FlexPairArray.
+* NEW: AutoMapper mapping procedures (see documentation below)
+* NEW: JsonSerializer improved
+* NEW: TXArray: array like TList
 * NEW: Delphi Linux compatibility
 * NEW: QuickConfigJson reload if config file changed
 * NEW: First version with OSX/IOS partial support
@@ -422,7 +426,7 @@ finally
 end;
 ```
 
-**Quick.AutoMapper:** Map fields from one class to another class. Allows custom mappings to match different fields.	
+**Quick.AutoMapper:** Map fields from one class to another class. Allows custom mappings to match different fields and custom mapping procedure to cast/convert fields manually.	
 
 ```delphi
 //Map values from User1 to User2
@@ -430,8 +434,25 @@ TMapper<TUser2>.Map(User);
 
 //Map custom mappings
 AutoMapper := TAutoMapper<TUser,TUser2>.Create;
+
+//option1: you can define auto map different named properties
 AutoMapper.CustomMapping.AddMap('Cash','Money');
 AutoMapper.CustomMapping.AddMap('Id','IdUser');
+
+//option2: you can decide to modify each property manually or allow to auto someones
+AutoMapper.OnDoMapping := procedure(const aSrcObj : TUser; const aTargetName : string; out Value : TFlexValue)
+                          begin
+                            if aTargetName = 'Money' then Value := aSrcObj.Cash * 2
+                              else if aTargetName = 'IdUser' then Value := aSrcObj.Id;
+                          end;
+
+//option3: you can modify some properties after automapping done
+AutoMapper.OnAfterMapping := procedure(const aSrcObj : TUser; aTgtObj : TUser2)
+                             begin
+                               aTgtObj.Money := aSrcObj.Cash * 2;
+                               aTgtObj.IdUser := aSrcObj.Id;
+                             end;
+
 User2 := AutoMapper.Map(User);
 ```
 
@@ -477,5 +498,61 @@ begin
    users.Indexes.Add('Id','fId',TClassField.cfField);
    //get user by "Name" index
    writeln(users.Get('Name','Peter').SurName);
+end;
+
+**Quick.Arrays:** Improved arrays.
+- TXArray: Array with methods like TList.
+```delphi
+var
+   users : TXArray<TUser>;
+begin
+   users.Add(User);
+   if users.Count:= TIndexedObjectList<TUser>.Create(True);
+   //create index by property "Name"
+   users.Indexes.Add('Name','Name',TClassField.cfProperty);
+   //create index by private field "Id"
+   users.Indexes.Add('Id','fId',TClassField.cfField);
+   //get user by "Name" index
+   writeln(users.Get('Name','Peter').SurName);
+end;
+```
+- TFlexArray: Array with methods like TList than can storage different value types into same array.
+```delphi
+var
+  flexarray : TFlexArray;
+begin
+    flexarray.Add(10);
+    flexarray.Add('Hello');
+    user := TUser.Create;
+    try
+      user.Name := 'Joe';
+      flexarray.Add(user);
+
+      cout('Integer Item = %d',[flexarray[0].AsInteger],etInfo);
+      cout('String Item = %s',[flexarray[1].AsString],etInfo);
+      cout('Record Item = %s',[TUser(flexarray[2]).Name],etInfo);
+    finally
+      user.Free;
+    end;
+end;
+```
+- TFlexPairArray: Array with methods like TList than can storage different value types into same array, and search by item name.
+```delphi
+var
+  flexarray : TFlexPairArray;
+begin
+    flexarray.Add('onenumber',10);
+    flexarray.Add('other','Hello boy!');
+    user := TUser.Create;
+    try
+      user.Name := 'Joe';
+      flexarray.Add('myuser',user);
+
+      cout('Integer Item = %d',[flexarray.GetValue('onenumber').AsInteger],etInfo);
+      cout('String Item = %s',[flexarray.GetValue('other').AsString],etInfo);
+      cout('Record Item = %s',[TUser(flexarray.GetValue('myuser')).Name],etInfo);
+    finally
+      user.Free;
+    end;
 end;
 ```
