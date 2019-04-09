@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Lists
   Description : Generic Lists functions
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 04/11/2018
-  Modified    : 07/11/2018
+  Modified    : 07/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -38,9 +38,11 @@ uses
   SysUtils,
   RTTI,
   TypInfo,
-  Quick.RTTI.Utils,
   System.Generics.Collections,
-  System.Generics.Defaults;
+  System.Generics.Defaults,
+  Quick.RTTI.Utils,
+  Quick.Arrays,
+  Quick.Value;
 
 type
 
