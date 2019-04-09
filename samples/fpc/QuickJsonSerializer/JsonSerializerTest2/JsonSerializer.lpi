@@ -4,16 +4,16 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <General>
-      <Flags>
-        <MainUnitHasCreateFormStatements Value="False"/>
-        <MainUnitHasTitleStatement Value="False"/>
-        <MainUnitHasScaledStatement Value="False"/>
-      </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="ManageArrays"/>
-      <UseAppBundle Value="False"/>
+      <Title Value="JsonSerializer"/>
+      <Scaled Value="True"/>
       <ResourceType Value="res"/>
+      <UseXPManifest Value="True"/>
+      <XPManifest>
+        <DpiAware Value="True"/>
+      </XPManifest>
+      <Icon Value="0"/>
     </General>
     <BuildModes Count="1">
       <Item1 Name="Default" Default="True"/>
@@ -25,24 +25,44 @@
       <FormatVersion Value="2"/>
       <Modes Count="0"/>
     </RunParams>
-    <Units Count="1">
+    <RequiredPackages Count="1">
+      <Item1>
+        <PackageName Value="LCL"/>
+      </Item1>
+    </RequiredPackages>
+    <Units Count="2">
       <Unit0>
-        <Filename Value="ManageArrays.pas"/>
+        <Filename Value="JsonSerializer.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
+      <Unit1>
+        <Filename Value="main.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form1"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit1>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="ManageArrays"/>
+      <Filename Value="bin\$(TargetCPU)-$(TargetOS)\JsonSerializer"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\..\..\..\quicklib"/>
+      <Libraries Value="..\..\.."/>
+      <OtherUnitFiles Value="..\..\..\..\..\Quicklib"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
+    <Linking>
+      <Options>
+        <Win32>
+          <GraphicApplication Value="True"/>
+        </Win32>
+      </Options>
+    </Linking>
   </CompilerOptions>
   <Debugging>
     <Exceptions Count="3">

@@ -292,6 +292,7 @@ type
   TFlexPair = record
     Name : string;
     Value : TFlexValue;
+    constructor Create(const aName : string; aValue : TFlexValue);
   end;
 
 implementation
@@ -828,11 +829,57 @@ begin
   fDataType := TValueDataType.dtString;
 end;
 
+function TryVarAsType(aValue : Variant; aVarType : Word) : Boolean;
+begin
+  try
+    VarAsType(aValue,aVarType);
+    Result := True;
+  except
+    Result := False;
+  end;
+end;
+
 procedure TFlexValue.SetAsVariant(const Value: Variant);
 begin
   Clear;
-  fDataIntf := TValueVariant.Create(Value);
-  fDataType := TValueDataType.dtVariant;
+  case VarType(Value) and varTypeMask of
+    varEmpty,
+    varNull      : Clear;
+    varSmallInt,
+    varInteger,
+    varByte,
+    varWord,
+    varLongWord,
+    varInt64     : SetAsInt64(Value);
+
+    varSingle,
+    varDouble,
+    varCurrency  : SetAsExtended(Value);
+    varDate      : SetAsDateTime(Value);
+    varOleStr    : SetAsString(Value);
+    varDispatch  : begin
+                     if TryVarAsType(Value,varInt64) then SetAsInt64(Value)
+                     else if TryVarAsType(Value,varDouble) then SetAsExtended(Value)
+                     else if TryVarAsType(Value,varBoolean) then SetAsBoolean(Value)
+                     else if TryVarAsType(Value,varString) then SetAsString(Value)
+                     else
+                     begin
+                       fDataIntf := TValueVariant.Create(Value);
+                       fDataType := TValueDataType.dtVariant;
+                     end;
+                   end;
+    //varError     : typeString := 'varError';
+    varBoolean   : SetAsBoolean(Value);
+    //varStrArg    : typeString := 'varStrArg';
+    varString    : SetAsString(Value);
+    //varAny       : typeString := 'varAny';
+    //varTypeMask  : typeString := 'varTypeMask';
+    else
+    begin
+      fDataIntf := TValueVariant.Create(Value);
+      fDataType := TValueDataType.dtVariant;
+    end;
+  end;
 end;
 
 {$IFDEF MSWINDOWS}
@@ -992,5 +1039,13 @@ begin
   fData := Value;
 end;
 
+
+{ TFlexPair }
+
+constructor TFlexPair.Create(const aName: string; aValue: TFlexValue);
+begin
+  Name := aName;
+  Value := aValue;
+end;
 
 end.
