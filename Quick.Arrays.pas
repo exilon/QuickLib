@@ -75,6 +75,13 @@ type
     class operator Implicit(const Value : TxArray<T>) : TArray<T>;
   end;
 
+  TPair = record
+    Name : string;
+    Value : string;
+  end;
+
+  TPairArray = TXArray<TPair>;
+
   TFlexArray = TXArray<TFlexValue>;
 
   TFlexPairArray = TArray<TFlexPair>;
@@ -83,9 +90,11 @@ type
   public
     function GetValue(const aName : string) : TFlexValue;
     function GetPair(const aName : string) : TFlexPair;
-    function Add(const aName: string; aValue : TFlexValue): TFlexValue;
+    function Add(aFlexPair : TFlexPair) : Integer; overload;
+    function Add(const aName: string; aValue : TFlexValue): Integer; overload;
     function Exists(const aName : string) : Boolean;
     function Remove(const aName : string) : Boolean;
+    function Count : Integer;
   end;
 
 
@@ -205,11 +214,22 @@ end;
 
 { TFlexPairArrayHelper }
 
-function TFlexPairArrayHelper.Add(const aName: string; aValue : TFlexValue): TFlexValue;
+function TFlexPairArrayHelper.Add(const aName: string; aValue : TFlexValue): Integer;
 begin
   SetLength(Self,Length(Self)+1);
   Self[High(Self)].Name := aName;
   Self[High(Self)].Value := aValue;
+  Result := High(Self);
+end;
+
+function TFlexPairArrayHelper.Count: Integer;
+begin
+  Result := High(Self) + 1;
+end;
+
+function TFlexPairArrayHelper.Add(aFlexPair: TFlexPair): Integer;
+begin
+  Result := High(Self);
 end;
 
 function TFlexPairArrayHelper.Exists(const aName: string): Boolean;
