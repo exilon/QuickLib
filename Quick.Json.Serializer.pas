@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 21/05/2018
-  Modified    : 01/04/2019
+  Modified    : 12/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -91,8 +91,6 @@ type
   end;
 
   TSerializeLevel = (slPublicProperty, slPublishedProperty);
-
-  PValue = ^TValue;
 
   TRTTIJson = class
   private
@@ -374,7 +372,6 @@ begin
       else
         begin
           //rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJson);
-          {$IFNDEF FPC}
           //avoid return unicode escaped chars if string
           if rField.FieldType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
             {$IFDEF DELPHIRX103_UP}
@@ -383,9 +380,6 @@ begin
             rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString)
             {$ENDIF}
             else rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJSON);
-          {$ELSE}
-          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,aName,member.ToJSON);
-          {$ENDIF}
         end;
       end;
       if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
@@ -1553,8 +1547,8 @@ var
 begin
   json := fRTTIJson.Serialize(aObject);
   try
-    Result := json.ToJSON;
-    if aIndent then Result := TJsonUtils.JsonFormat(Result);
+    if aIndent then Result := TJsonUtils.JsonFormat(json.ToJSON)
+      else Result := json.ToJSON;
   finally
     json.Free;
   end;
@@ -1566,8 +1560,8 @@ var
 begin
   json := fRTTIJson.Serialize(aObject);
   try
-    Result := json.ToString;
-    if aIndent then Result := TJsonUtils.JsonFormat(Result);
+    if aIndent then Result := TJsonUtils.JsonFormat(json.ToString)
+      else  Result := json.ToString;
   finally
     json.Free;
   end;
