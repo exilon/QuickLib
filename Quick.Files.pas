@@ -109,6 +109,8 @@ type
 
   TPathPrefixType = (pptNoPrefix, pptExtended, pptExtendedUNC);
 
+  { TPath }
+
   TPath = class
   private
     const
@@ -122,6 +124,7 @@ type
     class function GetDirectoryName(const FileName : string) : string;
     class function GetExtension(const Path : string) : string;
     class function ChangeExtension(const Path, NewExtension : string) : string;
+    class function GetFileName(const aPath : string) : string;
   end;
 
   TDirectory = class
@@ -226,7 +229,9 @@ type
   function IsFileInUse(const aFileName : string) : Boolean;
   {$ENDIF}
   procedure FileReplaceText(const aFileName, aSearchText, AReplaceText : string);
+  {$IFNDEF NEXTGEN}
   function FileSearchText(const aFileName, SearchText: string; caseSensitive : Boolean): Longint;
+  {$ENDIF}
   function GetCreationTime(const aFilename : string): TDateTime;
   function GetLastAccessTime(const aFileName: string): TDateTime;
   function GetLastWriteTime(const aFileName : string): TDateTime;
@@ -306,7 +311,8 @@ end;
 
 { TPath }
 
-class function TPath.GetFileNameWithoutExtension(const FileName: String): String;
+class function TPath.GetFileNameWithoutExtension(const FileName: string
+  ): string;
 var
   fname : string;
 begin
@@ -321,6 +327,11 @@ begin
   if NewExtension.Contains('.') then dot := ''
     else dot := '.';
   Result := TPath.GetFileNameWithoutExtension(Path) + dot + NewExtension;
+end;
+
+class function TPath.GetFileName(const aPath: string): string;
+begin
+  Result := ExtractFileName(aPath);
 end;
 
 class function TPath.GetDirectoryName(const FileName : string) : string;
@@ -754,7 +765,7 @@ begin
 end;
 
 function IsFileInUse(const aFileName : string) : Boolean;
-{$IF NOT Defined(LINUX) AND NOT Defined(MACOS)}
+{$IF NOT Defined(LINUX) AND NOT Defined(MACOS) AND NOT Defined(ANDROID)}
 var
   HFileRes: HFILE;
 begin
@@ -814,6 +825,7 @@ begin
   end;
 end;
 
+{$IFNDEF NEXTGEN}
 function FileSearchText(const aFileName, SearchText: string; caseSensitive : Boolean): Longint;
 const
   BufferSize = $8001;
@@ -894,6 +906,7 @@ begin
     if pBuf <> nil then FreeMem(pBuf, BufferSize);
   end;
 end;
+{$ENDIF}
 
 {$IFDEF MSWINDOWS}
 function GetLastAccessTime(const aFileName: string): TDateTime;
