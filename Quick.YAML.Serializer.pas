@@ -2,12 +2,12 @@
 
   Copyright (c) 2015-2019 Kike Pérez
 
-  Unit        : Quick.JSON.Serializer
-  Description : Json Serializer
+  Unit        : Quick.YAML.Serializer
+  Description : YAML Serializer
   Author      : Kike Pérez
-  Version     : 1.8
-  Created     : 21/05/2018
-  Modified    : 12/04/2019
+  Version     : 1.0
+  Created     : 12/04/2019
+  Modified    : 27/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -27,7 +27,7 @@
 
  *************************************************************************** }
 
-unit Quick.Json.Serializer;
+unit Quick.YAML.Serializer;
 
 {$i QuickLib.inc}
 
@@ -40,28 +40,23 @@ uses
   TypInfo,
   {$IFDEF FPC}
    rttiutils,
-   fpjson,
-   jsonparser,
    strUtils,
-   //jsonreader,
-   //fpjsonrtti,
-   Quick.Json.fpc.Compatibility,
+   Generics.Collections,
   {$ELSE}
-    {$IFDEF DELPHIXE7_UP}
-    System.Json,
-    {$ENDIF}
     {$IFDEF DELPHIRX103_UP}
     System.Generics.Collections,
     {$ENDIF}
   {$ENDIF}
   DateUtils,
   Quick.Commons,
-  Quick.JSON.Utils;
+  Quick.YAML,
+  Quick.Value,
+  Quick.Arrays;
 
 type
 
-  EJsonSerializeError = class(Exception);
-  EJsonDeserializeError = class(Exception);
+  EYamlSerializeError = class(Exception);
+  EYamlDeserializeError = class(Exception);
 
   {$IFNDEF FPC}
   TNotSerializableProperty = class(TCustomAttribute);
@@ -83,20 +78,20 @@ type
   end;
   {$ENDIF}
 
-  IJsonSerializer = interface
+  IYamlSerializer = interface
   ['{CA26F7AE-F1FE-41BE-9C23-723A687F60D1}']
-    function JsonToObject(aType: TClass; const aJson: string): TObject; overload;
-    function JsonToObject(aObject: TObject; const aJson: string): TObject; overload;
-    function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
+    function YamlToObject(aType: TClass; const aYaml: string): TObject; overload;
+    function YamlToObject(aObject: TObject; const aYaml: string): TObject; overload;
+    function ObjectToYaml(aObject : TObject): string;
   end;
 
   TSerializeLevel = (slPublicProperty, slPublishedProperty);
 
-  TRTTIJson = class
+  TRTTIYaml = class
   private
     fSerializeLevel : TSerializeLevel;
     fUseEnumNames : Boolean;
-    fUseJsonCaseSense : Boolean;
+    fUseYamlCaseSense : Boolean;
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
@@ -117,54 +112,53 @@ type
   public
     constructor Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
-    property UseJsonCaseSense : Boolean read fUseJsonCaseSense write fUseJsonCaseSense;
+    property UseYamlCaseSense : Boolean read fUseYamlCaseSense write fUseYamlCaseSense;
     {$IFNDEF FPC}
-    function DeserializeDynArray(aTypeInfo : PTypeInfo; aObject : TObject; const aJsonArray: TJSONArray) : TValue;
-    function DeserializeRecord(aRecord : TValue; aObject : TObject; const aJson : TJSONObject) : TValue;
+    function DeserializeDynArray(aTypeInfo : PTypeInfo; aObject : TObject; const aYamlArray: TYamlArray) : TValue;
+    function DeserializeRecord(aRecord : TValue; aObject : TObject; const aYaml : TYamlObject) : TValue;
     {$ELSE}
-    procedure DeserializeDynArray(aTypeInfo: PTypeInfo; const aPropertyName : string; aObject: TObject; const aJsonArray: TJSONArray);
+    procedure DeserializeDynArray(aTypeInfo: PTypeInfo; const aPropertyName : string; aObject: TObject; const aYamlArray: TYamlArray);
     {$ENDIF}
-    function DeserializeClass(aType : TClass; const aJson : TJSONObject) : TObject;
-    function DeserializeObject(aObject : TObject; const aJson : TJSONObject) : TObject; overload;
+    function DeserializeClass(aType : TClass; const aYaml : TYamlObject) : TObject;
+    function DeserializeObject(aObject : TObject; const aYaml : TYamlObject) : TObject; overload;
     {$IFNDEF FPC}
-    function DeserializeList(aObject: TObject; const aName : string; const aJson: TJSONObject) : TObject;
-    procedure DeserializeXArray(Instance : TObject; aRecord : TValue; aProperty : TRttiProperty; const aPropertyName : string; aJson : TJsonObject);
+    function DeserializeList(aObject: TObject; const aName : string; const aYaml: TYamlObject) : TObject;
+    procedure DeserializeXArray(Instance : TObject; aRecord : TValue; aProperty : TRttiProperty; const aPropertyName : string; aYaml : TYamlObject);
     {$ENDIF}
-    function DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject; overload;
+    function DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aYaml : TYamlObject) : TObject; overload;
     {$IFNDEF FPC}
     function DeserializeType(aObject : TObject; aType : TTypeKind; aTypeInfo : PTypeInfo; const aValue: string) : TValue;
     {$ELSE}
     function DeserializeType(aObject : TObject; aType : TTypeKind; const aPropertyName, aValue: string) : TValue;
     {$ENDIF}
     {$IFNDEF FPC}
-    function Serialize(const aName : string; aValue : TValue) : TJSONPair; overload;
+    function Serialize(const aName : string; aValue : TValue) : TYamlPair; overload;
     {$ELSE}
-    function Serialize(aObject : TObject; aType : TTypeKind; const aPropertyName : string) : TJSONPair;
-    function Serialize(const aName : string; aValue : TValue) : TJSONPair;
+    function Serialize(aObject : TObject; aType : TTypeKind; const aPropertyName : string) : TYamlPair;
+    function Serialize(const aName : string; aValue : TValue) : TYamlPair;
     {$ENDIF}
-    function Serialize(aObject : TObject) : TJSONObject; overload;
-    function GetJsonPairByName(aJson : TJSONObject; const aName : string) : TJSONPair;
+    function Serialize(aObject : TObject) : TYamlObject; overload;
+    function GetYamlPairByName(aYaml : TYamlObject; const aName : string) : TYamlPair;
   end;
 
-  TJsonSerializer = class(TInterfacedObject,IJsonSerializer)
+  TYamlSerializer = class(TInterfacedObject,IYamlSerializer)
   strict private
     fSerializeLevel : TSerializeLevel;
     fUseEnumNames : Boolean;
-    fUseJsonCaseSense : Boolean;
-    fRTTIJson : TRTTIJson;
+    fUseYamlCaseSense : Boolean;
+    fRTTIYaml : TRTTIYaml;
   private
     procedure SetUseEnumNames(const Value: Boolean);
-    procedure SetUseJsonCaseSense(const Value: Boolean);
+    procedure SetUseYamlCaseSense(const Value: Boolean);
   public
     constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
     destructor Destroy; override;
     property SerializeLevel : TSerializeLevel read fSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
-    property UseJsonCaseSense : Boolean read fUseJsonCaseSense write SetUseJsonCaseSense;
-    function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
-    function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
-    function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
-    function ObjectToJsonString(aObject : TObject; aIndent : Boolean = False): string;
+    property UseYamlCaseSense : Boolean read fUseYamlCaseSense write SetUseYamlCaseSense;
+    function YamlToObject(aType : TClass; const aYaml: string) : TObject; overload;
+    function YamlToObject(aObject : TObject; const aYaml: string) : TObject; overload;
+    function ObjectToYaml(aObject : TObject): string;
   end;
 
   PPByte = ^PByte;
@@ -175,10 +169,10 @@ resourcestring
 
 implementation
 
-{ TRTTIJson }
+{ TRTTIYaml }
 
 {$IFNDEF FPC}
-function TRTTIJson.DeserializeDynArray(aTypeInfo: PTypeInfo; aObject: TObject; const aJsonArray: TJSONArray) : TValue;
+function TRTTIYaml.DeserializeDynArray(aTypeInfo: PTypeInfo; aObject: TObject; const aYamlArray: TYamlArray) : TValue;
 var
   rType: PTypeInfo;
   len: NativeInt;
@@ -187,14 +181,14 @@ var
   i: Integer;
   objClass: TClass;
   ctx : TRttiContext;
-  json : TJSONObject;
+  Yaml : TYamlObject;
   rDynArray : TRttiDynamicArrayType;
   propObj : TObject;
 begin
   if GetTypeData(aTypeInfo).DynArrElType = nil then Exit;
-  if not assigned(aJsonArray) then Exit;
+  if not assigned(aYamlArray) then Exit;
 
-  len := aJsonArray.Count;
+  len := aYamlArray.Count;
   rType := GetTypeData(aTypeInfo).DynArrElType^;
   pArr := nil;
   DynArraySetLength(pArr,aTypeInfo, 1, @len);
@@ -202,31 +196,32 @@ begin
     TValue.Make(@pArr,aTypeInfo, Result);
     rDynArray := ctx.GetType(Result.TypeInfo) as TRTTIDynamicArrayType;
 
-    for i := 0 to aJsonArray.Count - 1 do
+    for i := 0 to aYamlArray.Count - 1 do
     begin
       rItemValue := nil;
       case rType.Kind of
         tkClass :
           begin
-            if aJsonArray.Items[i] is TJSONObject then
+            if TYamlPair(aYamlArray.Items[i]).Value is TYamlObject then
             begin
+              Yaml := TYamlObject(TYamlPair(aYamlArray.Items[i]).value);
               propObj := GetValue(PPByte(Result.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).AsObject;
               if propObj = nil then
               begin
                 objClass := rType.TypeData.ClassType;
-                rItemValue := DeserializeClass(objClass, TJSONObject(aJsonArray.Items[i]));
+                rItemValue := DeserializeClass(objClass,yaml);
               end
               else
               begin
-                DeserializeObject(propObj,TJSONObject(aJsonArray.Items[i]));
+                DeserializeObject(propObj,yaml);
               end;
             end;
           end;
         tkRecord :
           begin
-            json := TJSONObject(aJsonArray.Items[i]);
+            Yaml := TYamlObject(TYamlPair(aYamlArray.Items[i]).value);
             rItemValue := DeserializeRecord(GetValue(PPByte(Result.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i,
-                                            rDynArray.ElementType),aObject,json);
+                                            rDynArray.ElementType),aObject,Yaml);
           end;
         tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
           begin
@@ -234,7 +229,7 @@ begin
           end
       else
         begin
-          rItemValue := DeserializeType(aObject,rType.Kind,aTypeInfo,aJsonArray.Items[i].Value);
+          rItemValue := DeserializeType(aObject,rType.Kind,aTypeInfo,aYamlArray.Items[i].Value);
         end;
       end;
       if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);
@@ -245,7 +240,7 @@ begin
   end;
 end;
 {$ELSE}
-procedure TRTTIJson.DeserializeDynArray(aTypeInfo: PTypeInfo; const aPropertyName : string; aObject: TObject; const aJsonArray: TJSONArray);
+procedure TRTTIYaml.DeserializeDynArray(aTypeInfo: PTypeInfo; const aPropertyName : string; aObject: TObject; const aYamlArray: TYamlArray);
 var
   rType: PTypeInfo;
   len: NativeInt;
@@ -255,39 +250,41 @@ var
   objClass: TClass;
   propObj : TObject;
   rValue : TValue;
+  yaml : TYamlObject;
 begin
   if GetTypeData(aTypeInfo).ElType2 = nil then Exit;
-  len := aJsonArray.Count;
+  len := aYamlArray.Count;
   rType := GetTypeData(aTypeInfo).ElType2;
   pArr := nil;
   DynArraySetLength(pArr,aTypeInfo, 1, @len);
   try
     TValue.Make(@pArr,aTypeInfo, rValue);
-    for i := 0 to aJsonArray.Count - 1 do
+    for i := 0 to aYamlArray.Count - 1 do
     begin
       rItemValue := nil;
       case rType.Kind of
         tkClass :
           begin
-            if aJsonArray.Items[i] is TJSONObject then
+            if TYamlPair(aYamlArray.Items[i]).Value is TYamlObject then
             begin
+              Yaml := TYamlObject(TYamlPair(aYamlArray.Items[i]).value);
               propObj := GetValue(PPByte(rValue.GetReferenceToRawData)^ +GetTypeData(aTypeInfo).elSize * i, GetTypeData(aTypeInfo).ElType2).AsObject;
               if propObj = nil then
               begin
                 objClass := GetTypeData(aTypeInfo).ClassType;
-                rItemValue := DeserializeClass(objClass, TJSONObject(aJsonArray.Items[i]));
+                rItemValue := DeserializeClass(objClass,yaml);
               end
               else
               begin
-                DeserializeObject(propObj,TJSONObject(aJsonArray.Items[i]));
+                DeserializeObject(propObj,yaml);
               end;
             end;
           end;
         tkRecord :
           begin
-            {json := TJSONObject(aJsonArray.Items[i]);
+            {Yaml := TYamlObject(aYamlArray.Items[i]);
             rItemValue := DeserializeRecord(GetValue(PPByte(Result.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i,
-                                            rDynArray.ElementType),aObject,json);  }
+                                            rDynArray.ElementType),aObject,Yaml);  }
           end;
         tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
           begin
@@ -295,7 +292,7 @@ begin
           end
       else
         begin
-          rItemValue := DeserializeType(aObject,GetTypeData(aTypeInfo).ElType2.Kind,aPropertyName,aJsonArray.Items[i].Value);
+          rItemValue := DeserializeType(aObject,GetTypeData(aTypeInfo).ElType2.Kind,aPropertyName,aYamlArray.Items[i].Value);
         end;
       end;
       if not rItemValue.IsEmpty then rValue.SetArrayElement(i,rItemValue);
@@ -309,15 +306,15 @@ end;
 {$ENDIF}
 
 {$IFNDEF FPC}
-function TRTTIJson.DeserializeRecord(aRecord : TValue; aObject : TObject; const aJson : TJSONObject) : TValue;
+function TRTTIYaml.DeserializeRecord(aRecord : TValue; aObject : TObject; const aYaml : TYamlObject) : TValue;
 var
   ctx : TRttiContext;
   rRec : TRttiRecordType;
   rField : TRttiField;
   rValue : TValue;
-  member : TJSONPair;
-  jArray : TJSONArray;
-  json : TJSONObject;
+  member : TYamlPair;
+  yArray : TYamlArray;
+  Yaml : TYamlObject;
   objClass : TClass;
   propobj : TObject;
 begin
@@ -326,60 +323,64 @@ begin
     for rField in rRec.GetFields do
     begin
       rValue := nil;
-      //member := TJSONPair(aJson.GetValue(rField.Name));
-      member := GetJsonPairByName(aJson,rField.Name);
+      //member := TYamlPair(aYaml.GetValue(rField.Name));
+      member := GetYamlPairByName(aYaml,rField.Name);
       if member <> nil then
       case rField.FieldType.TypeKind of
         tkDynArray :
           begin
-            jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+            yArray := TYamlObject.ParseYamlValue(member.ToYaml) as TYamlArray;
             try
-              rValue := DeserializeDynArray(rField.FieldType.Handle,aObject,jArray);
+              rValue := DeserializeDynArray(rField.FieldType.Handle,aObject,yArray);
             finally
-              jArray.Free;
+              yArray.Free;
             end;
           end;
         tkClass :
           begin
-            //if (member.JsonValue is TJSONObject) then
+            //if (member.YamlValue is TYamlObject) then
             begin
               propobj := rField.GetValue(@aRecord).AsObject;
-              json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
+              Yaml := TYamlObject.ParseYamlValue(member.ToYaml) as TYamlObject;
               try
                 if propobj = nil then
                 begin
                   objClass := rField.FieldType.Handle^.TypeData.ClassType;// aProperty.PropertyType.Handle^.TypeData.ClassType;
-                  rValue := DeserializeClass(objClass,json);
+                  rValue := DeserializeClass(objClass,Yaml);
                 end
                 else
                 begin
-                  DeserializeObject(propobj,json);
+                  DeserializeObject(propobj,Yaml);
                 end;
               finally
-                json.Free;
+                Yaml.Free;
               end;
             end
           end;
         tkRecord :
           begin
-            json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
+            Yaml := TYamlObject.ParseYamlValue(member.ToYaml) as TYamlObject;
             try
-              rValue := DeserializeRecord(rField.GetValue(aRecord.GetReferenceToRawData),aObject,json);
+              rValue := DeserializeRecord(rField.GetValue(aRecord.GetReferenceToRawData),aObject,Yaml);
             finally
-              json.Free;
+              Yaml.Free;
             end;
           end
       else
         begin
-          //rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJson);
+          //rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToYaml);
+          {$IFNDEF FPC}
           //avoid return unicode escaped chars if string
           if rField.FieldType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
             {$IFDEF DELPHIRX103_UP}
-            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,TJsonValue(member).value)
+            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.Value.AsString)
             {$ELSE}
-            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString)
+            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.YamlString.ToString)
             {$ENDIF}
-            else rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJSON);
+            else rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.Value.AsString);
+          {$ELSE}
+          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,aName,member.Value.AsString);
+          {$ENDIF}
         end;
       end;
       if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
@@ -391,31 +392,31 @@ begin
 end;
 {$ENDIF}
 
-constructor TRTTIJson.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
+constructor TRTTIYaml.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
 begin
   fSerializeLevel := aSerializeLevel;
   fUseEnumNames := aUseEnumNames;
-  fUseJsonCaseSense := False;
+  fUseYamlCaseSense := False;
 end;
 
-function TRTTIJson.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
+function TRTTIYaml.DeserializeClass(aType: TClass; const aYaml: TYamlObject): TObject;
 begin
   Result := nil;
-  if (aJson = nil) or ((aJson as TJSONValue) is TJSONNull) or (aJson.Count = 0) then Exit;
+  if (aYaml = nil) or ((aYaml as TYamlValue) is TYamlNull) or (aYaml.Count = 0) then Exit;
 
   Result := aType.Create;
   try
-    Result := DeserializeObject(Result,aJson);
+    Result := DeserializeObject(Result,aYaml);
   except
     on E : Exception do
     begin
       Result.Free;
-      raise EJsonDeserializeError.CreateFmt('Deserialize error class "%s" : %s',[aType.ClassName,e.Message]);
+      raise EYamlDeserializeError.CreateFmt('Deserialize error class "%s" : %s',[aType.ClassName,e.Message]);
     end;
   end;
 end;
 
-function TRTTIJson.DeserializeObject(aObject: TObject; const aJson: TJSONObject): TObject;
+function TRTTIYaml.DeserializeObject(aObject: TObject; const aYaml: TYamlObject): TObject;
 var
   ctx: TRttiContext;
   rType: TRttiType;
@@ -427,7 +428,7 @@ var
 begin
   Result := aObject;
 
-  if (aJson = nil) or ((aJson as TJSONValue) is TJSONNull) or (aJson.Count = 0) or (Result = nil) then Exit;
+  if (aYaml = nil) or ((aYaml as TYamlValue) is TYamlNull) or (aYaml.Count = 0) or (Result = nil) then Exit;
 
   try
     rType := ctx.GetType(aObject.ClassInfo);
@@ -446,19 +447,19 @@ begin
             for attr in rProp.GetAttributes do if attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
             if rProp.Name = 'List' then
             begin
-              Result := DeserializeList(Result,propertyname,aJson);
+              Result := DeserializeList(Result,propertyname,aYaml);
             end
             else if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
             begin
-              DeserializeList(rProp.GetValue(aObject).AsObject,'List',TJSONObject(aJson.GetValue(propertyname)));
+              DeserializeList(rProp.GetValue(aObject).AsObject,'List',TYamlObject(aYaml.GetValue(propertyname)));
             end
             else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
             begin
-              DeserializeXArray(Result,rProp.GetValue(aObject),rProp,propertyname,aJson);
+              DeserializeXArray(Result,rProp.GetValue(aObject),rProp,propertyname,aYaml);
             end
             else
             {$ENDIF}
-            Result := DeserializeProperty(Result,propertyname,rProp,aJson);
+            Result := DeserializeProperty(Result,propertyname,rProp,aYaml);
           end;
         end;
       end;
@@ -469,18 +470,18 @@ begin
     on E : Exception do
     begin
       Result.Free;
-      raise EJsonDeserializeError.CreateFmt('Deserialize error for object "%s" : %s',[aObject.ClassName,e.Message]);
+      raise EYamlDeserializeError.CreateFmt('Deserialize error for object "%s" : %s',[aObject.ClassName,e.Message]);
     end;
   end;
 end;
 
 {$IFNDEF FPC}
-function TRTTIJson.DeserializeList(aObject: TObject; const aName : string; const aJson: TJSONObject) : TObject;
+function TRTTIYaml.DeserializeList(aObject: TObject; const aName : string; const aYaml: TYamlObject) : TObject;
 var
   ctx : TRttiContext;
   rType : TRttiType;
-  jarray : TJSONArray;
-  member : TJSONPair;
+  yArray : TYamlArray;
+  member : TYamlPair;
   rvalue : TValue;
   i : Integer;
   rProp : TRttiProperty;
@@ -497,16 +498,12 @@ begin
   finally
     ctx.Free;
   end;
+  member := GetYamlPairByName(aYaml,aName);
+  //var a := aYaml.ToYaml;
+  if member = nil then yArray := TYamlArray(aYaml) //TYamlObject.ParseYamlValue(aYaml.ToYaml) as TYamlArray
+    else yArray := TYamlObject.ParseYamlValue(member.ToYaml) as TYamlArray;
 
-  member := GetJsonPairByName(aJson,aName);
-  if member = nil then jArray := TJSONObject.ParseJSONValue(aJson.ToJSON) as TJSONArray
-    else jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
-  try
-    rvalue := DeserializeDynArray(rProp.PropertyType.Handle,Result,jArray);
-    //i := jarray.Count;
-  finally
-    jArray.Free;
-  end;
+  rvalue := DeserializeDynArray(rProp.PropertyType.Handle,Result,yArray);
 
   if not rValue.IsEmpty then
   begin
@@ -540,14 +537,14 @@ end;
 {$ENDIF}
 
 {$IFNDEF FPC}
-procedure TRTTIJson.DeserializeXArray(Instance : TObject; aRecord : TValue; aProperty : TRttiProperty; const aPropertyName : string; aJson : TJsonObject);
+procedure TRTTIYaml.DeserializeXArray(Instance : TObject; aRecord : TValue; aProperty : TRttiProperty; const aPropertyName : string; aYaml : TYamlObject);
 var
   ctx : TRttiContext;
   rRec : TRttiRecordType;
   rfield : TRttiField;
   rValue : TValue;
-  member : TJSONPair;
-  jArray : TJSONArray;
+  member : TYamlPair;
+  yArray : TYamlArray;
 begin
   rRec := ctx.GetType(aRecord.TypeInfo).AsRecord;
   try
@@ -555,15 +552,15 @@ begin
     if rfield <> nil then
     begin
       rValue := nil;
-      //member := TJSONPair(aJson.GetValue(rField.Name));
-      member := GetJsonPairByName(aJson,aPropertyName);
+      //member := TYamlPair(aYaml.GetValue(rField.Name));
+      member := GetYamlPairByName(aYaml,aPropertyName);
       if (member <> nil) and (rField.FieldType.TypeKind = tkDynArray) then
       begin
-        jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+        yArray := TYamlObject.ParseYamlValue(member.ToYaml) as TYamlArray;
         try
-          rValue := DeserializeDynArray(rField.FieldType.Handle,nil,jArray);
+          rValue := DeserializeDynArray(rField.FieldType.Handle,nil,yArray);
         finally
-          jArray.Free;
+          yArray.Free;
         end;
       end;
     end;
@@ -575,84 +572,68 @@ begin
 end;
 {$ENDIF}
 
-function TRTTIJson.DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject;
+function TRTTIYaml.DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aYaml : TYamlObject) : TObject;
 var
   rValue : TValue;
-  {$IFNDEF FPC}
-  member : TJSONPair;
-  {$ELSE}
-  member : TJsonObject;
-  {$ENDIF}
+  member : TYamlPair;
   objClass: TClass;
-  jArray : TJSONArray;
-  json : TJSONObject;
+  yArray : TYamlArray;
+  Yaml : TYamlObject;
 begin
     Result := aObject;
     rValue := nil;
-    {$IFNDEF FPC}
-     //member := TJSONPair(aJson.GetValue(aName));
-     member := GetJsonPairByName(aJson,aName);
-    {$ELSE}
-    member := TJsonObject(aJson.Find(aName));
-    {$ENDIF}
+    //member := TYamlPair(aYaml.GetValue(aName));
+    member := GetYamlPairByName(aYaml,aName);
     if member <> nil then
     begin
       case aProperty.PropertyType.TypeKind of
         tkDynArray :
           begin
+            yArray := member.Value as TYamlArray;
             {$IFNDEF FPC}
-            jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+            aProperty.SetValue(aObject,DeserializeDynArray(aProperty.PropertyType.Handle,Result,yArray));
             {$ELSE}
-            jArray := TJSONArray(TJSONObject.ParseJSONValue(member.ToJSON));
+            DeserializeDynArray(aProperty.PropertyType.Handle,aName,Result,yArray);
             {$ENDIF}
-            try
-              {$IFNDEF FPC}
-              aProperty.SetValue(aObject,DeserializeDynArray(aProperty.PropertyType.Handle,Result,jArray));
-              {$ELSE}
-              DeserializeDynArray(aProperty.PropertyType.Handle,aName,Result,jArray);
-              {$ENDIF}
-              Exit;
-            finally
-              jArray.Free;
-            end;
+            Exit;
           end;
         tkClass :
           begin
-            //if (member.JsonValue is TJSONObject) then
+            //if (member.YamlValue is TYamlObject) then
             begin
-              json := TJsonObject(TJSONObject.ParseJSONValue(member.ToJson));
+              Yaml := TYamlObject(TYamlObject.ParseYamlValue(member.ToYaml));
               try
                 if aProperty.GetValue(aObject).AsObject = nil then
                 begin
                   {$IFNDEF FPC}
                   objClass := aProperty.PropertyType.Handle^.TypeData.ClassType;
-                  rValue := DeserializeClass(objClass,json);
+                  rValue := DeserializeClass(objClass,Yaml);
                   {$ELSE}
                   objClass := GetObjectPropClass(aObject,aName);
                   //objClass := GetTypeData(aProperty.PropertyType.Handle)^.ClassType;
-                  rValue := DeserializeClass(objClass,json);
+                  rValue := DeserializeClass(objClass,Yaml);
                   SetObjectProp(aObject,aName,rValue.AsObject);
                   Exit;
                   {$ENDIF}
                 end
                 else
                 begin
-                  rValue := DeserializeObject(aProperty.GetValue(aObject).AsObject,json);
+                  rValue := DeserializeObject(aProperty.GetValue(aObject).AsObject,Yaml);
                   Exit;
                 end;
               finally
-                json.Free;
+                Yaml.Free;
               end;
             end
           end;
         {$IFNDEF FPC}
         tkRecord :
           begin
-            json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
+            Yaml := TYamlObject.ParseYamlValue(member.ToYaml) as TYamlObject;
             try
-              rValue := DeserializeRecord(aProperty.GetValue(aObject),aObject,json);
+              rValue := DeserializeRecord(aProperty.GetValue(aObject),aObject,Yaml);
             finally
-              json.Free;
+              Yaml.Free;
             end;
           end;
         {$ENDIF}
@@ -662,13 +643,13 @@ begin
           //avoid return unicode escaped chars if string
           if aProperty.PropertyType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
             {$IFDEF DELPHIRX103_UP}
-            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,TJsonValue(member).value)
+            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.Value.AsString)
             {$ELSE}
-            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.JsonString.ToString)
+            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.YamlString.ToString)
             {$ENDIF}
-          else rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToJSON);
+          else rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.Value.AsString);
           {$ELSE}
-          rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aName,member.ToJSON);
+          rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aName,member.Value.AsString);
           if not rValue.IsEmpty then SetPropertyValue(aObject,aName,rValue);
           {$ENDIF}
         end;
@@ -680,7 +661,7 @@ begin
 end;
 
 {$IFNDEF FPC}
-function TRTTIJson.DeserializeType(aObject : TObject; aType : TTypeKind; aTypeInfo : PTypeInfo; const aValue: string) : TValue;
+function TRTTIYaml.DeserializeType(aObject : TObject; aType : TTypeKind; aTypeInfo : PTypeInfo; const aValue: string) : TValue;
 var
   i : Integer;
   value : string;
@@ -709,7 +690,7 @@ begin
         begin
           if aTypeInfo = TypeInfo(TDateTime) then
           begin
-            Result := JsonDateToDateTime(value);
+            if value <> 'null' then Result := JsonDateToDateTime(value);
           end
           else if aTypeInfo = TypeInfo(TDate) then
           begin
@@ -746,18 +727,18 @@ begin
         end;
     else
         begin
-          //raise EclJsonSerializerError.Create('Not supported data type!');
+          //raise EclYamlSerializerError.Create('Not supported data type!');
         end;
     end;
   except
     on E : Exception do
     begin
-      raise EJsonDeserializeError.CreateFmt('Deserialize error type "%s.%s" : %s',[aObject.ClassName,GetTypeName(aTypeInfo),e.Message]);
+      raise EYamlDeserializeError.CreateFmt('Deserialize error type "%s.%s" : %s',[aObject.ClassName,GetTypeName(aTypeInfo),e.Message]);
     end;
   end;
 end;
 {$ELSE}
-function TRTTIJson.DeserializeType(aObject : TObject; aType : TTypeKind; const aPropertyName, aValue: string) : TValue;
+function TRTTIYaml.DeserializeType(aObject : TObject; aType : TTypeKind; const aPropertyName, aValue: string) : TValue;
 var
   value : string;
   propinfo : PPropInfo;
@@ -825,20 +806,20 @@ begin
         end;
     else
         begin
-          //raise EclJsonSerializerError.Create('Not supported data type!');
+          //raise EclYamlSerializerError.Create('Not supported data type!');
         end;
     end;
     //if not Result.IsEmpty then SetPropertyValue(aObject,propinfo,Result);
   except
     on E : Exception do
     begin
-      raise EJsonDeserializeError.CreateFmt('Deserialize error type "%s" : %s',[aObject.ClassName,e.Message]);
+      raise EYamlDeserializeError.CreateFmt('Deserialize error type "%s" : %s',[aObject.ClassName,e.Message]);
     end;
   end;
 end;
 {$ENDIF}
 
-function TRTTIJson.IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
+function TRTTIYaml.IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
 var
   propname : string;
 begin
@@ -851,7 +832,7 @@ begin
   else if (propname = 'refcount') then Result := False;
 end;
 
-function TRTTIJson.IsGenericList(aObject : TObject) : Boolean;
+function TRTTIYaml.IsGenericList(aObject : TObject) : Boolean;
 var
   cname : string;
 begin
@@ -861,35 +842,38 @@ begin
   Result := (cname.StartsWith('TObjectList')) or (cname.StartsWith('TList'));
 end;
 
-function TRTTIJson.IsGenericXArray(const aClassName : string) : Boolean;
+function TRTTIYaml.IsGenericXArray(const aClassName : string) : Boolean;
 begin
   Result := aClassName.StartsWith('TXArray');
 end;
 
-function TRTTIJson.GetJsonPairByName(aJson: TJSONObject; const aName: string): TJSONPair;
+function TRTTIYaml.GetYamlPairByName(aYaml: TYamlObject; const aName: string): TYamlPair;
 var
-  candidate : TJSONPair;
+  candidate : TYamlPair;
+  yvalue : TYamlValue;
   i : Integer;
 begin
-  if fUseJsonCaseSense then
+  if fUseYamlCaseSense then
   begin
-    Result := TJSONPair(aJson.GetValue(aName));
+    yvalue := aYaml.GetValue(aName);
+    if yvalue <> nil then Result := TYamlPair(yvalue);
     Exit;
   end
   else
   begin
-    for i := 0 to aJson.Count - 1 do
+    if aYaml <> nil then
+    for i := 0 to aYaml.Count - 1 do
     begin
-      candidate := aJson.Pairs[I];
-      if candidate.JsonValue = nil then Exit(nil);
-      if CompareText(candidate.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then
-        Exit(TJsonPair(candidate.JsonValue));
+      candidate := aYaml.Pairs[I];
+      if candidate.Value = nil then Exit(nil);
+      if CompareText(candidate.Name,aName) = 0 then
+        Exit(candidate);
     end;
   end;
   Result := nil;
 end;
 
-function TRTTIJson.GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
+function TRTTIYaml.GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
 var
   pinfo : PPropInfo;
 begin
@@ -932,7 +916,7 @@ begin
   end;
 end;
 
-function TRTTIJson.GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
+function TRTTIYaml.GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
 var
   ctx : TRttiContext;
   rprop : TRttiProperty;
@@ -942,7 +926,7 @@ begin
 end;
 
 {$IFNDEF FPC}
-function TRTTIJson.GetFieldValueFromRecord(aValue : TValue; const FieldName : string) : TValue;
+function TRTTIYaml.GetFieldValueFromRecord(aValue : TValue; const FieldName : string) : TValue;
 var
   ctx : TRttiContext;
   rec : TRttiRecordType;
@@ -955,7 +939,7 @@ begin
 end;
 {$ENDIF}
 
-procedure TRTTIJson.SetPropertyValue(Instance : TObject; const PropertyName : string; aValue : TValue);
+procedure TRTTIYaml.SetPropertyValue(Instance : TObject; const PropertyName : string; aValue : TValue);
 var
   pinfo : PPropInfo;
 begin
@@ -963,7 +947,7 @@ begin
   SetPropertyValue(Instance,pinfo,aValue);
 end;
 
-procedure TRTTIJson.SetPropertyValue(Instance : TObject; aPropInfo : PPropInfo; aValue : TValue);
+procedure TRTTIYaml.SetPropertyValue(Instance : TObject; aPropInfo : PPropInfo; aValue : TValue);
 begin
   case aPropInfo.PropType^.Kind of
     tkInteger : SetOrdProp(Instance,aPropInfo,aValue.AsInteger);
@@ -992,7 +976,7 @@ begin
 end;
 
 {$IFDEF FPC}
-procedure TRTTIJson.LoadSetProperty(aInstance : TObject; aPropInfo: PPropInfo; const aValue: string);
+procedure TRTTIYaml.LoadSetProperty(aInstance : TObject; aPropInfo: PPropInfo; const aValue: string);
 type
   TCardinalSet = set of 0..SizeOf(Cardinal) * 8 - 1;
 const
@@ -1020,7 +1004,7 @@ begin
 end;
 {$ENDIF}
 
-function TRTTIJson.Serialize(aObject: TObject): TJSONObject;
+function TRTTIYaml.Serialize(aObject: TObject): TYamlObject;
 var
   ctx: TRttiContext;
   {$IFNDEF FPC}
@@ -1029,13 +1013,9 @@ var
   {$ENDIF}
   rType: TRttiType;
   rProp: TRttiProperty;
-  jpair : TJSONPair;
+  ypair : TYamlPair;
   ExcludeSerialize : Boolean;
   propertyname : string;
-
-  //listtype : TRttiType;
-  //listprop : TRttiProperty;
-  //listvalue : TValue;
 begin
   if (aObject = nil) then
   begin
@@ -1043,7 +1023,7 @@ begin
     Exit;
   end;
 
-  Result := TJSONObject.Create;
+  Result := TYamlObject.Create;
   try
     rType := ctx.GetType(aObject.ClassInfo);
     try
@@ -1068,36 +1048,36 @@ begin
           begin
             //add comment as pair
             {$IFNDEF FPC}
-            if comment <> '' then Result.AddPair(TJSONPair.Create('#Comment#->'+propertyname,Comment));
+            if comment <> '' then Result.AddPair(TYamlPair.Create('#',TYamlComment.Create(Comment)));
             {$ENDIF}
             begin
               if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
               begin
-                jpair := Serialize(propertyname,GetPropertyValueFromObject(rProp.GetValue(aObject).AsObject,'List'));
+                ypair := Serialize(propertyname,GetPropertyValueFromObject(rProp.GetValue(aObject).AsObject,'List'));
               end
               {$IFNDEF FPC}
               else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
               begin
-                jpair := Serialize(propertyname,GetFieldValueFromRecord(rProp.GetValue(aObject),'fArray'));
+                ypair := Serialize(propertyname,GetFieldValueFromRecord(rProp.GetValue(aObject),'fArray'));
               end
               {$ENDIF}
               else
               begin
                 {$IFNDEF FPC}
-                jpair := Serialize(propertyname,rProp.GetValue(aObject));
+                ypair := Serialize(propertyname,rProp.GetValue(aObject));
                 {$ELSE}
-                jpair := Serialize(aObject,rProp.PropertyType.TypeKind,propertyname);
+                ypair := Serialize(aObject,rProp.PropertyType.TypeKind,propertyname);
                 {$ENDIF}
               end;
-              //s := jpair.JsonValue.ToString;
-              if jpair <> nil then
+              //s := jpair.YamlValue.ToString;
+              if ypair <> nil then
               begin
-                Result.AddPair(jpair);
+                Result.AddPair(ypair);
               end
-              else jpair.Free;
+              else ypair.Free;
             end;
             //Result.AddPair(Serialize(rProp.Name,rProp.GetValue(aObject)));
-            //s := Result.ToJSON;
+            //s := Result.ToYaml;
           end;
         end;
       end;
@@ -1108,134 +1088,134 @@ begin
     on E : Exception do
     begin
       Result.Free;
-      raise EJsonSerializeError.CreateFmt('Serialize error object "%s" : %s',[aObject.ClassName,e.Message]);
+      raise EYamlSerializeError.CreateFmt('Serialize error object "%s" : %s',[aObject.ClassName,e.Message]);
     end;
   end;
 end;
 
-function TRTTIJson.GetValue(aAddr: Pointer; aType: TRTTIType): TValue;
+function TRTTIYaml.GetValue(aAddr: Pointer; aType: TRTTIType): TValue;
 begin
   TValue.Make(aAddr,aType.Handle,Result);
 end;
 
-function TRTTIJson.GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue;
+function TRTTIYaml.GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue;
 begin
   TValue.Make(aAddr,aTypeInfo,Result);
 end;
 
 {$IFNDEF FPC}
-function TRTTIJson.Serialize(const aName : string; aValue : TValue) : TJSONPair;
+function TRTTIYaml.Serialize(const aName : string; aValue : TValue) : TYamlPair;
 var
   ctx: TRttiContext;
   rRec : TRttiRecordType;
   rField : TRttiField;
   rDynArray : TRTTIDynamicArrayType;
-  json : TJSONObject;
-  jArray : TJSONArray;
-  jPair : TJSONPair;
-  jValue : TJSONValue;
+  Yaml : TYamlObject;
+  yArray : TYamlArray;
+  ypair : TYamlPair;
+  yvalue : TYamlValue;
   i : Integer;
 begin
-  Result := TJSONPair.Create(aName,nil);
-  //Result.JsonString := TJSONString(aName);
+  Result := TYamlPair.Create(aName,nil);
+  //Result.YamlString := TYamlString(aName);
   try
     case avalue.Kind of
       tkDynArray :
         begin
-          jArray := TJSONArray.Create;
+          yArray := TYamlArray.Create;
           rDynArray := ctx.GetType(aValue.TypeInfo) as TRTTIDynamicArrayType;
           try
             for i := 0 to aValue.GetArrayLength - 1 do
             begin
               if not GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).IsEmpty then
               begin
-                jValue := nil;
-                jPair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
+                yvalue := nil;
+                ypair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
                 try
-                  //jValue := TJsonValue(jPair.JsonValue.Clone);
-                  jValue := jPair.JsonValue;
-                  if jValue <> nil then
+                  //jValue := TYamlValue(jPair.YamlValue.Clone);
+                  yvalue := ypair.Value;
+                  if yvalue <> nil then
                   begin
-                    jArray.AddElement(jValue);
-                    jPair.JsonValue.Owned := False;
+                    yArray.AddElement(yvalue);
+                    ypair.Value.Owned := False;
                   end;
                 finally
-                  jPair.Free;
-                  if jValue <> nil then jValue.Owned := True;
+                  ypair.Free;
+                  if yvalue <> nil then yvalue.Owned := True;
                 end;
               end;
             end;
-            Result.JsonValue := jArray;
+            Result.Value := yArray;
           finally
             ctx.Free;
           end;
         end;
       tkClass :
         begin
-           Result.JsonValue := TJSONValue(Serialize(aValue.AsObject));
+           Result.Value := TYamlValue(Serialize(aValue.AsObject));
         end;
       tkString, tkLString, tkWString, tkUString :
         begin
-          Result.JsonValue := TJSONString.Create(aValue.AsString);
+          Result.Value := TYamlString.Create(aValue.AsString);
         end;
       tkChar, tkWChar :
         begin
-          Result.JsonValue := TJSONString.Create(aValue.AsString);
+          Result.Value := TYamlString.Create(aValue.AsString);
         end;
       tkInteger :
         begin
-          Result.JsonValue := TJSONNumber.Create(aValue.AsInteger);
+          Result.Value := TYamlInteger.Create(aValue.AsInteger);
         end;
       tkInt64 :
         begin
-          Result.JsonValue := TJSONNumber.Create(aValue.AsInt64);
+          Result.Value := TYamlInteger.Create(aValue.AsInt64);
         end;
       tkFloat :
         begin
           if aValue.TypeInfo = TypeInfo(TDateTime) then
           begin
-            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
+            Result.Value := TYamlString.Create(DateTimeToJsonDate(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TDate) then
           begin
-            Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
+            Result.Value := TYamlString.Create(DateToStr(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TTime) then
           begin
-            Result.JsonValue := TJSONString.Create(TimeToStr(aValue.AsExtended));
+            Result.Value := TYamlString.Create(TimeToStr(aValue.AsExtended));
           end
           else
           begin
-            Result.JsonValue := TJSONNumber.Create(aValue.AsExtended);
+            Result.Value := TYamlFloat.Create(aValue.AsExtended);
           end;
         end;
       tkEnumeration :
         begin
           if (aValue.TypeInfo = System.TypeInfo(Boolean)) then
           begin
-            Result.JsonValue := TJSONBool.Create(aValue.AsBoolean);
+            Result.Value := TYamlBoolean.Create(aValue.AsBoolean);
           end
           else
           begin
-            //Result.JsonValue := TJSONString.Create(GetEnumName(aValue.TypeInfo,aValue.AsOrdinal));
-            if fUseEnumNames then Result.JsonValue := TJSONString.Create(aValue.ToString)
-              else Result.JsonValue := TJSONNumber.Create(GetEnumValue(aValue.TypeInfo,aValue.ToString));
+            //Result.YamlValue := TYamlString.Create(GetEnumName(aValue.TypeInfo,aValue.AsOrdinal));
+            if fUseEnumNames then Result.Value := TYamlString.Create(aValue.ToString)
+              else Result.Value := TYamlInteger.Create(GetEnumValue(aValue.TypeInfo,aValue.ToString));
           end;
         end;
       tkSet :
         begin
-          Result.JsonValue := TJSONString.Create(aValue.ToString);
+          Result.Value := TYamlString.Create(aValue.ToString);
         end;
       tkRecord :
         begin
           rRec := ctx.GetType(aValue.TypeInfo).AsRecord;
           try
-            json := TJSONObject.Create;
+            Yaml := TYamlObject.Create;
             for rField in rRec.GetFields do
             begin
-              json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
+              Yaml.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
             end;
-            Result.JsonValue := json;
+            Result.Value := Yaml;
           finally
             ctx.Free;
           end;
@@ -1247,25 +1227,25 @@ begin
         end
     else
       begin
-        raise EJsonSerializeError.CreateFmt(cNotSupportedDataType,[aName,GetTypeName(aValue.TypeInfo)]);
+        raise EYamlSerializeError.CreateFmt(cNotSupportedDataType,[aName,GetTypeName(aValue.TypeInfo)]);
       end;
     end;
-    if Result.JsonValue = nil then Result.JsonValue := TJSONNull.Create;
+    if Result.Value = nil then Result.Value := TYamlNull.Create;
   except
     on E : Exception do
     begin
       Result.Free;
-      raise EJsonSerializeError.CreateFmt('Serialize error class "%s.%s" : %s',[aName,aValue.ToString,e.Message]);
+      raise EYamlSerializeError.CreateFmt('Serialize error class "%s.%s" : %s',[aName,aValue.ToString,e.Message]);
     end;
   end;
 end;
 {$ELSE}
-function TRTTIJson.GetPropType(aPropInfo: PPropInfo): PTypeInfo;
+function TRTTIYaml.GetPropType(aPropInfo: PPropInfo): PTypeInfo;
 begin
   Result := aPropInfo^.PropType;
 end;
 
-function TRTTIJson.FloatProperty(aObject : TObject; aPropInfo: PPropInfo): string;
+function TRTTIYaml.FloatProperty(aObject : TObject; aPropInfo: PPropInfo): string;
 const
   Precisions: array[TFloatType] of Integer = (7, 15, 18, 18, 19);
 var
@@ -1277,85 +1257,85 @@ begin
     '.',fsettings.DecimalSeparator,[rfReplaceAll]);
 end;
 
-function TRTTIJson.Serialize(const aName : string; aValue : TValue) : TJSONPair;
+function TRTTIYaml.Serialize(const aName : string; aValue : TValue) : TYamlPair;
 begin
-  Result := TJSONPair.Create(aName,nil);
-  //Result.JsonString := TJSONString(aName);
+  Result := TYamlPair.Create(aName,nil);
+  //Result.YamlString := TYamlString(aName);
   try
     case avalue.Kind of
       tkClass :
         begin
-           Result.JsonValue := TJSONValue(Serialize(aValue.AsObject));
+           Result.Value := TYamlValue(Serialize(aValue.AsObject));
         end;
       tkString, tkLString, tkWString, tkUString :
         begin
-          Result.JsonValue := TJSONString.Create(aValue.AsString);
+          Result.Value := TYamlString.Create(aValue.AsString);
         end;
       tkChar, tkWChar :
         begin
-          Result.JsonValue := TJSONString.Create(aValue.AsString);
+          Result.Value := TYamlString.Create(aValue.AsString);
         end;
       tkInteger :
         begin
-          Result.JsonValue := TJSONNumber.Create(aValue.AsInteger);
+          Result.Value := TYamlInteger.Create(aValue.AsInteger);
         end;
       tkInt64 :
         begin
-          Result.JsonValue := TJSONNumber.Create(aValue.AsInt64);
+          Result.Value := TYamlInteger.Create(aValue.AsInt64);
         end;
       tkFloat :
         begin
           if aValue.TypeInfo = TypeInfo(TDateTime) then
           begin
-            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
+            Result.Value := TYamlString.Create(DateTimeToJsonDate(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TDate) then
           begin
-            Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
+            Result.Value := TYamlString.Create(DateToStr(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TTime) then
           begin
-            Result.JsonValue := TJSONString.Create(TimeToStr(aValue.AsExtended));
+            Result.Value := TYamlString.Create(TimeToStr(aValue.AsExtended));
           end
           else
           begin
-            Result.JsonValue := TJSONNumber.Create(aValue.AsExtended);
+            Result.Value := TYamlFloat.Create(aValue.AsExtended);
           end;
         end;
       tkEnumeration :
         begin
           if (aValue.TypeInfo = System.TypeInfo(Boolean)) then
           begin
-            Result.JsonValue := TJSONBool.Create(aValue.AsBoolean);
+            Result.Value := TYamlBoolean.Create(aValue.AsBoolean);
           end
           else
           begin
-            //Result.JsonValue := TJSONString.Create(GetEnumName(aValue.TypeInfo,aValue.AsOrdinal));
-            if fUseEnumNames then Result.JsonValue := TJSONString.Create(aValue.ToString)
-              else Result.JsonValue := TJSONNumber.Create(GetEnumValue(aValue.TypeInfo,aValue.ToString));
+            //Result.YamlValue := TYamlString.Create(GetEnumName(aValue.TypeInfo,aValue.AsOrdinal));
+            if fUseEnumNames then Result.Value := TYamlString.Create(aValue.ToString)
+              else Result.Value := TYamlInteger.Create(GetEnumValue(aValue.TypeInfo,aValue.ToString));
           end;
         end;
       tkSet :
         begin
-          Result.JsonValue := TJSONString.Create(aValue.ToString);
+          Result.Value := TYamlString.Create(aValue.ToString);
         end;
     else
       begin
-        //raise EJsonDeserializeError.CreateFmt('Not supported type "%s":%d',[aName,Integer(aValue.Kind)]);
+        //raise EYamlDeserializeError.CreateFmt('Not supported type "%s":%d',[aName,Integer(aValue.Kind)]);
       end;
     end;
-    if Result.JsonValue = nil then Result.JsonValue := TJSONNull.Create;
+    if Result.Value = nil then Result.Value := TYamlNull.Create;
   except
     Result.Free;
   end;
 end;
 
-function TRTTIJson.Serialize(aObject : TObject; aType : TTypeKind; const aPropertyName : string) : TJSONPair;
+function TRTTIYaml.Serialize(aObject : TObject; aType : TTypeKind; const aPropertyName : string) : TYamlPair;
 var
   propinfo : PPropInfo;
-  jArray : TJsonArray;
-  jPair : TJsonPair;
-  jValue : TJsonValue;
+  yArray : TYamlArray;
+  ypair : TYamlPair;
+  yvalue : TYamlValue;
   i : Integer;
   pArr : Pointer;
   rValue : TValue;
@@ -1363,7 +1343,7 @@ var
   len : Integer;
 begin
   try
-    Result := TJSONPair.Create(aPropertyName,nil);
+    Result := TYamlPair.Create(aPropertyName,nil);
 
     propinfo := GetPropInfo(aObject,aPropertyName);
     //case propinfo.PropType.Kind of
@@ -1371,7 +1351,7 @@ begin
       tkDynArray :
         begin
           len := 0;
-          jArray := TJSONArray.Create;
+          yArray := TYamlArray.Create;
           try
             pArr := GetDynArrayProp(aObject,aPropertyName);
             TValue.Make(@pArr,propinfo.PropType, rValue);
@@ -1381,19 +1361,19 @@ begin
               for i := 0 to len - 1 do
               begin
                 rItemValue := rValue.GetArrayElement(i);
-                jPair := Serialize(aPropertyName,rItemValue);
+                ypair := Serialize(aPropertyName,rItemValue);
                 try
-                  //jValue := TJsonValue(jPair.JsonValue.Clone);
-                  jValue := jPair.JsonValue;
-                  jArray.Add(jValue);
-                  //jPair.JsonValue.Owned := False;
+                  //jValue := TYamlValue(jPair.YamlValue.Clone);
+                  yvalue := ypair.Value;
+                  yArray.AddElement(yvalue);
+                  //jPair.YamlValue.Owned := False;
                 finally
-                  jPair.Free;
+                  ypair.Free;
                   //jValue.Owned := True;
                 end;
               end;
             end;
-            Result.JsonValue := jArray;
+            Result.Value := yArray;
           finally
             //DynArrayClear(pArr,propinfo.PropType);
             pArr := nil;
@@ -1401,72 +1381,72 @@ begin
         end;
       tkClass :
         begin
-          Result.JsonValue := TJSONValue(Serialize(GetObjectProp(aObject,aPropertyName)));
+          Result.Value := TYamlValue(Serialize(GetObjectProp(aObject,aPropertyName)));
         end;
       tkString, tkLString, tkWString, tkUString, tkAString :
         begin
-          Result.JsonValue := TJSONString.Create(GetStrProp(aObject,aPropertyName));
+          Result.Value := TYamlString.Create(GetStrProp(aObject,aPropertyName));
         end;
       tkChar, tkWChar :
         begin
-          Result.JsonValue := TJSONString.Create(Char(GetOrdProp(aObject,aPropertyName)));
+          Result.Value := TYamlString.Create(Char(GetOrdProp(aObject,aPropertyName)));
         end;
       tkInteger :
         begin
-          Result.JsonValue := TJSONNumber.Create(GetOrdProp(aObject,aPropertyName));
+          Result.Value := TYamlInteger.Create(GetOrdProp(aObject,aPropertyName));
         end;
       tkInt64 :
         begin
-          Result.JsonValue := TJSONNumber.Create(GetOrdProp(aObject,aPropertyName));
+          Result.Value := TYamlInteger.Create(GetOrdProp(aObject,aPropertyName));
         end;
       tkFloat :
         begin
           if propinfo.PropType = TypeInfo(TDateTime) then
           begin
-            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(GetFloatProp(aObject,aPropertyName)));
+            Result.Value := TYamlString.Create(DateTimeToJsonDate(GetFloatProp(aObject,aPropertyName)));
           end
           else if propinfo.PropType = TypeInfo(TDate) then
           begin
-            Result.JsonValue := TJSONString.Create(DateToStr(GetFloatProp(aObject,aPropertyName)));
+            Result.Value := TYamlString.Create(DateToStr(GetFloatProp(aObject,aPropertyName)));
           end
           else if propinfo.PropType = TypeInfo(TTime) then
           begin
-            Result.JsonValue := TJSONString.Create(TimeToStr(GetFloatProp(aObject,aPropertyName)));
+            Result.Value := TYamlString.Create(TimeToStr(GetFloatProp(aObject,aPropertyName)));
           end
           else
           begin
-            //Result.JsonValue := TJsonFloatNumber.Create(GetFloatProp(aObject,aPropertyName));
-            Result.JsonValue := TJsonFloatNumber.Create(StrToFloat(FloatProperty(aObject,propinfo)));
+            //Result.YamlValue := TYamlFloatNumber.Create(GetFloatProp(aObject,aPropertyName));
+            Result.Value := TYamlFloat.Create(StrToFloat(FloatProperty(aObject,propinfo)));
           end;
         end;
       tkEnumeration,tkBool :
         begin
           if (propinfo.PropType = System.TypeInfo(Boolean)) then
           begin
-            Result.JsonValue := TJSONBool.Create(Boolean(GetOrdProp(aObject,aPropertyName)));
+            Result.Value := TYamlBoolean.Create(Boolean(GetOrdProp(aObject,aPropertyName)));
           end
           else
           begin
-            if fUseEnumNames then Result.JsonValue := TJSONString.Create(GetEnumName(propinfo.PropType,GetOrdProp(aObject,aPropertyName)))
-              else Result.JsonValue := TJSONNumber.Create(GetOrdProp(aObject,aPropertyName));
-            //Result.JsonValue := TJSONString.Create(aValue.ToString);
+            if fUseEnumNames then Result.Value := TYamlString.Create(GetEnumName(propinfo.PropType,GetOrdProp(aObject,aPropertyName)))
+              else Result.Value := TYamlInteger.Create(GetOrdProp(aObject,aPropertyName));
+            //Result.YamlValue := TYamlString.Create(aValue.ToString);
           end;
         end;
       tkSet :
         begin
-          Result.JsonValue := TJSONString.Create(GetSetProp(aObject,aPropertyName));
+          Result.Value := TYamlString.Create(GetSetProp(aObject,aPropertyName));
         end;
       {$IFNDEF FPC}
       tkRecord :
         begin
           rRec := ctx.GetType(aValue.TypeInfo).AsRecord;
           try
-            json := TJSONObject.Create;
+            Yaml := TYamlObject.Create;
             for rField in rRec.GetFields do
             begin
-              json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
+              Yaml.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
             end;
-            Result.JsonValue := json;
+            Result.YamlValue := Yaml;
           finally
             ctx.Free;
           end;
@@ -1480,16 +1460,16 @@ begin
     else
       begin
 
-        //raise EJsonDeserializeError.CreateFmt('Not supported type "%s":%d',[aName,Integer(aValue.Kind)]);
+        //raise EYamlDeserializeError.CreateFmt('Not supported type "%s":%d',[aName,Integer(aValue.Kind)]);
       end;
     end;
-    if Result.JsonValue = nil then Result.JsonValue := TJSONNull.Create;
+    if Result.Value = nil then Result.Value := TYamlNull.Create;
   except
     on E : Exception do
     begin
       Result.Free;
       {$IFNDEF FPC}
-      raise EJsonSerializeError.CreateFmt('Serialize error class "%s.%s" : %s',[aName,aValue.ToString,e.Message]);
+      raise EYamlSerializeError.CreateFmt('Serialize error class "%s.%s" : %s',[aName,aValue.ToString,e.Message]);
       {$ENDIF}
     end;
   end;
@@ -1497,86 +1477,72 @@ end;
 {$ENDIF}
 
 
-{ TJsonSerializer}
+{ TYamlSerializer}
 
-constructor TJsonSerializer.Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
+constructor TYamlSerializer.Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
 begin
   {$IFDEF FPC}
-  if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EJsonSerializeError.Create('FreePascal RTTI only supports published properties');
+  if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EYamlSerializeError.Create('FreePascal RTTI only supports published properties');
   {$ENDIF}
   fSerializeLevel := aSerializeLevel;
   fUseEnumNames := aUseEnumNames;
-  fUseJsonCaseSense := False;
-  fRTTIJson := TRTTIJson.Create(aSerializeLevel,aUseEnumNames);
-  fRTTIJson.UseJsonCaseSense := fUseJsonCaseSense;
+  fUseYamlCaseSense := False;
+  fRTTIYaml := TRTTIYaml.Create(aSerializeLevel,aUseEnumNames);
+  fRTTIYaml.UseYamlCaseSense := fUseYamlCaseSense;
 end;
 
-function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
+function TYamlSerializer.YamlToObject(aType: TClass; const aYaml: string): TObject;
 var
-  json: TJSONObject;
+  Yaml: TYamlObject;
 begin
-  json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
+  Yaml := TYamlObject.ParseYamlValue(aYaml) as TYamlObject;
   try
-    Result := fRTTIJson.DeserializeClass(aType,json);
+    fRTTIYaml.DeserializeClass(aType,Yaml);
   finally
-    json.Free;
+    Yaml.Free;
   end;
 end;
 
-destructor TJsonSerializer.Destroy;
+destructor TYamlSerializer.Destroy;
 begin
-  fRTTIJson.Free;
+  fRTTIYaml.Free;
   inherited;
 end;
 
-function TJsonSerializer.JsonToObject(aObject: TObject; const aJson: string): TObject;
+function TYamlSerializer.YamlToObject(aObject: TObject; const aYaml: string): TObject;
 var
-  json: TJSONObject;
+  Yaml: TYamlObject;
 begin
-  json := TJsonObject(TJSONObject.ParseJSONValue(aJson,True));
+  Yaml := TYamlObject(TYamlObject.ParseYamlValue(aYaml));
   try
-    Result := fRTTIJson.DeserializeObject(aObject,json);
+    fRTTIYaml.DeserializeObject(aObject,Yaml);
   finally
-    json.Free;
+    Yaml.Free;
   end;
 end;
 
-function TJsonSerializer.ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
+function TYamlSerializer.ObjectToYaml(aObject : TObject): string;
 var
-  json: TJSONObject;
+  Yaml: TYamlObject;
 begin
-  json := fRTTIJson.Serialize(aObject);
+  Yaml := fRTTIYaml.Serialize(aObject);
   try
-    if aIndent then Result := TJsonUtils.JsonFormat(json.ToJSON)
-      else Result := json.ToJSON;
+    Result := Yaml.ToYaml;
   finally
-    json.Free;
+    Yaml.Free;
   end;
 end;
 
-function TJsonSerializer.ObjectToJsonString(aObject : TObject; aIndent : Boolean = False): string;
-var
-  json: TJSONObject;
-begin
-  json := fRTTIJson.Serialize(aObject);
-  try
-    if aIndent then Result := TJsonUtils.JsonFormat(json.ToString)
-      else  Result := json.ToString;
-  finally
-    json.Free;
-  end;
-end;
-
-procedure TJsonSerializer.SetUseEnumNames(const Value: Boolean);
+procedure TYamlSerializer.SetUseEnumNames(const Value: Boolean);
 begin
   fUseEnumNames := Value;
-  if Assigned(fRTTIJson) then fRTTIJson.UseEnumNames := Value;
+  if Assigned(fRTTIYaml) then fRTTIYaml.UseEnumNames := Value;
 end;
 
-procedure TJsonSerializer.SetUseJsonCaseSense(const Value: Boolean);
+procedure TYamlSerializer.SetUseYamlCaseSense(const Value: Boolean);
 begin
-  fUseJsonCaseSense := Value;
-  if Assigned(fRTTIJson) then fRTTIJson.UseJsonCaseSense := Value;
+  fUseYamlCaseSense := Value;
+  if Assigned(fRTTIYaml) then fRTTIYaml.UseYamlCaseSense := Value;
 end;
 
 {$IFNDEF FPC}
@@ -1597,5 +1563,7 @@ end;
 
 
 end.
+
+
 
 

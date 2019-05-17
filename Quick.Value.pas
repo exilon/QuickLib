@@ -192,6 +192,8 @@ type
     property Value : Variant read GetValue write SetValue;
   end;
 
+  { TFlexValue }
+
   TFlexValue = record
   private
     {$IFNDEF FPC}
@@ -265,7 +267,6 @@ type
     procedure Clear; inline;
     procedure _AddRef; inline;
     procedure _Release; inline;
-    {$IFNDEF FPCS}
     class operator Implicit(const Value : TFlexValue) : string;
     class operator Implicit(Value : TFlexValue) : Integer;
     class operator Implicit(Value : TFlexValue) : Int64;
@@ -286,7 +287,6 @@ type
     class operator Implicit(Value : TObject) : TFlexValue;
     class operator Implicit(Value : Pointer) : TFlexValue;
     class operator Implicit(Value : Variant) : TFlexValue;
-    {$ENDIF}
   end;
 
   TFlexPair = record
@@ -529,6 +529,12 @@ begin
     case fDataType of
       dtNull : Result := Variants.Null;
       dtBoolean : Result := AsVariant;
+      {$IFDEF MSWINDOWS}
+      dtAnsiString : Result := StrToInt(string((fDataIntf as IValueAnsiString).Value));
+      dtWideString : Result := StrToInt((fDataIntf as IValueWideString).Value);
+      {$ENDIF}
+      dtInteger,
+      dtInt64 : Result := (fDataIntf as IValueInteger).Value;
       dtVariant : Result := (fDataIntf as IValueVariant).Value;
       else raise Exception.Create('DataType not supported');
     end;

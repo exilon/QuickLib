@@ -2,12 +2,12 @@
 
   Copyright (c) 2015-2019 Kike Pérez
 
-  Unit        : Quick.Config.Json
-  Description : Save config to JSON file
+  Unit        : Quick.Config.YAML
+  Description : Save config to YAML file
   Author      : Kike Pérez
-  Version     : 1.5
-  Created     : 21/10/2017
-  Modified    : 12/02/2019
+  Version     : 1.0
+  Created     : 12/04/2019
+  Modified    : 27/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -26,7 +26,8 @@
   limitations under the License.
 
  *************************************************************************** }
-unit Quick.Config.Json;
+
+unit Quick.Config.YAML;
 
 {$i QuickLib.inc}
 
@@ -41,14 +42,7 @@ uses
   Quick.Files,
   {$ENDIF}
   Rtti,
-  Quick.Json.Serializer,
-  {$IFDEF FPC}
-  fpjson,
-  fpjsonrtti,
-  {$ELSE}
-  Rest.Json.Types,
-  System.JSON,
-  {$ENDIF}
+  Quick.YAML.Serializer,
   Quick.FileMonitor,
   Quick.Config.Base;
 
@@ -58,12 +52,12 @@ type
   TLoadConfigEvent = procedure of object;
 
   {$IFNDEF FPC}
-  TNotSerializableProperty = Quick.Json.Serializer.TNotSerializableProperty;
-  TCommentProperty = Quick.Json.Serializer.TCommentProperty;
-  TCustomNameProperty = Quick.Json.Serializer.TCustomNameProperty;
+  TNotSerializableProperty = Quick.YAML.Serializer.TNotSerializableProperty;
+  TCommentProperty = Quick.YAML.Serializer.TCommentProperty;
+  TCustomNameProperty = Quick.YAML.Serializer.TCustomNameProperty;
   {$ENDIF}
 
-  TAppConfigJsonProvider = class(TAppConfigProvider)
+  TAppConfigYMALProvider = class(TAppConfigProvider)
   private
     fFilename : string;
     fFileMonitor : TFileMonitor;
@@ -93,19 +87,21 @@ type
     property OnConfigReloaded : TLoadConfigEvent read fOnConfigReloaded write fOnConfigReloaded;
   end;
 
-  TAppConfigJson = class(TAppConfig)
+  TAppConfigYAML = class(TAppConfig)
   private
-    function GetProvider : TAppConfigJsonProvider;
+    function GetProvider : TAppConfigYMALProvider;
     procedure ReloadNotify;
   public
     constructor Create(const aFilename : string; aReloadIfFileChanged : Boolean = False); virtual;
     destructor Destroy; override;
-    property Provider : TAppConfigJsonProvider read GetProvider;
+    property Provider : TAppConfigYMALProvider read GetProvider;
+    function ToYAML : string;
+    procedure FromYAML(const yaml : string);
   end;
 
-  {Usage: create a descend class from TAppConfigJson and add published properties to be loaded/saved
+  {Usage: create a descend class from TAppConfigYAML and add published properties to be loaded/saved
 
-  TMyConfig = class(TAppConfigJson)
+  TMyConfig = class(TAppConfigYAML)
   private
     fName : string;
     fSurname : string;
@@ -117,7 +113,7 @@ type
   end;
 
   MyConfig := TMyConfig.Create;
-  MyConfig.Provider.FileName := '.\MyAppName.json';
+  MyConfig.Provider.FileName := '.\MyAppName.yml';
   MyConfig.Name := 'John';
   MyConfig.Save;
   }
@@ -125,17 +121,17 @@ type
 
 implementation
 
-constructor TAppConfigJsonProvider.Create(const aFilename : string; aReloadIfFileChanged : Boolean = False);
+constructor TAppConfigYMALProvider.Create(const aFilename : string; aReloadIfFileChanged : Boolean = False);
 begin
   inherited Create;
-  if aFilename = '' then fFilename := TPath.ChangeExtension(ParamStr(0),'json')
+  if aFilename = '' then fFilename := TPath.ChangeExtension(ParamStr(0),'yml')
     else fFilename := aFilename;
   fLoaded := False;
   fReloadIfFileChanged := aReloadIfFileChanged;
   if aReloadIfFileChanged then CreateFileMonitor;
 end;
 
-procedure TAppConfigJsonProvider.CreateFileMonitor;
+procedure TAppConfigYMALProvider.CreateFileMonitor;
 begin
   fFileMonitor := TQuickFileMonitor.Create;
   fFileMonitor.FileName := fFilename;
@@ -145,19 +141,19 @@ begin
   fFileMonitor.Enabled := True;
 end;
 
-destructor TAppConfigJsonProvider.Destroy;
+destructor TAppConfigYMALProvider.Destroy;
 begin
   if Assigned(fFileMonitor) then fFileMonitor.Free;
   inherited;
 end;
 
-procedure TAppConfigJsonProvider.DoNofifyReload;
+procedure TAppConfigYMALProvider.DoNofifyReload;
 begin
   if Assigned(fNotifyReload) then fNotifyReload
     else raise EAppConfig.Create('Not config assigned to reload!');
 end;
 
-procedure TAppConfigJsonProvider.FileModifiedNotify(MonitorNotify : TMonitorNotify);
+procedure TAppConfigYMALProvider.FileModifiedNotify(MonitorNotify : TMonitorNotify);
 begin
   if MonitorNotify = TMonitorNotify.mnFileModified then
   begin
@@ -166,10 +162,10 @@ begin
   end;
 end;
 
-procedure TAppConfigJsonProvider.Load(cConfig : TAppConfig);
+procedure TAppConfigYMALProvider.Load(cConfig : TAppConfig);
 var
-  json : TStrings;
-  serializer : TJsonSerializer;
+  yaml : TStrings;
+  serializer : TYamlSerializer;
 begin
   if (not FileExists(fFilename)) and (CreateIfNotExists) then
   begin
@@ -178,19 +174,19 @@ begin
   end;
 
   try
-    json := TStringList.Create;
+    yaml := TStringList.Create;
     try
-      json.LoadFromFile(fFilename);
-      serializer := TJsonSerializer.Create(slPublishedProperty,UseEnumNames);
+      yaml.LoadFromFile(fFilename);
+      serializer := TYamlSerializer.Create(slPublishedProperty,UseEnumNames);
       try
         //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
         //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        serializer.JsonToObject(cConfig,json.Text);
+        serializer.YamlToObject(cConfig,yaml.Text);
       finally
         serializer.Free;
       end;
     finally
-      json.Free;
+      yaml.Free;
     end;
     if not fLoaded then
     begin
@@ -203,27 +199,27 @@ begin
   end;
 end;
 
-procedure TAppConfigJsonProvider.Save(cConfig : TAppConfig);
+procedure TAppConfigYMALProvider.Save(cConfig : TAppConfig);
 var
-  json : TStrings;
-  Serializer : TJsonSerializer;
+  yaml : TStrings;
+  Serializer : TYamlSerializer;
 begin
-  if not Assigned(cConfig) then cConfig := TAppConfigJson.Create(fFilename,fReloadIfFileChanged);
+  if not Assigned(cConfig) then cConfig := TAppConfigYAML.Create(fFilename,fReloadIfFileChanged);
 
   try
-    json := TStringList.Create;
+    yaml := TStringList.Create;
     try
-      serializer := TJsonSerializer.Create(TSerializeLevel.slPublishedProperty,UseEnumNames);
+      serializer := TYamlSerializer.Create(TSerializeLevel.slPublishedProperty,UseEnumNames);
       try
         //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
         //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        json.Text := serializer.ObjectToJson(cConfig,True);
+        yaml.Text := serializer.ObjectToYaml(cConfig);
       finally
         serializer.Free;
       end;
-      json.SaveToFile(fFilename);
+      yaml.SaveToFile(fFilename);
     finally
-      json.Free;
+      yaml.Free;
     end;
   except
     on e : Exception do raise EAppConfig.Create(e.Message);
@@ -231,14 +227,14 @@ begin
 end;
 
 
-procedure TAppConfigJsonProvider.SetFileName(const Value: string);
+procedure TAppConfigYMALProvider.SetFileName(const Value: string);
 begin
   fFilename := Value;
   if Assigned(fFileMonitor) then fFileMonitor.Free;
   if fReloadIfFileChanged then CreateFileMonitor;
 end;
 
-procedure TAppConfigJsonProvider.SetReloadIfFileChanged(const Value: Boolean);
+procedure TAppConfigYMALProvider.SetReloadIfFileChanged(const Value: Boolean);
 begin
   if Value = fReloadIfFileChanged then Exit;
   fReloadIfFileChanged := Value;
@@ -246,33 +242,57 @@ begin
   if fReloadIfFileChanged then CreateFileMonitor;
 end;
 
-procedure TAppConfigJsonProvider.SetReloadNotify(aNotifyReload: TLoadConfigEvent);
+procedure TAppConfigYMALProvider.SetReloadNotify(aNotifyReload: TLoadConfigEvent);
 begin
   fNotifyReload := aNotifyReload;
 end;
 
-{ TAppConfigJson }
+{ TAppConfigYAML }
 
-constructor TAppConfigJson.Create(const aFilename : string; aReloadIfFileChanged : Boolean = False);
+constructor TAppConfigYAML.Create(const aFilename : string; aReloadIfFileChanged : Boolean = False);
 begin
-  inherited Create(TAppConfigJsonProvider.Create(aFileName,aReloadIfFileChanged));
-  TAppConfigJsonProvider(fProvider).SetReloadNotify(ReloadNotify);
+  inherited Create(TAppConfigYMALProvider.Create(aFileName,aReloadIfFileChanged));
+  TAppConfigYMALProvider(fProvider).SetReloadNotify(ReloadNotify);
 end;
 
-destructor TAppConfigJson.Destroy;
+destructor TAppConfigYAML.Destroy;
 begin
   inherited;
 end;
 
-function TAppConfigJson.GetProvider: TAppConfigJsonProvider;
+function TAppConfigYAML.GetProvider: TAppConfigYMALProvider;
 begin
   if not Assigned(fProvider) then raise EAppConfig.Create('No provider assigned!');
-  Result := TAppConfigJsonProvider(fProvider);
+  Result := TAppConfigYMALProvider(fProvider);
 end;
 
-procedure TAppConfigJson.ReloadNotify;
+procedure TAppConfigYAML.ReloadNotify;
 begin
   Self.Load;
+end;
+
+function TAppConfigYAML.ToYAML: string;
+var
+  serializer : TYamlSerializer;
+begin
+  serializer := TYamlSerializer.Create(slPublishedProperty,fProvider.UseEnumNames);
+  try
+    Result := serializer.ObjectToYaml(Self);
+  finally
+    serializer.Free;
+  end;
+end;
+
+procedure TAppConfigYAML.FromYAML(const yaml: string);
+var
+  serializer : TYamlSerializer;
+begin
+  serializer := TYamlSerializer.Create(slPublishedProperty,fProvider.UseEnumNames);
+  try
+    serializer.YamlToObject(Self,yaml);
+  finally
+    serializer.Free;
+  end;
 end;
 
 end.

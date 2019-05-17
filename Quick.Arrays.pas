@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 24/03/2019
-  Modified    : 03/04/2019
+  Modified    : 11/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -73,6 +73,7 @@ type
     function Contains(aItem : T) : Boolean;
     function IndexOf(aItem : T) : Integer;
     class operator Implicit(const Value : TxArray<T>) : TArray<T>;
+    class operator Implicit(const Value : TArray<T>) : TxArray<T>;
   end;
 
   TPair = record
@@ -190,6 +191,11 @@ end;
 class operator TxArray<T>.Implicit(const Value : TxArray<T>) : TArray<T>;
 begin
   Result := Value.fArray;
+end;
+
+class operator TXArray<T>.Implicit(const Value: TArray<T>): TxArray<T>;
+begin
+  Result.fArray := Value;
 end;
 
 

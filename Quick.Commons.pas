@@ -5,9 +5,9 @@
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
-  Version     : 1.7
+  Version     : 1.8
   Created     : 14/07/2017
-  Modified    : 02/04/2019
+  Modified    : 16/05/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -40,7 +40,6 @@ interface
     {$IFDEF MSWINDOWS}
       Windows,
       ShlObj,
-      Registry,
     {$ENDIF MSWINDOWS}
     {$IFDEF FPC}
     Quick.Files,
@@ -287,6 +286,13 @@ type
   function RemoveLastChar(const aText : string) : string;
   function DateTimeToSQL(aDateTime : TDateTime) : string;
   function IsInteger(const aValue : string) : Boolean;
+  //extract a substring and deletes from source string
+  function ExtractStr(var vSource : string; aIndex : Integer; aCount : Integer) : string;
+  //get first string between string delimiters
+  function GetSubString(const aSource, aFirstDelimiter, aLastDelimiter : string) : string;
+  //get double quoted or dequoted string
+  function DbQuotedStr(const str : string): string;
+  function UnDbQuotedStr(const str: string) : string;
 
 {$IFDEF MSWINDOWS}
 var
@@ -1325,6 +1331,44 @@ var
   i : Integer;
 begin
   Result := TryStrToInt(aValue,i);
+end;
+
+function ExtractStr(var vSource : string; aIndex : Integer; aCount : Integer) : string;
+begin
+  if aIndex > vSource.Length then Exit('');
+
+  Result := Copy(vSource,aIndex,aCount);
+  Delete(vSource,aIndex,aCount);
+end;
+
+function GetSubString(const aSource, aFirstDelimiter, aLastDelimiter : string) : string;
+var
+  i : Integer;
+begin
+  i := Pos(aFirstDelimiter,aSource);
+  if i > -1 then Result := Copy(aSource, i + aFirstDelimiter.Length, Pos(aLastDelimiter, aSource, i + aFirstDelimiter.Length) - i - aFirstDelimiter.Length)
+    else Result := '';
+end;
+
+function DbQuotedStr(const str : string): string;
+var
+  i : Integer;
+begin
+  Result := str;
+  for i := Result.Length - 1 downto 0 do
+  begin
+    if Result.Chars[i] = '"' then Result := Result.Insert(i, '"');
+  end;
+  Result := '"' + Result + '"';
+end;
+
+function UnDbQuotedStr(const str: string) : string;
+begin
+  Result := Trim(str);
+  if not Result.IsEmpty then
+  begin
+    if Result.StartsWith('"') then Result := Copy(Result, 2, Result.Length - 2);
+  end;
 end;
 
 {$IFDEF MSWINDOWS}

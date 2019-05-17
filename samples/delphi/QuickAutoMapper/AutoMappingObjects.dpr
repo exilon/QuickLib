@@ -91,6 +91,7 @@ type
     fCarList : TCarList;
     fPoints : TPointsList;
     fAgentList : TAgentList;
+    fJobName : string;
   public
     constructor Create;
     destructor Destroy; override;
@@ -102,6 +103,7 @@ type
     property CarList : TCarList read fCarList write fCarList;
     property Points : TPointsList read fPoints write fPoints;
     property AgentList : TAgentList read fAgentList write fAgentList;
+    property JobName : string read fJobName write fJobName;
   end;
 
 var
@@ -190,9 +192,10 @@ begin
     AutoMapper := TAutoMapper<TUser,TUser2>.Create;
     try
 
-      //option1: you can define auto map different named properties
+      //option1: you can define auto map different named properties (if OnDoMapping assigned customaping will be no effect)
       AutoMapper.CustomMapping.AddMap('Cash','Money');
       AutoMapper.CustomMapping.AddMap('Id','IdUser');
+      AutoMapper.CustomMapping.AddMap('Job.Name','JobName');
 
       //option2: you can decide to modify each property manually or allow to auto someones
       AutoMapper.OnDoMapping := procedure(const aSrcObj : TUser; const aTargetName : string; out Value : TFlexValue)
