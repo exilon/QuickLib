@@ -5,9 +5,9 @@
   Unit        : Quick.AutoMapper
   Description : Auto Mapper object properties
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 25/08/2018
-  Modified    : 31/03/2019
+  Modified    : 10/05/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -41,7 +41,11 @@ uses
   {$IFDEF FPC}
   Variants,
   {$ENDIF}
-  RTTI;
+  RTTI,
+  Quick.RTTI.Utils;
+
+  //enable use of property paths (like namespaces) in custom mapping
+  {$DEFINE PROPERTYPATH_MODE}
 
 type
 
@@ -181,11 +185,16 @@ begin
         begin
           if aCustomMapping.GetMap(tgtprop.Name,mapname) then
           begin
-            if rType.GetProperty(mapname) = nil then raise EAutoMapperError.CreateFmt('No valid custom mapping (Source: %s - Target: %s)',[mapname,tgtprop.Name]);
-            {$IFNDEF FPC}
-            tgtprop.SetValue(aTgtObj,rType.GetProperty(mapname).GetValue(aSrcObj))
+            {$IFNDEF PROPERTYPATH_MODE}
+              if rType.GetProperty(mapname) = nil then raise EAutoMapperError.CreateFmt('No valid custom mapping (Source: %s - Target: %s)',[mapname,tgtprop.Name]);
+              {$IFNDEF FPC}
+              tgtprop.SetValue(aTgtObj,rType.GetProperty(mapname).GetValue(aSrcObj))
+              {$ELSE}
+              SetPropValue(aTgtObj,tgtprop.Name,GetPropValue(aSrcObj,mapname));
+              {$ENDIF}
             {$ELSE}
-            SetPropValue(aTgtObj,tgtprop.Name,GetPropValue(aSrcObj,mapname));
+              if not TRTTI.PathExists(aSrcObj,mapname) then raise EAutoMapperError.CreateFmt('No valid custom mapping (Source: %s - Target: %s)',[mapname,tgtprop.Name]);
+              TRTTI.SetPathValue(aTgtObj,tgtprop.Name,TRTTI.GetPathValue(aSrcObj,mapname));
             {$ENDIF}
           end
           else
@@ -250,7 +259,11 @@ begin
         if obj <> nil then
         begin
           {$IFNDEF FPC}
-          clname := rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject.ClassName;
+          try
+            clname := rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject.ClassName;
+          except
+            on E : Exception do raise EAUtoMapperError.CreateFmt('Error mapping property "%s" : %s',[tgtprop.Name,e.message]);
+          end;
           if clname.StartsWith('TObjectList') then TObjListMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
             else TObjMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
           {$ELSE}
