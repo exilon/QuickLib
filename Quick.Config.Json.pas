@@ -57,6 +57,12 @@ type
   TFileModifiedEvent = procedure of object;
   TLoadConfigEvent = procedure of object;
 
+  {$IFNDEF FPC}
+  TNotSerializableProperty = Quick.Json.Serializer.TNotSerializableProperty;
+  TCommentProperty = Quick.Json.Serializer.TCommentProperty;
+  TCustomNameProperty = Quick.Json.Serializer.TCustomNameProperty;
+  {$ENDIF}
+
   TAppConfigJsonProvider = class(TAppConfigProvider)
   private
     fFilename : string;
