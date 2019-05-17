@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 25/01/2019
+  Modified    : 12/04/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -57,6 +57,12 @@ uses
   Quick.Config.Base;
 
 type
+
+  {$IFNDEF FPC}
+  TNotSerializableProperty = Quick.Json.Serializer.TNotSerializableProperty;
+  TCommentProperty = Quick.Json.Serializer.TCommentProperty;
+  TCustomNameProperty = Quick.Json.Serializer.TCustomNameProperty;
+  {$ENDIF}
 
   TAppConfigRegistryProvider = class(TAppConfigProvider)
   private
