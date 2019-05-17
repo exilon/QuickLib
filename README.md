@@ -5,6 +5,9 @@
 --------
 
 Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+* NEW: QuickConfig YAML provider.
+* NEW: YAML Object and Serializer
+* NEW: AutoMapper customapping path namespaces style.
 * NEW: FlexArray, FlexPair & FlexPairArray.
 * NEW: AutoMapper mapping procedures (see documentation below)
 * NEW: JsonSerializer improved
@@ -174,7 +177,7 @@ Log.Add('Error x',etError);
 Log.Add('Error is %s',[ErrorStr],etError);
 ```
 
-**Quick.Config:** Load/Save a config as json file or Windows Registry keys. Create a descend class from TAppConfigJson or TAppConfigRegistry and add private variables will be loaded/saved. TAppConfiJson allow detect if config file was changed and do a config reload.
+**Quick.Config:** Load/Save a config as Json or Yaml file or Windows Registry keys. Create a descend class from TAppConfigJson or TAppConfigRegistry and add private variables will be loaded/saved. TAppConfiJson allow detect if config file was changed and do a config reload.
 
 ```delphi
 //create a class heritage
@@ -499,6 +502,21 @@ begin
    //get user by "Name" index
    writeln(users.Get('Name','Peter').SurName);
 end;
+```
+
+**Quick.Value** FlexValue stores any data type and allow pass to other class with integrated operators and autofrees.
+```delphi
+var
+  value : TFlexValue;
+  str : string;
+  num : Integer; 
+begin
+  value := 'hello';
+  str := value;
+  value := 123;
+  num := value;
+end;
+```
 
 **Quick.Arrays:** Improved arrays.
 - TXArray: Array with methods like TList.
@@ -516,6 +534,7 @@ begin
    writeln(users.Get('Name','Peter').SurName);
 end;
 ```
+
 - TFlexArray: Array with methods like TList than can storage different value types into same array.
 ```delphi
 var
@@ -536,7 +555,7 @@ begin
     end;
 end;
 ```
-- TFlexPairArray: Array with methods like TList than can storage different value types into same array, and search by item name.
+- TFlexPairArray: Array with methods like TList than can store different value types into same array, and search by item name.
 ```delphi
 var
   flexarray : TFlexPairArray;
@@ -555,4 +574,31 @@ begin
       user.Free;
     end;
 end;
+```
+**Quick.YAML:** Yaml object structure.
+- TYamlObject: A Yaml object is and array of YamlValue pairs.
+```delphi
+  //create Yaml object from yaml text
+  yamlobj.ParseYamlValue(aYaml)
+  //add a pair
+  yamlobj.AddPair('Name','Mike');
+  //display as yaml structure
+  Writeln(yamlobj.ToYaml);
+```
+- TYamlArray: Array of objects or scalars.
+```delphi
+  yamlarray.AddElement(TYamlPair.Create('Age',30));
+  yamlobj.AddPair('myarray',yamlarray);
+```
+- TYamlPair: Name-Value pair. Value can be object, array or scalar.
+```delphi
+  n := yamlobj.GetPair('Name').Value as TYamlInteger;
+```
+
+**Quick.YAML.Serializer:** Serialize/Deserialize object from/to Yaml.
+```delphi
+  //Serialize
+  text := YamlSerializer.ObjectToYaml(obj);
+  //Deserialize
+  YamlSerializer.YamlToObject(obj,yamltext);
 ```
