@@ -1,0 +1,48 @@
+object MainForm: TMainForm
+  Left = 0
+  Top = 0
+  Caption = 'MainForm'
+  ClientHeight = 480
+  ClientWidth = 366
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  DesignerMasterStyle = 0
+  object meInfo: TMemo
+    Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+    DataDetectorTypes = []
+    Align = Client
+    Size.Width = 366.000000000000000000
+    Size.Height = 408.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    Viewport.Width = 362.000000000000000000
+    Viewport.Height = 404.000000000000000000
+  end
+  object Panel1: TPanel
+    Align = MostBottom
+    Position.Y = 408.000000000000000000
+    Size.Width = 366.000000000000000000
+    Size.Height = 72.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    object btnLoadYaml: TSpeedButton
+      Align = Left
+      Size.Width = 137.000000000000000000
+      Size.Height = 72.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Load from File'
+      OnClick = btnLoadYamlClick
+    end
+    object btnSaveYaml: TSpeedButton
+      Align = Right
+      Position.X = 184.000000000000000000
+      Size.Width = 182.000000000000000000
+      Size.Height = 72.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Save to File'
+      OnClick = btnSaveYamlClick
+    end
+  end
+end
