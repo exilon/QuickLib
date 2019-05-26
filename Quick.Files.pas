@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 16/02/2019
+  Modified    : 23/05/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -125,11 +125,14 @@ type
     class function GetExtension(const Path : string) : string;
     class function ChangeExtension(const Path, NewExtension : string) : string;
     class function GetFileName(const aPath : string) : string;
+    class function EndsWithDelimiter(const aPath : string) : Boolean;
+    class function Combine(const aPath1, aPath2 : string) : string;
   end;
 
   TDirectory = class
   public
     class function Exists(const Path: string; FollowLink: Boolean = True): Boolean;
+    class function GetDirectories(const Path : string) : TArray<string>;
   end;
 
   TFile = class
@@ -355,11 +358,61 @@ begin
   Result := ExtractFileExt(Path);
 end;
 
+class function TPath.EndsWithDelimiter(const aPath : string) : Boolean;
+var
+  c : Char;
+begin
+  if aPath = '' then Exit(False);
+  c := aPath[High(aPath)];
+  Result := (c = '\') or (c = '/');
+end;
+
+class function TPath.Combine(const aPath1, aPath2 : string) : string;
+var
+  delim : string;
+begin
+  delim := '';
+  if aPath1.Contains('/') then delim := '/'
+     else if aPath1.Contains('\') then delim := '\';
+  if delim = '' then
+  begin
+    {$IFDEF LINUX}
+    delim := '/';
+    {$ELSE}
+    delim := '\';
+    {$ENDIF}
+  end;
+  if EndsWithDelimiter(aPath1) then
+  begin
+    if EndsWithDelimiter(aPath2) then Result := aPath1 + Copy(aPath2,2,aPath2.Length)
+      else Result := aPath1 + aPath2;
+  end
+  else
+  begin
+    if EndsWithDelimiter(aPath2) then Result := aPath1 + aPath2
+      else Result := aPath1 + delim + aPath2;
+  end;
+end;
+
 { TDirectory }
 
 class function TDirectory.Exists(const Path: string; FollowLink: Boolean = True): Boolean;
 begin
   Result := DirectoryExists(Path);
+end;
+
+class function TDirectory.GetDirectories(const Path : string) : TArray<string>;
+var
+  rec : TSearchRec;
+begin
+  if FindFirst(TPath.Combine(Path,'*'),faAnyFile and faDirectory,rec) = 0 then
+  repeat
+    if ((rec.Attr and faDirectory) = faDirectory) and (rec.Name <> '.') and (rec.Name <> '..') then
+    begin
+      Result := Result + [rec.Name];
+    end;
+  until FindNext(rec) <> 0;
+  SysUtils.FindClose(rec);
 end;
 
 { TFile }
