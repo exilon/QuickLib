@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 10/05/2019
+  Modified    : 21/05/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,6 +36,9 @@ interface
 uses
   SysUtils,
   Quick.Commons,
+  {$IFDEF FPC}
+  TypInfo,
+  {$ENDIF}
   Rtti;
 
 type
@@ -255,7 +258,6 @@ var
   rfield : TRttiField;
   {$ENDIF}
   lastsegment : Boolean;
-  obj : TObject;
 begin
   Result := nil;
   if not Assigned(aInstance) then Exit;
@@ -263,6 +265,9 @@ begin
   lastsegment := False;
   proppath := aPropertyPath;
   rtype := fCtx.GetType(aInstance.ClassType);
+  {$IFDEF FPC}
+  value := aInstance;
+  {$ENDIF}
   repeat
     i := proppath.IndexOf('.');
     if i > -1 then
@@ -289,7 +294,15 @@ begin
     begin
       rprop := rtype.GetProperty(propname);
       if rprop = nil then raise ERTTIError.CreateFmt('Property "%s" not found in object',[propname])
+        {$IFNDEF FPC}
         else value := rprop.GetValue(aInstance);
+        {$ELSE}
+        else
+        begin
+          if rprop.PropertyType.IsInstance then value := GetObjectProp(value.AsObject,propname)
+             else value := rprop.GetValue(value.AsObject);
+        end;
+        {$ENDIF}
     end;
     if not lastsegment then
     begin
@@ -366,7 +379,15 @@ var
   rprop : TRttiProperty;
 begin
   rprop := GetProperty(aInstance,aPropertyName);
-  if rprop <> nil then Result := rprop.GetValue(aInstance);
+  if rprop <> nil then
+  begin
+    {$IFNDEF FPC}
+    Result := rprop.GetValue(aInstance);
+    {$ELSE}
+    if rprop.PropertyType.IsInstance then Result := GetObjectProp(aInstance,aPropertyName)
+      else Result := rprop.GetValue(aInstance);
+    {$ENDIF}
+  end;
 end;
 
 class function TRTTI.GetPropertyValue(aTypeInfo: Pointer; const aPropertyName: string): TValue;
@@ -374,7 +395,15 @@ var
   rprop : TRttiProperty;
 begin
   rprop := GetProperty(aTypeInfo,aPropertyName);
-  if rprop <> nil then Result := rprop.GetValue(aTypeInfo);
+  if rprop <> nil then
+  begin
+    {$IFNDEF FPC}
+    Result := rprop.GetValue(aTypeInfo);
+    {$ELSE}
+    if rprop.PropertyType.IsInstance then Result := GetObjectProp(aTypeInfo,aPropertyName)
+      else Result := rprop.GetValue(aTypeInfo);
+    {$ENDIF}
+  end;
 end;
 
 class function TRTTI.GetType(aTypeInfo: Pointer): TRttiType;
