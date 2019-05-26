@@ -10,6 +10,7 @@ uses
   registry,
   {$ENDIF}
   Quick.Config.Yaml,
+  Quick.Yaml,
   Generics.Collections;
 
 type
@@ -68,7 +69,7 @@ type
     fModifyDate : TDateTime;
     //fWorkList : TObjectList<TWorker>;
   public
-    procedure Init;
+    procedure Init; override;
     destructor Destroy; override;
     procedure DefaultValues; override;
     property Hidden : Boolean read fHidden write fHidden;
@@ -89,9 +90,11 @@ type
   TForm1 = class(TForm)
     btnSaveYaml: TButton;
     btnLoadYaml: TButton;
+    Button1: TButton;
     meInfo: TMemo;
     procedure btnLoadYamlClick(Sender: TObject);
     procedure btnSaveYamlClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure OnConfigFileModified;
@@ -124,6 +127,22 @@ begin
 
   meInfo.Lines.Add(ConfigYaml.ToYaml);
   meInfo.Lines.Add('Saved Config in Yaml at ' + DateTimeToStr(ConfigYaml.LastSaved));
+end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+var
+  yaml : TYamlObject;
+  sl : TStringList;
+begin
+  sl := TStringList.Create;
+  try
+    sl.LoadFromFile('.\Config.yml');
+    yaml := TYamlObject.Create;
+    yaml.ParseYaml(sl.Text);
+    meInfo.Lines.Add(yaml.ToYaml);
+  finally
+    sl.Free;
+  end;
 end;
 
 procedure TForm1.btnLoadYamlClick(Sender: TObject);
