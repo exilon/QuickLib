@@ -496,7 +496,11 @@ begin
   yaml := TList<string>.Create;
   try
     vIndex := 0;
+    {$IFNDEF LINUX}
     for line in aData.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
+    {$ELSE}
+    for line in aData.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
+    {$ENDIF}
     while yaml.Count > vIndex do
     begin
       yamlvalue := ParseValue(yaml,vIndex);
@@ -518,7 +522,11 @@ begin
   yaml := TList<string>.Create;
   try
     vIndex := 0;
+    {$IFNDEF LINUX}
     for line in aData.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
+    {$ELSE}
+    for line in aData.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
+    {$ENDIF}
     if yaml[0].TrimLeft.StartsWith('- ') then Result := TYamlArray.Create
       else Result := TYamlObject.Create;
     while yaml.Count > vIndex do
@@ -572,6 +580,8 @@ begin
     indent := StringOfChar(' ',aIndent);
     for member in fMembers do
     begin
+      if member = nil then continue;
+
       yvalue := member.Value;
       if yvalue.IsScalar then
       begin

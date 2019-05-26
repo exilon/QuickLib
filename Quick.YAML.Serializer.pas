@@ -271,7 +271,8 @@ begin
               propObj := GetValue(PPByte(rValue.GetReferenceToRawData)^ +GetTypeData(aTypeInfo).elSize * i, GetTypeData(aTypeInfo).ElType2).AsObject;
               if propObj = nil then
               begin
-                objClass := GetTypeData(aTypeInfo).ClassType;
+                //objClass := GetTypeData(aTypeInfo).ClassType;
+                objClass := GetTypeData(GetTypeData(aTypeInfo).ElType2).ClassType;
                 rItemValue := DeserializeClass(objClass,yaml);
               end
               else
@@ -404,8 +405,8 @@ begin
   Result := nil;
   if (aYaml = nil) or ((aYaml as TYamlValue) is TYamlNull) or (aYaml.Count = 0) then Exit;
 
-  Result := aType.Create;
   try
+    Result := aType.Create;
     Result := DeserializeObject(Result,aYaml);
   except
     on E : Exception do
