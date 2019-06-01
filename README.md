@@ -5,6 +5,53 @@
 --------
 
 Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity.
+
+**Areas of functionality:**
+  
+* **Mapping**: Map fields from a class to other class, copy objects, etc..
+* **Config**: Thread your config as an object and load/save from/to file (Json/Yaml) or Windows Registry.
+* **Serialization**: Serialize objects to/from json/Yaml.
+* **Scheduling**: Schedule tasks launching as independent threads.
+* **Threading**: Simplify run and control of multithread background tasks, Thread-safe Lists, queues, etc
+* **Data**: Flexible data interchange and storage, allowing several input-output types.
+* **Cloud**: Simplify cloud Azure/Amazon file management, send emails and more.
+* **Querying**: Indexed Lists, Searchable Lists and Linq query system for generic lists and arrays.
+* **Benchmark**: Time elapsed control and benchmark functions.
+* **Filesystem**: Process and Services control, file modify monitors and helpers, etc...
+
+
+**Main units description:**
+
+* **Quick.Commons:** Functions frequently needed in the day to day of a developer. 
+* **Quick.AppService:** Allow a console app to run as console mode or service mode with same code simplifying debug tasks.
+* **Quick.Azure/Amazon:** Simplifies blob iteraction with Azure and Amazon Cloud Storage.
+* **Quick.Network:** CIDR and IP Range functions.
+* **Quick.Chrono:** Chronometer and Benchmark a piece of code is simple.
+* **Quick.Console:** Write log messages to console with colors and more...
+* **Quick.Log:** Log to disk or memory with verbose levels and daily or max space rotation.
+* **Quick.Config:** Load/Save a config as Json or Yaml file or Windows Registry keys and manage it as an object.
+* **Quick.FileMonitor:** Monitorizes a file for changes and throws events.
+* **Quick.JsonUtils:** Utils for working with json objects.
+* **Quick.SMTP:** Send email with two code lines.
+* **Quick.Threads:** Thread safe classes, scheduling and backgrounds tasks.
+* **Quick.Process:** Manages windows processes.
+* **Quick.Services:** Manages windows services.
+* **Quick.Format:** String format.
+* **Quick.JsonSerializer:** Serializes an object from/to json text. You can define if public or published will be processed (only Delphi, fpc rtti only supports published properties)	
+* **Quick.AutoMapper:** Map fields from one class to another class. Allows custom mappings to match different fields and custom mapping procedure to cast/convert fields manually.	
+* **Quick.JsonRecord:** Used as a DTO class, with json serialize and mapping functions included.	
+* **Quick.Lists:** Improved lists with indexing or search features.
+* **Quick.Value** FlexValue stores any data type and allow pass to other class with integrated operators and autofrees.
+* **Quick.Arrays:** Improved arrays.
+* **Quick.YAML:** Yaml object structure.
+* **Quick.YAML.Serializer:** Serialize/Deserialize object from/to Yaml.
+* **Quick.Expression:** Evaluate object properties using expressions.
+* **Quick.Linq:** Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
+
+
+**Updates:**
+
+* NEW: Linq over generic lists and arrays.
 * NEW: QuickConfig YAML provider.
 * NEW: YAML Object and Serializer
 * NEW: AutoMapper customapping path namespaces style.
@@ -15,20 +62,8 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * NEW: Delphi Linux compatibility
 * NEW: QuickConfigJson reload if config file changed
 * NEW: First version with OSX/IOS partial support
-* NEW: Refactorized Quick.Config (more easy)
-* NEW: TScheduledTasks: New schedule methods.
-* NEW: TAnonymousThread, TBackgroundTasks & TScheduledTasks _Sync methods
-* NEW: TBackgroundTasks & TScheduledTasks
-* NEW: TAnonymousThread simplified
-* NEW: TIndexedObjectList & TSearchObjectList.
-* NEW: RTTIUtils.
-* NEW: Improved firemonkey android compatibility.
-* NEW: JsonRecord
-* NEW: AutoMapper
-* NEW: JsonSerializer
-* NEW: Improved Linux compatibility.
-* NEW: Delphinus support
 
+**Documentation:**
 ----------
 **Quick.AppService:** Allow a console app to run as console mode or service mode with same code simplifying debug tasks.
 
@@ -177,7 +212,7 @@ Log.Add('Error x',etError);
 Log.Add('Error is %s',[ErrorStr],etError);
 ```
 
-**Quick.Config:** Load/Save a config as Json or Yaml file or Windows Registry keys. Create a descend class from TAppConfigJson or TAppConfigRegistry and add private variables will be loaded/saved. TAppConfiJson allow detect if config file was changed and do a config reload.
+**Quick.Config:** Load/Save a config as Json or Yaml file or Windows Registry keys. Create a descend class from TAppConfigJson, TAppConfigYaml or TAppConfigRegistry and added published properties will be loaded/saved. Files configs can be reloaded on detect files changes.
 
 ```delphi
 //create a class heritage
@@ -296,6 +331,7 @@ TAnonymousThread.Execute(
       end)
     .Start;
 ```
+
 - **TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
   - *AddTask:* Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
   - *AddTask_Sync:* Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
@@ -399,7 +435,7 @@ writeln('Explorer.exe open by: ' + GetProcessUser('explorer.exe');
 if FindWindowTimeout('MainWindow',20) then writeln('Window detected');
 ```
 
-**Quick.Process:** Manages windows services.
+**Quick.Services:** Manages windows services.
 ```delphi
 //detect if a service is installed
 if not ServiceIsPresent('localhost','MySvc') then raise Exception.Create('Service not installed!');
@@ -575,6 +611,7 @@ begin
     end;
 end;
 ```
+
 **Quick.YAML:** Yaml object structure.
 - TYamlObject: A Yaml object is and array of YamlValue pairs.
 ```delphi
@@ -601,4 +638,36 @@ end;
   text := YamlSerializer.ObjectToYaml(obj);
   //Deserialize
   YamlSerializer.YamlToObject(obj,yamltext);
+```
+
+**Quick.Expression:** Evaluate object properties using expressions.
+```delphi
+  if TExpressionParser.Validate(user,('(Age > 30) AND (Dept.Name = "Financial")') then
+  begin
+    //do something
+  end;
+```
+
+**Quick.Linq:** Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
+```delphi
+  //Select multi conditional
+  for user in TLinq<TUser>.From(userslist).Where('(Name = ?) OR (SurName = ?) OR (SurName = ?)',['Peter','Smith','Huan']).Select do
+  begin
+    //do something
+  end;
+  
+  //Select like and update field
+  TLinq<TUser>.From(userlist).Where('SurName Like ?',['%son']).SelectFirst.Name := 'Robert';
+  
+  //Select top and Order by field
+  for user in TLinq<TUser>.From(userlist).Where('Age > ?',[18]).SelectTop(10).OrderBy('Name') do
+  begin
+    //do something
+  end;
+  
+  //update fields by conditional
+  TLinq<TUser>.From(userlist).Where('Name = ?',['Peter']).Update(['Name'],['Joe']);
+  
+  //count results
+  numusers := TLinq<TUser>.From(userlist).Where('(Age > ?) AND (Age < ?)',[30,40]).Count;
 ```
