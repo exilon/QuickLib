@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 21/05/2019
+  Modified    : 27/05/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -411,9 +411,12 @@ begin
   Result := fCtx.GetType(aTypeInfo);
 end;
 
-class function TRTTI.PropertyExists(aTypeInfo: Pointer; const aPropertyName: string): Boolean;
+class function TRTTI.PropertyExists(aTypeInfo: Pointer; const aPropertyName: string) : Boolean;
+var
+  rtype : TRttiType;
 begin
-  Result := fCtx.GetType(aTypeInfo).GetProperty(aPropertyName) <> nil;
+  rtype := fCtx.GetType(aTypeInfo);
+  if rtype <> nil then Result := rtype.GetProperty(aPropertyName) <> nil;
 end;
 
 class procedure TRTTI.SetPropertyValue(aInstance: TObject; const aPropertyName: string; aValue: TValue);

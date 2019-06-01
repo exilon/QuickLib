@@ -21,10 +21,15 @@ type
 
   TMyPriority = (msLow, msMed, msHigh);
 
-  TWinPos = record
-  public
-    PosX : Integer;
-    PosY : Integer;
+  TWinPos = class
+  private
+    fPosX : Integer;
+    fPosY : Integer;
+    fFixed : Boolean;
+  published
+    property PosX : Integer read fPosX write fPosX;
+    property PosY : Integer read fPosY write fPosY;
+    property Fixed : Boolean read fFixed write fFixed;
   end;
 
   TProcessType = record
@@ -145,10 +150,10 @@ begin
   cConfig.LastFilename := 'library.txt';
   cConfig.Sizes := [23,11,554,12,34,29,77,30,48,59,773,221,98,3,22,983,122,231,433,12,31,987];
   cConfig.DefaultWorker.Levels := [10,12,14,18,20];
-  winpos.PosX := 640;
-  winpos.PosX := 480;
+  cConfig.WindowPos.PosX := 640;
+  cConfig.WindowPos.PosX := 480;
+  cConfig.WindowPos.Fixed := True;
   cConfig.Methods := ['GET','POST','PUT','DELETE','HEAD'];
-  cConfig.WindowPos := winpos;
   protype.Id := 5;
   protype.Priority := msHigh;
   protype.Redundant := False;
@@ -236,6 +241,7 @@ procedure TMyConfig.Init;
 begin
   inherited;
   fWorkList := TObjectList<TWorker>.Create(True);
+  fWindowPos := TWinPos.Create;
   fDefaultWorker := TWorker.Create;
   DefaultValues;
 end;
@@ -250,7 +256,7 @@ destructor TMyConfig.Destroy;
 begin
   if Assigned(fWorkList) then fWorkList.Free;
   if Assigned(fDefaultWorker) then fDefaultWorker.Free;
-
+  if Assigned(fWindowPos) then fWindowPos.Free;
   inherited;
 end;
 

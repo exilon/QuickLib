@@ -82,11 +82,14 @@ begin
     tkChar,
     {$IFNDEF FPC}
     tkString,
+    tkUstring,
     {$ELSE}
     tkAstring,
     {$ENDIF}
     tkWideString,
     tkWideChar : AsString := Value.AsString;
+    tkEnumeration,
+    tkSet : AsInteger := Value.AsInteger;
     {$IFNDEF FPC}
     else AsVariant := Value.AsVariant;
     {$ENDIF}
