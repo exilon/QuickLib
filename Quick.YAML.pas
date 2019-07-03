@@ -5,9 +5,9 @@
   Unit        : Quick.YAML
   Description : YAML Object parser
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.1
   Created     : 17/04/2019
-  Modified    : 27/04/2019
+  Modified    : 03/07/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -287,7 +287,7 @@ end;
 
 procedure TYamlObject.AddDescendant(const aDescendent: TYamlAncestor);
 begin
-  fMembers.Add(TYamlPair(aDescendent));
+  if aDescendent <> nil then fMembers.Add(TYamlPair(aDescendent));
 end;
 
 function TYamlObject.AddPair(const aName, aValue: string): TYamlObject;
@@ -340,7 +340,11 @@ end;
 class function TYamlObject.GetItemLevel(const aValue: string): Integer;
 var
   i : Integer;
+  trimed : string;
 begin
+  trimed := aValue.Trim;
+  if trimed.StartsWith(#9) or trimed.IsEmpty or trimed.StartsWith('#') then Exit(99999);
+
   for i := Low(aValue) to aValue.Length do
   begin
     if aValue[i] <> ' ' then Exit(i);
@@ -420,6 +424,7 @@ var
   value : string;
   yvalue : TYamlAncestor;
   level : Integer;
+  nextlevel : Integer;
   aitem : string;
   yamlType : TYamlType;
 begin
@@ -428,7 +433,8 @@ begin
     value := yaml[vIndex].Trim;
 
     name := ParsePairName(value);
-    if (name.IsEmpty) or (value.IsEmpty) or (value.StartsWith('#')) then Exit(nil)
+    if (name.IsEmpty) or (value.IsEmpty) or (value.StartsWith('#')) or (value.StartsWith(#9)) then Exit(nil)
+    //else if value.StartsWith('#') then Exit(TYamlComment.Create(value))
     else if value.StartsWith('-') then
     begin
       yaml[vIndex] := StringReplace(yaml[vIndex],'-','',[]).TrimLeft;
@@ -463,7 +469,9 @@ begin
           yvalue := TYamlObject.Create;
           repeat
             Inc(vIndex);
-            level := GetItemLevel(yaml[vIndex]);
+            nextlevel := GetItemLevel(yaml[vIndex]);
+            if nextlevel <> 99999 then level := nextlevel;
+
             yvalue.AddDescendant(ParseValue(yaml,vIndex));
             //level := GetItemLevel(yaml[vIndex]);
             //var level2 := GetItemLevel(yaml[offset + 1]);
@@ -850,7 +858,7 @@ end;
 
 procedure TYamlArray.AddElement(const aElement: TYamlValue);
 begin
-  AddDescendant(aElement);
+  if aElement <> nil then AddDescendant(aElement);
 end;
 
 destructor TYamlArray.Destroy;

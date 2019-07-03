@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 14/07/2017
-  Modified    : 16/05/2019
+  Modified    : 01/07/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -221,6 +221,9 @@ type
   function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
   //checks if integer exists in array of integer
   function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
+  //check if array is empty
+  function IsEmptyArray(aArray : TArray<string>) : Boolean; overload;
+  function IsEmptyArray(aArray : TArray<Integer>) : Boolean; overload;
   //returns a number leading zero
   function Zeroes(const Number, Len : Int64) : string;
   //converts a number to thousand delimeter string
@@ -273,7 +276,9 @@ type
   //save stream to string
   function StreamToString(stream : TStream) : string;
   //returns a real comma separated text from stringlist
-  function CommaText(aList : TStringList) : string;
+  function CommaText(aList : TStringList) : string; overload;
+  //returns a real comma separated text from array of string
+  function CommaText(aArray : TArray<string>) : string; overload;
   {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
@@ -638,6 +643,16 @@ begin
     if i = aValue then Exit(True);
   end;
   Result := False;
+end;
+
+function IsEmptyArray(aArray : TArray<string>) : Boolean;
+begin
+  Result := Length(aArray) = 0;
+end;
+
+function IsEmptyArray(aArray : TArray<Integer>) : Boolean;
+begin
+  Result := Length(aArray) = 0;
 end;
 
 function Zeroes(const Number, Len : Int64) : string;
@@ -1229,6 +1244,25 @@ begin
   sb := TStringBuilder.Create;
   try
     for value in aList do
+    begin
+      sb.Append(value);
+      sb.Append(',');
+    end;
+    if sb.Length > 1 then Result := sb.ToString(0, sb.Length - 1);
+  finally
+    sb.Free;
+  end;
+end;
+
+function CommaText(aArray : TArray<string>) : string;
+var
+  value : string;
+  sb : TStringBuilder;
+begin
+  if High(aArray) < 0 then Exit;
+  sb := TStringBuilder.Create;
+  try
+    for value in aArray do
     begin
       sb.Append(value);
       sb.Append(',');
