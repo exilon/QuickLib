@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 04/03/2019
+  Modified    : 31/07/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1315,7 +1315,7 @@ begin
   fScheduleMode := TScheduleMode.smRepeatMode;
   fTimeMeasure := aTimeMeasure;
   fTimeInterval := aInterval;
-  if fStartDate = 0.0 then fStartDate := Now();
+  if fStartDate < Now() then fStartDate := Now();
   fNextExecution := fStartDate;
   fEnabled := True;
 end;
@@ -1326,7 +1326,7 @@ begin
   fScheduleMode := TScheduleMode.smRepeatMode;
   fTimeMeasure := aTimeMeasure;
   fTimeInterval := aInterval;
-  if fStartDate = 0.0 then fStartDate := Now();
+  if fStartDate < Now() then fStartDate := Now();
   fExpirationDate := aEndTime;
   fNextExecution := fStartDate;
   fEnabled := True;
@@ -1348,7 +1348,7 @@ begin
   fScheduleMode := TScheduleMode.smRepeatMode;
   fTimeMeasure := aTimeMeasure;
   fTimeInterval := aInterval;
-  if fStartDate = 0.0 then fStartDate := Now();
+  if fStartDate < Now() then fStartDate := Now();
   fExpirationTimes := aRepeatTimes;
   fNextExecution := fStartDate;
   fEnabled := True;
@@ -1357,7 +1357,7 @@ end;
 procedure TScheduledTask.RunOnce;
 begin
   fScheduleMode := TScheduleMode.smRunOnce;
-  if fStartDate = 0.0 then fStartDate := Now();
+  if fStartDate < Now() then fStartDate := Now();
   fNextExecution := fStartDate;
   fEnabled := True;
 end;
