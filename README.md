@@ -62,6 +62,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * NEW: Delphi Linux compatibility
 * NEW: QuickConfigJson reload if config file changed
 * NEW: First version with OSX/IOS partial support
+* NEW: Delphinus-Support
 
 **Documentation:**
 ----------
