@@ -183,7 +183,7 @@ type
 
   TScheduleMode = (smRunOnce, smRepeatMode);
 
-  TTimeMeasure = (tmDays, tmHours, tmMinutes, tmSeconds);
+  TTimeMeasure = (tmDays, tmHours, tmMinutes, tmSeconds, tmMilliseconds);
 
   ITask = interface
   ['{0182FD36-5A7C-4C00-BBF8-7CFB1E3F9BB1}']
@@ -293,6 +293,7 @@ type
   TScheduledTask = class(TTask,IScheduledTask)
   private
     fName : string;
+    fcurrentschedule : TPair<Integer, TTimeMeasure>;
     fExecutionTimes : Integer;
     fScheduleMode : TScheduleMode;
     fTimeInterval : Integer;
@@ -308,10 +309,12 @@ type
     function CheckSchedule : Boolean;
     procedure DoExpire;
     function GetTaskName : string;
+    function GetCurrentSchedule: TPair<TTimeMeasure, Integer>;
   protected
     property ExpireWithSync : Boolean read fExpireWithSync write fExpireWithSync;
   public
     property Name : string read fName write fName;
+    property CurrentSchedule : TPair<TTimeMeasure, Integer> read GetCurrentSchedule;
     function OnException(aTaskProc : TTaskExceptionProc) : IScheduledTask; virtual;
     function OnException_Sync(aTaskProc : TTaskExceptionProc) : IScheduledTask; virtual;
     function OnTerminated(aTaskProc : TTaskProc) : IScheduledTask; virtual;
@@ -1401,6 +1404,7 @@ begin
         tmHours : fNextExecution := IncHour(fNextExecution,fTimeInterval);
         tmMinutes : fNextExecution := IncMinute(fNextExecution,fTimeInterval);
         tmSeconds : fNextExecution := IncSecond(fNextExecution,fTimeInterval);
+        tmMilliseconds : fNextExecution := IncMilliSecond(fNextExecution, fTimeInterval);
       end;
 
       if Now() > fNextExecution then Result := False //avoid execution if system time was altered
@@ -1431,6 +1435,11 @@ procedure TScheduledTask.DoExpire;
 begin
   if Assigned(fExpiredProc) then fExpiredProc(Self);
   fEnabled := False;
+end;
+
+function TScheduledTask.GetCurrentSchedule: TPair<TTimeMeasure, Integer>;
+begin
+  Result := TPair<TTimeMeasure, Integer>.Create(fTimeMeasure, fTimeInterval);
 end;
 
 function TScheduledTask.GetTaskName: string;
