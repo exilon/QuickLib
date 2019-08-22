@@ -12,6 +12,9 @@ uses
   Quick.Threads;
 
 type
+
+  { TMyJob }
+
   TMyJob = class
   private
     fId : Integer;
@@ -21,6 +24,7 @@ type
     property Name : string read fName write fName;
     procedure DoJob(task : ITask);
     procedure Failed(task : ITask; aException : Exception);
+    procedure Retry(task : ITask; aException : Exception; var vStopRetries : Boolean);
     procedure Finished(task : ITask);
     procedure Expired(task : ITask);
   end;
@@ -43,6 +47,7 @@ begin
   b := Random(5) + 1;
 
   i := a div b;
+  task.Result := i;
   cout('task "%s" result %d / %d = %d',[fName,a,b,i],etSuccess);
 end;
 
@@ -51,9 +56,14 @@ begin
   cout('task "%s" failed (%s)',[fName,aException.Message],etError);
 end;
 
+procedure TMyJob.Retry(task: ITask; aException: Exception; var vStopRetries: Boolean);
+begin
+  cout('task "%s" retrying %d/%d (%s)',[fName,task.NumRetries,task.MaxRetries,aException.Message],etWarning);
+end;
+
 procedure TMyJob.Finished(task : ITask);
 begin
-  cout('task "%s" finished',[fName],etDebug);
+  cout('task "%s" finished (Result = %d)',[fName,task.Result.AsInteger],etDebug);
 end;
 
 procedure TMyJob.Expired(task : ITask);
@@ -70,7 +80,9 @@ begin
     myjob := TMyJob.Create;
     myjob.Id := 1;
     myjob.Name := 'Run now and repeat every 1 minute for 5 times';
-    scheduledtasks.AddTask('Taks1',['blue',7],True,myjob.DoJob
+    scheduledtasks.AddTask('Task1',['blue',7],True,myjob.DoJob
+                          ).WaitAndRetry(2,100
+                          ).OnRetry(myjob.Retry
                           ).OnException(myjob.Failed
                           ).OnTerminated(myjob.Finished
                           ).OnExpired(myjob.Expired
@@ -80,6 +92,8 @@ begin
     myjob.Id := 2;
     myjob.Name := 'Run now and repeat every 1 second forever';
     scheduledtasks.AddTask('Task2',['red',14],True,myjob.DoJob
+                          ).WaitAndRetry(2,100
+                          ).OnRetry(myjob.Retry
                           ).OnException(myjob.Failed
                           ).OnTerminated(myjob.Finished
                           ).OnExpired(myjob.Expired
@@ -93,6 +107,8 @@ begin
     myjob.Id := 3;
     myjob.Name := Format('Run at %s and repeat every 1 second until %s',[DateTimeToStr(ScheduledDate),DateTimeToStr(ExpirationDate)]);
     scheduledtasks.AddTask('Task3',['white',21],True,myjob.DoJob
+                          ).WaitAndRetry(2,100
+                          ).OnRetry(myjob.Retry
                           ).OnException(myjob.Failed
                           ).OnTerminated(myjob.Finished
                           ).OnExpired(myjob.Expired
