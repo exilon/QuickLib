@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 14/07/2017
-  Modified    : 01/07/2019
+  Modified    : 27/08/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -279,6 +279,8 @@ type
   function CommaText(aList : TStringList) : string; overload;
   //returns a real comma separated text from array of string
   function CommaText(aArray : TArray<string>) : string; overload;
+  //converts TStrings to array
+  function StringsToArray(aStrings : TStrings) : TArray<string>;
   {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
@@ -1270,6 +1272,18 @@ begin
     if sb.Length > 1 then Result := sb.ToString(0, sb.Length - 1);
   finally
     sb.Free;
+  end;
+end;
+
+function StringsToArray(aStrings : TStrings) : TArray<string>;
+var
+  i : Integer;
+begin
+  if aStrings.Count = 0 then Exit;
+  SetLength(Result,aStrings.Count);
+  for i := 0 to aStrings.Count - 1 do
+  begin
+    Result[i] := aStrings[i];
   end;
 end;
 
