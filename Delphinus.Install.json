@@ -3,14 +3,14 @@
 	[
 		{
 			"pathes": ".",
-			"platforms": "Win32;Win64;Linux64"
+			"platforms": "Win32;Win64;OSX32;Android;IOSDevice32;IOSDevice64;Linux64"
 		}
 	],
 	"browsing_pathes": 
 	[
 		{
 			"pathes": ".",
-			"platforms": "Win32;Win64;Linux64"
+			"platforms": "Win32;Win64;OSX32;Android;IOSDevice32;IOSDevice64;Linux64"
 		}
 	],
 	
