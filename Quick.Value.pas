@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 07/01/2019
-  Modified    : 17/08/2019
+  Modified    : 27/08/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -218,7 +218,9 @@ type
     function CastToInterface: IInterface;
     function CastToVariant: Variant;
     function CastToCardinal : Cardinal;
+    function CastToVarRec: TVarRec;
     procedure SetAsString(const Value : string);
+    procedure SetAsVarRec(const Value: TVarRec);
     {$IFDEF MSWINDOWS}
     procedure SetAsAnsiString(const Value : AnsiString);
     procedure SetAsWideString(const Value : WideString);
@@ -234,8 +236,6 @@ type
     procedure SetAsVariant(const Value: Variant);
     procedure SetAsCardinal(const Value : Cardinal);
     procedure SetAsInterface(const Value: IInterface);
-    function CastToVarRec: TVarRec;
-    procedure SetToVarRec(const Value: TVarRec);
   public
     constructor Create(const Value: TVarRec);
     property DataType : TValueDataType read fDataType;
@@ -255,7 +255,7 @@ type
     property AsVariant : Variant  read CastToVariant write SetAsVariant;
     property AsCardinal : Cardinal read CastToCardinal write SetAsCardinal;
     property AsDateTime : TDateTime read CastToDateTime write SetAsDateTime;
-    property AsVarRec : TVarRec read CastToVarRec write SetToVarRec;
+    property AsVarRec : TVarRec read CastToVarRec write SetAsVarRec;
     //function AsType<T> : T;
     function  IsNullOrEmpty : Boolean; inline;
     function  IsString : Boolean; inline;
@@ -562,6 +562,7 @@ begin
       dtAnsiString : Result := string((fDataIntf as IValueAnsiString).Value);
       dtWideString : Result := (fDataIntf as IValueWideString).Value;
       {$ENDIF}
+      dtString : Result := (fDataIntf as IValueString).Value;
       dtInteger,
       dtInt64 : Result := (fDataIntf as IValueInteger).Value;
       dtVariant : Result := (fDataIntf as IValueVariant).Value;
@@ -578,10 +579,14 @@ begin
     case fDataType of
       dtNull : Result.VPointer := nil;
       dtBoolean : Result.VBoolean := AsBoolean;
-      dtString : Result.VString := Pointer((fDataIntf as IValueString).Value);
       {$IFDEF MSWINDOWS}
       dtAnsiString : Result.VAnsiString := Pointer((fDataIntf as IValueAnsiString).Value);
       dtWideString : Result.VWideString := Pointer((fDataIntf as IValueWideString).Value);
+      {$ENDIF}
+      {$IFNDEF NEXTGEN}
+      dtString : Result.VString := Pointer((fDataIntf as IValueString).Value);
+      {$ELSE}
+      dtString : Result.VUnicodeString := Pointer((fDataIntf as IValueString));
       {$ENDIF}
       dtInteger : Result.VInteger := (fDataIntf as IValueInteger).Value;
       dtInt64 : Result.VInt64 := Pointer((fDataIntf as IValueInteger).Value);
@@ -1064,7 +1069,9 @@ begin
   fDataIntf := TValueWideString.Create(Value);
   fDataType := TValueDataType.dtWideString;
 end;
-procedure TFlexValue.SetToVarRec(const Value: TVarRec);
+{$ENDIF}
+
+procedure TFlexValue.SetAsVarRec(const Value: TVarRec);
 begin
   case Value.VType of
     {$IFNDEF NEXTGEN}
@@ -1093,8 +1100,6 @@ begin
   fDataIntf._AddRef;
   {$ENDIF}
 end;
-
-{$ENDIF}
 
 procedure TFlexValue._AddRef;
 begin
