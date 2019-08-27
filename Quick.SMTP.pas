@@ -136,7 +136,7 @@ end;
 
 constructor TSMTP.Create(const cHost : string; cPort : Integer; cUseSSL : Boolean = False);
 begin
-  inherited Create;
+  Create;
   Host := cHost;
   Port := cPort;
   fUseSSL := cUseSSL;
@@ -148,13 +148,13 @@ begin
   inherited;
 end;
 
-function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean;
+function TSMTP.SendEmail(const aFrom,aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean;
 var
   mail : TMailMessage;
 begin
   mail := TMailMessage.Create;
   try
-    Mail.From := fMail.fFrom;
+    Mail.From := aFrom;
     Mail.SenderName := aFromName;
     Mail.Subject := aSubject;
     Mail.Body := aBody;
