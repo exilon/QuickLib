@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 06/05/2019
-  Modified    : 06/05/2019
+  Modified    : 22/08/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -43,12 +43,18 @@ type
     function CastToTValue: TValue;
     procedure SetAsTValue(const Value: TValue);
   public
-    property AsTValue : TValue  read CastToTValue write SetAsTValue;
+    property AsTValue : TValue read CastToTValue write SetAsTValue;
+    function AsType<T> : T;
   end;
 
 implementation
 
 { TRTTIFlexValue }
+
+function TRTTIFlexValue.AsType<T>: T;
+begin
+  Result := AsObject;
+end;
 
 function TRTTIFlexValue.CastToTValue: TValue;
 begin

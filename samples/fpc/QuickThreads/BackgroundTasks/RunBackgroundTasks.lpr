@@ -25,6 +25,7 @@ type
     property Id : Integer read fId write fId;
     property Name : string read fName write fName;
     procedure DoJob(task : ITask);
+    procedure Retry(task : ITask; aException : Exception; var vStopRetries : Boolean);
     procedure Failed(task : ITask; aException : Exception);
     procedure Finished(task : ITask);
   end;
@@ -49,6 +50,11 @@ begin
   cout('task "%s" result %d / %d = %d',[fName,a,b,i],etSuccess);
 end;
 
+procedure TMyTask.Retry(task : ITask; aException : Exception; var vStopRetries : Boolean);
+begin
+  cout('task "%s" retrying (%s)',[fName,aException.Message],etWarning);
+end;
+
 procedure TMyTask.Failed(task : ITask; aException : Exception);
 begin
   cout('task "%s" failed (%s)',[fName,aException.Message],etError);
@@ -69,6 +75,8 @@ begin
       mytask.Id := i;
       mytask.Name := 'Task' + i.ToString;
       backgroundtasks.AddTask(['blue'],True,mytask.DoJob
+                             ).WaitAndRetry(10,100
+                             ).OnRetry(mytask.Retry
                              ).OnException(mytask.Failed
                              ).OnTerminated(mytask.Finished
                              ).Run;

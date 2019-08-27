@@ -11,14 +11,14 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Mapping**: Map fields from a class to other class, copy objects, etc..
 * **Config**: Thread your config as an object and load/save from/to file (Json/Yaml) or Windows Registry.
 * **Serialization**: Serialize objects to/from json/Yaml.
-* **Scheduling**: Schedule tasks launching as independent threads.
+* **Scheduling**: Schedule tasks launching as independent threads with retry policies.
 * **Threading**: Simplify run and control of multithread background tasks, Thread-safe Lists, queues, etc
 * **Data**: Flexible data interchange and storage, allowing several input-output types.
 * **Cloud**: Simplify cloud Azure/Amazon file management, send emails and more.
 * **Querying**: Indexed Lists, Searchable Lists and Linq query system for generic lists and arrays.
 * **Benchmark**: Time elapsed control and benchmark functions.
 * **Filesystem**: Process and Services control, file modify monitors and helpers, etc...
-
+* **FailControl**: Fail and Retry policies.
 
 **Main units description:**
 
@@ -33,10 +33,11 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Quick.FileMonitor:** Monitorizes a file for changes and throws events.
 * **Quick.JsonUtils:** Utils for working with json objects.
 * **Quick.SMTP:** Send email with two code lines.
-* **Quick.Threads:** Thread safe classes, scheduling and backgrounds tasks.
+* **Quick.Threads:** Thread safe classes, scheduling and backgrounds tasks with retry policies.
 * **Quick.Process:** Manages windows processes.
 * **Quick.Services:** Manages windows services.
 * **Quick.Format:** String format.
+* **Quick.RTTI.Utils:** Simplifies working with RTTI.
 * **Quick.JsonSerializer:** Serializes an object from/to json text. You can define if public or published will be processed (only Delphi, fpc rtti only supports published properties)	
 * **Quick.AutoMapper:** Map fields from one class to another class. Allows custom mappings to match different fields and custom mapping procedure to cast/convert fields manually.	
 * **Quick.JsonRecord:** Used as a DTO class, with json serialize and mapping functions included.	
@@ -51,6 +52,8 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 
 **Updates:**
 
+* NEW: Background & Scheduled task with retry policies
+* NEW: RunTask, FaultControl
 * NEW: Linq over generic lists and arrays.
 * NEW: QuickConfig YAML provider.
 * NEW: YAML Object and Serializer
@@ -309,11 +312,11 @@ SMTP.SendMail;
 - **TThreadObjectList:** Thread safe Object List.
 - **TThreadedQueueList:** Thread safe Queue List. Autogrow and with Critical Section.
 - **TAnonymousThread:** Creates anonymous thread defining unchained Execute and OnTerminate methods. Use Execute_Sync and OnTerminate_Sync methods if code needs to update UI.
-  - *Execute:* Specify code to execute on start.
-  - *Execute_Sync:* Like Execute but runs code with syncronized thread method (avoids problems if your code updates UI).
-  - *OnTerminate:* Specify code to execute when task finishes.
-  - *OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
-  - *Start:* Starts thread execution.
+  - **Execute:** Specify code to execute on start.
+  - **Execute_Sync:** Like Execute but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnTerminate:** Specify code to execute when task finishes.
+  - **OnTerminate_Sync:** Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **Start:** Starts thread execution.
 ```delphi
 //simple anonymousthread
 TAnonymousThread.Execute(
@@ -333,13 +336,78 @@ TAnonymousThread.Execute(
     .Start;
 ```
 
-- **TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
-  - *AddTask:* Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
-  - *AddTask_Sync:* Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
-  - *OnTerminate:* Specify code to execute when task finishes.
-  - *OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
-  - *OnException:* Specify code to execute when task generates an exception.
-  - *Start:* Starts tasks execution.
+- **TRunTask:** Launch an autofree single task thread with fault & retry control policies. Params can be passed and created into code.
+- *Define code to execute:*
+  - **Execute:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on termination task) and method than will be executed. 
+  - **Execute_Sync:** Like Execute but runs code with synchronize thread method (avoids problems if your code updates UI).
+  - **SetParameter:** Defines values or objects needed by your task.
+- *Define events to control:*
+  - **OnInitialize:** Specify code to run before main execute task (this code only runs one time, OnExecute can be retried more than one time)
+  - **OnRetry:** Specify code to run when execution fails and decide if needs to retry or cancel next retries.
+  - **OnTerminate:** Specify code to execute when task finishes.
+  - **OnTerminate_Sync:** Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnException:** Specify code to execute when task generates an exception.
+- *Define fail/retry policies:*
+  - **RetryForever:** If execution fails, code will be retry forever until task executes ok.
+  - **Retry:** If execution fails, code will be retry x times.
+  - **WaitAndRetry:** If execution fails, code will be retry x times, and wait x millisecons before each retry. You can specify number of retries and wait time between retries.
+  - **Run:** Starts task execution.
+```delphi
+  TRunTask.Execute(
+      procedure(task : ITask)
+      var
+        stream : TStringStream;
+        response : IHttpRequestResponse;
+      begin
+        stream := TStringStream.Create;
+        try
+          response := TJsonHttpClient(task['httpclient'].AsObject).Get(task['url']);
+          task.Result := response.StatusCode;
+          if response.StatusCode <> 200 then raise Exception.Create(response.StatusText);
+        finally
+          stream.Free;
+        end;
+      end)
+    .SetParameter('httpclient',(TJsonHttpClient.Create),True)
+    .SetParameter('url','https://mydomain.com/testfile')
+    .WaitAndRetry(5,250,2)
+    .OnRetry(
+      procedure(task : ITask; aException : Exception; var vStopRetries : Boolean)
+      begin
+        //if error 404 don't try to retry request
+        if task.Result = 404 then vStopRetries := True;
+      end)
+    .OnException(
+      procedure(task : ITask; aException : Exception)
+      begin
+        coutFmt('Exception downloading (Error: %s / StatusCode: %d)...',[aException.Message,task.Result.AsInteger],etError);
+      end)
+    .OnTerminated(
+      procedure(task : ITask)
+      begin
+        if task.Done then coutFmt('Download "%s" finished ok',[task['url'].AsString],etSuccess)
+          else coutFmt('Download "%s" failed after %d retries',[task['url'].AsString,task.NumRetries],etError);
+      end)
+    .Run;
+```
+
+- **TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers with fault and retry control policies. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
+- *Add a task to execute:*
+  - **AddTask:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
+  - **AddTask_Sync:** Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
+  - **SetParameter:** Defines values or objects needed by your task. Every parameter will be accesible into anomymous methods defines as task[<name>] or task.[index]
+- *Define events to control:*
+  - **OnInitialize:** Specify code to run before main execute task (this code only runs one time, OnExecute can be retried more than one time)
+  - **OnRetry:** Specify code to run when execution fails and decide if needs to retry or cancel next retries.
+  - **OnTerminate:** Specify code to execute when task finishes.
+  - **OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnException:** Specify code to execute when task generates an exception.
+- *Define fail/retry policies:*
+  - **RetryForever:** If execution fails, code will be retry forever until task executes ok.
+  - **Retry:** If execution fails, code will be retry x times. Allow define array of milliseconds as wait time.
+  - **WaitAndRetry:** If execution fails, code will be retry x times, and wait x millisecons before each retry. You can specify number of retries and wait time between retries.
+- *Begin execution:*
+  - **Start:** Starts tasks execution.
 ```delphi
     backgroundtasks := TBackgroundTasks.Create(10);
     for i := 1 to 100 do
@@ -353,6 +421,7 @@ TAnonymousThread.Execute(
                                 cout('task %d started',[TMyTask(task.Param[0].AsObject).Id],etDebug);
                                 TMyTask(task.Param[0].AsObject).DoJob;
                               end
+							).WaitAndRetry([250,2000,10000])
                             ).OnException(
                               procedure(task : ITask; aException : Exception)
                               begin
@@ -368,33 +437,40 @@ TAnonymousThread.Execute(
     end;
     backgroundtasks.Start;
 ```
-- **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date. Use AddTask_Sync, OnTerminate_Sync and OnExpired_Sync if code needs to update UI.
+- **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date and fail and retry control policies. Use AddTask_Sync, OnTerminate_Sync and OnExpired_Sync if code needs to update UI.
 You can assign anonymous methods to execute, exception, terminate and expiration events.
 - *Add a task to execute:*
-  - *AddTask:* Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
-  - *AddTask_Sync:* Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
+  - **AddTask:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
+  - **AddTask_Sync:** Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
+  - **SetParameter:** Defines values or objects needed by your task. Every parameter will be accesible into anomymous methods defines as task[<name>] or task.[index]
 - *Define events to control:*
-  - *OnTerminate:* Specify code to execute when task finishes.
-  - *OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
-  - *OnExpire:* Specify code to execute when task expiration reached or task was cancelled.
-  - *OnExpire_Sync:* Like OnExpire but runs code with synchronized thread method (avoids problems if your code updates UI).
-  - *OnException:* Specify code to execute when task generates an exception.
+  - **OnInitialize:** Specify code to run before main execute task (this code only runs one time, OnExecute can be retried more than one time)
+  - **OnRetry:** Specify code to run when execution fails and decide if needs to retry or cancel next retries.
+  - **OnTerminate:** Specify code to execute when task finishes.
+  - **OnTerminate_Sync:** Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnExpire:** Specify code to execute when task expiration reached or task was cancelled.
+  - **OnExpire_Sync:** Like OnExpire but runs code with synchronized thread method (avoids problems if your code updates UI).
+  - **OnException:** Specify code to execute when task generates an exception.
 - *Define when to start task:*
-  - *StartNow:* Start task immediately.
-  - *StartAt:* Date and time to start task. 
-  - *StartTodayAt:* Start task today at defined time.
-  - *StartTomorrowAt:* Start task tomorrow at defined time.
-  - *StartOnDayChange:* Start task when day changes.
-  - *StartInMinutes:* Start task after x minutes.
-  - *StartInSeconds:* Start task after x seconds.
+  - **StartNow:** Start task immediately.
+  - **StartAt:** Date and time to start task. 
+  - **StartTodayAt:** Start task today at defined time.
+  - **StartTomorrowAt:** Start task tomorrow at defined time.
+  - **StartOnDayChange:** Start task when day changes.
+  - **StartInMinutes:** Start task after x minutes.
+  - **StartInSeconds:** Start task after x seconds.
 - *Define if needs to repeat or not (if not defined a previous StartAt, StartOn, etc, task will be executed immediately):*
-  - *RunOnce:* Task will be executed one time only. 
-  - *RepeatEvery:* Can indicate repeat step over time and expiration date.
-  - *RepeatEveryDay:* Repeat task every day at same hour.
-  - *RepeatEveryWeek:* Repeat task every week at same hour.
+  - **RunOnce:** Task will be executed one time only. 
+  - **RepeatEvery:** Can indicate repeat step over time and expiration date.
+  - **RepeatEveryDay:** Repeat task every day at same hour.
+  - **RepeatEveryWeek:** Repeat task every week at same hour.
+- *Define fail/retry policies:*
+  - **RetryForever:** If execution fails, code will be retry forever until task executes ok.
+  - **Retry:** If execution fails, code will be retry x times.
+  - **WaitAndRetry:** If execution fails, code will be retry x times, and wait x millisecons before each retry. You can specify number of retries and wait time between retries.
 - *Start/Stop scheduler:*
-  - *Start:* Starts scheduler.
-  - *Stop:* Stops scheduler.
+  - **Start:** Starts scheduler.
+  - **Stop:** Stops scheduler.
 ```delphi
 myjob := TMyJob.Create;
 myjob.Name := Format('Run at %s and repeat every 1 second until %s',[DateTimeToStr(ScheduledDate),DateTimeToStr(ExpirationDate)]);
@@ -423,6 +499,22 @@ scheduledtasks.AddTask('Task1',[myjob],True,
                           ).RepeatEvery(1,TTimeMeasure.tmSeconds,ExpirationDate);
 scheduledtasks.Start;
 ```
+
+- **ITask:** Interface passed to every task event of TRunTask, TBackgroundTasks and TScheduledTasks.
+  - **NumWorker:** Return number of worker assigned to execute task.
+  - **Result:** Can store any value type (TFlexValue is like variant type)
+  - **Param[name]:** Can store parameters passed to task or created dynamically into every anonymous methods passed to each event.
+  - **Param[index]:** Can store parameters passed to task or created dynamically into every anonymous methods passed to each event.
+  - **Done:** Return true is task is executed without errors.
+  - **Failed:** Return true is task has failed.
+  - **IdTask:** Task id defined.
+  - **NumRetries:** Number of retries done.
+  - **MaxRetries:** Number of maximum retries allowed before mark task as failed.
+  - **LastException:** Return last exception of a failed task.
+  - **CircuitBreaked:** Return true if max retries has been reached or user cancelled into OnRetry event.
+  - **IsEnabled:** Return status of task.
+
+**Quick.FaultControl:** Manages fail and retry policies, defining max retries, wait time beetween retries and circuit break mecanism.
 
 **Quick.Process:** Manages windows processes.
 ```delphi
@@ -525,8 +617,8 @@ end;
 ```
 
 **Quick.Lists:** Improved lists with indexing or search features.
-- TIndexedObjectList: Allows fast hashed searches by object properties or fields.
-- TSearchObjectList: Allows iteration search by object properties or fields.
+- **TIndexedObjectList:** Allows fast hashed searches by object properties or fields.
+- **TSearchObjectList:** Allows iteration search by object properties or fields.
 ```delphi
 var
    users : TIndexedObjectList<TUser>;
@@ -556,7 +648,7 @@ end;
 ```
 
 **Quick.Arrays:** Improved arrays.
-- TXArray: Array with methods like TList.
+- **TXArray:** Array with methods like TList.
 ```delphi
 var
    users : TXArray<TUser>;
@@ -572,7 +664,7 @@ begin
 end;
 ```
 
-- TFlexArray: Array with methods like TList than can storage different value types into same array.
+- **TFlexArray:** Array with methods like TList than can storage different value types into same array.
 ```delphi
 var
   flexarray : TFlexArray;
@@ -592,7 +684,7 @@ begin
     end;
 end;
 ```
-- TFlexPairArray: Array with methods like TList than can store different value types into same array, and search by item name.
+- **TFlexPairArray:** Array with methods like TList than can store different value types into same array, and search by item name.
 ```delphi
 var
   flexarray : TFlexPairArray;
@@ -614,7 +706,7 @@ end;
 ```
 
 **Quick.YAML:** Yaml object structure.
-- TYamlObject: A Yaml object is and array of YamlValue pairs.
+- **TYamlObject:** A Yaml object is and array of YamlValue pairs.
 ```delphi
   //create Yaml object from yaml text
   yamlobj.ParseYamlValue(aYaml)
@@ -623,12 +715,12 @@ end;
   //display as yaml structure
   Writeln(yamlobj.ToYaml);
 ```
-- TYamlArray: Array of objects or scalars.
+- **TYamlArray:** Array of objects or scalars.
 ```delphi
   yamlarray.AddElement(TYamlPair.Create('Age',30));
   yamlobj.AddPair('myarray',yamlarray);
 ```
-- TYamlPair: Name-Value pair. Value can be object, array or scalar.
+- **TYamlPair:** Name-Value pair. Value can be object, array or scalar.
 ```delphi
   n := yamlobj.GetPair('Name').Value as TYamlInteger;
 ```
@@ -650,6 +742,16 @@ end;
 ```
 
 **Quick.Linq:** Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
+- **From:** Array, XArray or TObjectList to use.
+- **Where:** Expression to search. You can use a dots to define property path.
+- **SelectAll:** Returns an array of objects matching where clause
+- **SelectTop:** Returns top x objects matching where clause.
+- **SelectFirst:** Returns first object matching where clause.
+- **SelectLast:** Returns last object matching where clause.
+- **OrderBy:** Define order of returned list.
+- **Update:** Update fields of matching where clause.
+- **Delete:** Delete objectes matching where clause.
+- **Count:** Return number of elements matching where clause.
 ```delphi
   //Select multi conditional
   for user in TLinq<TUser>.From(userslist).Where('(Name = ?) OR (SurName = ?) OR (SurName = ?)',['Peter','Smith','Huan']).Select do
