@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 22/06/2018
+  Modified    : 30/08/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -89,6 +89,7 @@ type
     property Mail : TMailMessage read fMail write fMail;
     function SendMail: Boolean; overload;
     function SendMail(aMail : TMailMessage) : Boolean; overload;
+    function SendEmail(const aFromEmail,aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean; overload;
     function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean; overload;
   end;
 
@@ -136,7 +137,7 @@ end;
 
 constructor TSMTP.Create(const cHost : string; cPort : Integer; cUseSSL : Boolean = False);
 begin
-  inherited Create;
+  Create;
   Host := cHost;
   Port := cPort;
   fUseSSL := cUseSSL;
@@ -148,13 +149,19 @@ begin
   inherited;
 end;
 
+function TSMTP.SendEmail(const aFromEmail, aFromName, aSubject, aTo, aCC, aBC, aBody: string): Boolean;
+begin
+  fMail.From := fMail.From;
+  Result := SendEmail(aFromName,aSubject,aTo,aCC,aBC,aBody);
+end;
+
 function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean;
 var
   mail : TMailMessage;
 begin
   mail := TMailMessage.Create;
   try
-    Mail.From := fMail.fFrom;
+    Mail.From := fMail.From;
     Mail.SenderName := aFromName;
     Mail.Subject := aSubject;
     Mail.Body := aBody;
