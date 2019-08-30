@@ -15,12 +15,12 @@ uses
   Quick.Console;
 
 type
-  TTest = class
-    class procedure Option1;
-    class procedure Option2;
-    class procedure Option3;
-    class procedure Option4;
-    class procedure Option5;
+  TTest = record
+    procedure Option1;
+    procedure Option2;
+    procedure Option3;
+    procedure Option4;
+    procedure Option5;
   end;
 
 var
@@ -31,27 +31,27 @@ var
 
 { TTest }
 
-class procedure TTest.Option1;
+procedure TTest.Option1;
 begin
   coutXY(10,10,'Option 1 pressed',etInfo);
 end;
 
-class procedure TTest.Option2;
+procedure TTest.Option2;
 begin
   coutXY(10,10,'Option 2 pressed',etInfo);
 end;
 
-class procedure TTest.Option3;
+procedure TTest.Option3;
 begin
   coutXY(10,10,'Option 3 pressed',etInfo);
 end;
 
-class procedure TTest.Option4;
+procedure TTest.Option4;
 begin
   coutXY(10,10,'Option 4 pressed',etInfo);
 end;
 
-class procedure TTest.Option5;
+procedure TTest.Option5;
 begin
   coutXY(10,10,'Option 5 pressed',etInfo);
 end;
@@ -73,8 +73,6 @@ begin
                                    coutXY(10,10,'Option 5 pressed',etInfo);
                                  end);
                                  {$ENDIF}
-
-    for i := 0 to 30 do writeln('hola que tal');
 
     conmenu.WaitForKeys;
     conmenu.Free;
