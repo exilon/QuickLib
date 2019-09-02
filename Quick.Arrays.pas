@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 24/03/2019
-  Modified    : 11/04/2019
+  Modified    : 31/08/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -79,9 +79,12 @@ type
   TPair = record
     Name : string;
     Value : string;
+    constructor Create(const aName, aValue : string);
   end;
 
-  TPairArray = TXArray<TPair>;
+  TPairArray = TArray<TPair>;
+
+  TPairXArray = TXArray<TPair>;
 
   TFlexArray = TXArray<TFlexValue>;
 
@@ -235,6 +238,8 @@ end;
 
 function TFlexPairArrayHelper.Add(aFlexPair: TFlexPair): Integer;
 begin
+  SetLength(Self,Length(Self)+1);
+  Self[High(Self)] := aFlexPair;
   Result := High(Self);
 end;
 
@@ -281,6 +286,14 @@ begin
       Exit(True);
     end;
   end;
+end;
+
+{ TPair }
+
+constructor TPair.Create(const aName, aValue: string);
+begin
+  Name := aName;
+  Value := aValue;
 end;
 
 end.
