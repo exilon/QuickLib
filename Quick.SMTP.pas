@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 30/08/2018
+  Modified    : 02/09/2018
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -151,7 +151,7 @@ end;
 
 function TSMTP.SendEmail(const aFromEmail, aFromName, aSubject, aTo, aCC, aBC, aBody: string): Boolean;
 begin
-  fMail.From := fMail.From;
+  fMail.From := aFromEmail;
   Result := SendEmail(aFromName,aSubject,aTo,aCC,aBC,aBody);
 end;
 
@@ -159,10 +159,12 @@ function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : 
 var
   mail : TMailMessage;
 begin
+  if fMail.From.IsEmpty then raise Exception.Create('Email sender not specified!');
   mail := TMailMessage.Create;
   try
     Mail.From := fMail.From;
-    Mail.SenderName := aFromName;
+    if aFromName.IsEmpty then Mail.SenderName := fMail.From
+      else Mail.SenderName := aFromName;
     Mail.Subject := aSubject;
     Mail.Body := aBody;
     Mail.Recipient := aTo;
