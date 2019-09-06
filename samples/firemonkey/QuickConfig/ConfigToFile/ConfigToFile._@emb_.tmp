@@ -1,7 +1,0 @@
-ConfigToFile.app\..\ConfigToFile.entitlements
-ConfigToFile.app\Contents\MacOS\ConfigToFile
-ConfigToFile.app\Contents\Resources\ConfigToFile.icns
-ConfigToFile.app\Contents\MacOS\libcgsqlite3.dylib
-ConfigToFile.app\Contents\MacOS\libcgunwind.1.0.dylib
-ConfigToFile.app\Contents\Info.plist
-ConfigToFile.app\Contents\MacOS\ConfigToFile.rsm
