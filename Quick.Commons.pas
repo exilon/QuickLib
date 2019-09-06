@@ -216,7 +216,7 @@ type
   //change Date of a DateTime
   function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
   //returns n times a char
-  function FillStr(const C : Char; const Count : Byte) : string;
+  function FillStr(const C : Char; const Count : Integer) : string;
   //checks if string exists in array of string
   function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
   //checks if integer exists in array of integer
@@ -616,9 +616,9 @@ begin
   Result := EncodeDateTime(aYear,aMonth,aDay,h,m,s,0);
 end;
 
-function FillStr(const C : Char; const Count : Byte) : string;
+function FillStr(const C : Char; const Count : Integer) : string;
 var
-  i   : Byte;
+  i   : Integer;
 begin
   Result := '';
   for i := 1 to Count do Result := Result + C;
