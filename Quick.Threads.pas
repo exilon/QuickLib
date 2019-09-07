@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pï¿½rez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Threads
   Description : Thread safe collections
-  Author      : Kike Pï¿½rez
+  Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 22/08/2019
+  Modified    : 07/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -210,6 +210,7 @@ type
 
   TTimeMeasure = (tmDays, tmHours, tmMinutes, tmSeconds, tmMilliseconds);
 
+  ETaskAddError = class(Exception);
   ETaskInitializationError = class(Exception);
   ETaskExecutionError = class(Exception);
   ETaskParamError = class(Exception);
@@ -521,9 +522,9 @@ type
     fNumPushedTasks : Int64;
     function GetTaskQueue : Cardinal;
   public
-    constructor Create(aConcurrentWorkers : Integer; aMaxQueue : Integer = 100);
+    constructor Create(aConcurrentWorkers : Integer; aInitialQueueSize : Integer = 100);
     destructor Destroy; override;
-    property MaxQueue : Integer read fMaxQueue;
+    property MaxQueue : Integer read fMaxQueue write fMaxQueue;
     property InsertTimeout : Cardinal read fInsertTimeout write fInsertTimeout;
     property ExtractTimeout : Cardinal read fExtractTimeout write fExtractTimeout;
     property TaskQueued : Cardinal read GetTaskQueue;
@@ -901,6 +902,7 @@ function TThreadedQueueList<T>.PushItem(const AItem: T; var AQueueSize: Integer)
 begin
   FQueueLock.Enter;
   try
+    if FQueueSize >= High(FQueue) then Grow(10);
     Result := wrSignaled;
     //while (Result = wrSignaled) and (fQueueSize = fQueue.Count) and not fShutDown do
     //begin
@@ -1426,14 +1428,14 @@ begin
   fTaskQueue.Clear;
 end;
 
-constructor TBackgroundTasks.Create(aConcurrentWorkers : Integer; aMaxQueue : Integer = 100);
+constructor TBackgroundTasks.Create(aConcurrentWorkers : Integer; aInitialQueueSize : Integer = 100);
 begin
-  fMaxQueue := aMaxQueue;
+  fMaxQueue := 0;
   fConcurrentWorkers := aConcurrentWorkers;
   fInsertTimeout := INFINITE;
   fExtractTimeout := 5000;
   fNumPushedTasks := 0;
-  fTaskQueue := TThreadedQueueCS<IWorkTask>.Create(fMaxQueue,fInsertTimeout,fExtractTimeout);
+  fTaskQueue := TThreadedQueueCS<IWorkTask>.Create(aInitialQueueSize,fInsertTimeout,fExtractTimeout);
 end;
 
 destructor TBackgroundTasks.Destroy;
@@ -1461,6 +1463,8 @@ function TBackgroundTasks.AddTask(aParamArray : array of const; aOwnedParams : B
 var
   worktask : IWorkTask;
 begin
+  if (fMaxQueue > 0) and (fTaskQueue.QueueSize >= fMaxQueue) then raise ETaskAddError.Create('Max queue reached: Task cannot be added');
+
   worktask := TWorkTask.Create(aParamArray,aOwnedParams,aTaskProc);
   Inc(fNumPushedTasks);
   worktask.SetIdTask(fNumPushedTasks);
