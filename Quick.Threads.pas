@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pï¿½rez
 
   Unit        : Quick.Threads
   Description : Thread safe collections
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.5
   Created     : 09/03/2018
   Modified    : 22/08/2019
@@ -68,7 +68,7 @@ type
     FPushTimeout, FPopTimeout: Cardinal;
     FTotalItemsPushed, FTotalItemsPopped: Cardinal;
   public
-    constructor Create(AQueueDepth: Integer = 10; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
+    constructor Create(AQueueDepth: Integer = 16; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
     destructor Destroy; override;
     procedure Grow(ADelta: Integer);
     function PushItem(const AItem: T): TWaitResult; overload;
@@ -606,9 +606,11 @@ begin
   {$ENDIF}
 end;
 
-constructor TThreadedQueueCS<T>.Create(AQueueDepth: Integer = 10; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
+constructor TThreadedQueueCS<T>.Create(AQueueDepth: Integer = 16; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
 begin
   inherited Create;
+  if AQueueDepth < 10 then raise Exception.Create('QueueDepth will be 10 or greater value');
+
   SetLength(FQueue, AQueueDepth);
   FQueueLock := TCriticalSection.Create;
   {$IFDEF FPC}
@@ -715,6 +717,12 @@ function TThreadedQueueCS<T>.PushItem(const AItem: T; var AQueueSize: Integer): 
 begin
   FQueueLock.Enter;
   try
+      if FQueueSize >= High(FQueue) then
+  begin
+    if FQueueSize < 512 then Grow(FQueueSize * 2)
+      else Grow(10);
+  end;
+
     Result := wrSignaled;
     while (Result = wrSignaled) and (FQueueSize = Length(FQueue)) and not FShutDown do
     begin
