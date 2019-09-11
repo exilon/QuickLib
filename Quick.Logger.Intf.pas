@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 31/08/2019
+  Modified    : 11/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,7 +34,11 @@ unit Quick.Logger.Intf;
 interface
 
 uses
+  {$IFNDEF FPC}
   System.SysUtils;
+  {$ELSE}
+  SysUtils;
+  {$ENDIF}
 
 type
   ILogger = interface
