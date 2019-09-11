@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 17/05/2018
-  Modified    : 21/01/2019
+  Modified    : 11/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -86,7 +86,8 @@ implementation
 procedure TSystemInfo.GetInfo;
 begin
   {$IFNDEF NEXTGEN}
-  fAppName := ExtractFilenameWithoutExt(ParamStr(0));
+  if IsLibrary then fAppName := ExtractFileNameWithoutExt(GetModuleName(0))
+    else fAppName := ExtractFilenameWithoutExt(ParamStr(0));
   {$ELSE}
     {$IFDEF ANDROID}
     fAppName := JStringToString(SharedActivityContext.getPackageName);
@@ -96,15 +97,16 @@ begin
   {$ENDIF}
   fAppVersion := GetAppVersionFullStr;
   {$IFNDEF NEXTGEN}
-  fAppPath := ExtractFilePath(ParamStr(0));
+  if IsLibrary then fAppPath := ExtractFilePath(GetModuleName(0))
+    else fAppPath := ExtractFilePath(ParamStr(0));
   {$ELSE}
   fAppPath := TPath.GetDocumentsPath;
   {$ENDIf}
-  {$IFDEF DELPHILINUX}
-  fUserName := GetLoggedUserName;
-  {$ELSE}
-  fUserName := Trim(GetLoggedUserName);
-  {$ENDIF}
+    {$IFDEF DELPHILINUX}
+    fUserName := String.Copy(GetLoggedUserName);
+    {$ELSE}
+    fUserName := Trim(GetLoggedUserName);
+    {$ENDIF}
   fHostName := GetComputerName;
   fOSVersion := GetOSVersion;
   fCPUCores := CPUCount;
