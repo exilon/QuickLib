@@ -122,6 +122,15 @@ begin
 end;
 
 initialization
-  SystemInfo.GetInfo;
+  try
+    SystemInfo.GetInfo;
+  except
+    {$IFDEF MSWINDOWS}
+    on E : Exception do
+    begin
+      if (not IsLibrary) and (not IsService) then raise Exception.CreateFmt('Error getting SystemInfo: %s',[e.Message]);
+    end;
+    {$ENDIF}
+  end;
 
 end.
