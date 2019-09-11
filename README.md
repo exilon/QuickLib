@@ -52,6 +52,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 
 **Updates:**
 
+* NEW: Now included on RAD Studio GetIt package manager.
 * NEW: Background & Scheduled task with retry policies
 * NEW: RunTask, FaultControl
 * NEW: Linq over generic lists and arrays.
@@ -66,6 +67,14 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * NEW: QuickConfigJson reload if config file changed
 * NEW: First version with OSX/IOS partial support
 * NEW: Delphinus-Support
+
+**Installation:**
+----------
+* **From package managers:**
+1. Search "QuickLib" on Delphinus or GetIt package managers and click *Install*
+* **From Github:**
+1. Clone Github repository or download zip file and extract it.
+2. Add QuickLib folder to your path libraries on Delphi IDE.
 
 **Documentation:**
 ----------
