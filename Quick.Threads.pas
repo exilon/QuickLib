@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 07/09/2019
+  Modified    : 11/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -718,11 +718,11 @@ function TThreadedQueueCS<T>.PushItem(const AItem: T; var AQueueSize: Integer): 
 begin
   FQueueLock.Enter;
   try
-      if FQueueSize >= High(FQueue) then
-  begin
-    if FQueueSize < 512 then Grow(FQueueSize * 2)
-      else Grow(10);
-  end;
+    if FQueueSize >= High(FQueue) then
+    begin
+      if FQueueSize < 512 then Grow(FQueueSize * 2)
+        else Grow(10);
+    end;
 
     Result := wrSignaled;
     while (Result = wrSignaled) and (FQueueSize = Length(FQueue)) and not FShutDown do
@@ -902,7 +902,7 @@ function TThreadedQueueList<T>.PushItem(const AItem: T; var AQueueSize: Integer)
 begin
   FQueueLock.Enter;
   try
-    if FQueueSize >= High(FQueue) then Grow(10);
+    if FQueueSize >= fQueue.Count then Grow(10);
     Result := wrSignaled;
     //while (Result = wrSignaled) and (fQueueSize = fQueue.Count) and not fShutDown do
     //begin
@@ -1120,8 +1120,6 @@ begin
 end;
 
 destructor TTask.Destroy;
-var
-  i : Integer;
 begin
   fFaultControl.Free;
   //free passed params
