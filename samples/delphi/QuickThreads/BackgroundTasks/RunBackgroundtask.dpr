@@ -81,6 +81,7 @@ begin
     backgroundtasks.Start;
     cout('Running tasks in background!',etInfo);
     ConsoleWaitForEnterKey;
+    coutFmt('Task gueue size = %d',[backgroundtasks.TaskQueued],etInfo);
     backgroundtasks.Free;
     cout('finished tasks!!!!',etInfo);
   except

@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 22/08/2019
+  Modified    : 11/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -68,7 +68,7 @@ type
     FPushTimeout, FPopTimeout: Cardinal;
     FTotalItemsPushed, FTotalItemsPopped: Cardinal;
   public
-    constructor Create(AQueueDepth: Integer = 10; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
+    constructor Create(AQueueDepth: Integer = 16; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
     destructor Destroy; override;
     procedure Grow(ADelta: Integer);
     function PushItem(const AItem: T): TWaitResult; overload;
@@ -210,6 +210,7 @@ type
 
   TTimeMeasure = (tmDays, tmHours, tmMinutes, tmSeconds, tmMilliseconds);
 
+  ETaskAddError = class(Exception);
   ETaskInitializationError = class(Exception);
   ETaskExecutionError = class(Exception);
   ETaskParamError = class(Exception);
@@ -521,9 +522,9 @@ type
     fNumPushedTasks : Int64;
     function GetTaskQueue : Cardinal;
   public
-    constructor Create(aConcurrentWorkers : Integer; aMaxQueue : Integer = 100);
+    constructor Create(aConcurrentWorkers : Integer; aInitialQueueSize : Integer = 100);
     destructor Destroy; override;
-    property MaxQueue : Integer read fMaxQueue;
+    property MaxQueue : Integer read fMaxQueue write fMaxQueue;
     property InsertTimeout : Cardinal read fInsertTimeout write fInsertTimeout;
     property ExtractTimeout : Cardinal read fExtractTimeout write fExtractTimeout;
     property TaskQueued : Cardinal read GetTaskQueue;
@@ -606,9 +607,11 @@ begin
   {$ENDIF}
 end;
 
-constructor TThreadedQueueCS<T>.Create(AQueueDepth: Integer = 10; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
+constructor TThreadedQueueCS<T>.Create(AQueueDepth: Integer = 16; PushTimeout: Cardinal = INFINITE; PopTimeout: Cardinal = INFINITE);
 begin
   inherited Create;
+  if AQueueDepth < 10 then raise Exception.Create('QueueDepth will be 10 or greater value');
+
   SetLength(FQueue, AQueueDepth);
   FQueueLock := TCriticalSection.Create;
   {$IFDEF FPC}
@@ -715,6 +718,12 @@ function TThreadedQueueCS<T>.PushItem(const AItem: T; var AQueueSize: Integer): 
 begin
   FQueueLock.Enter;
   try
+    if FQueueSize >= High(FQueue) then
+    begin
+      if FQueueSize < 512 then Grow(FQueueSize * 2)
+        else Grow(10);
+    end;
+
     Result := wrSignaled;
     while (Result = wrSignaled) and (FQueueSize = Length(FQueue)) and not FShutDown do
     begin
@@ -893,6 +902,7 @@ function TThreadedQueueList<T>.PushItem(const AItem: T; var AQueueSize: Integer)
 begin
   FQueueLock.Enter;
   try
+    if FQueueSize >= fQueue.Count then Grow(10);
     Result := wrSignaled;
     //while (Result = wrSignaled) and (fQueueSize = fQueue.Count) and not fShutDown do
     //begin
@@ -1110,8 +1120,6 @@ begin
 end;
 
 destructor TTask.Destroy;
-var
-  i : Integer;
 begin
   fFaultControl.Free;
   //free passed params
@@ -1418,14 +1426,14 @@ begin
   fTaskQueue.Clear;
 end;
 
-constructor TBackgroundTasks.Create(aConcurrentWorkers : Integer; aMaxQueue : Integer = 100);
+constructor TBackgroundTasks.Create(aConcurrentWorkers : Integer; aInitialQueueSize : Integer = 100);
 begin
-  fMaxQueue := aMaxQueue;
+  fMaxQueue := 0;
   fConcurrentWorkers := aConcurrentWorkers;
   fInsertTimeout := INFINITE;
   fExtractTimeout := 5000;
   fNumPushedTasks := 0;
-  fTaskQueue := TThreadedQueueCS<IWorkTask>.Create(fMaxQueue,fInsertTimeout,fExtractTimeout);
+  fTaskQueue := TThreadedQueueCS<IWorkTask>.Create(aInitialQueueSize,fInsertTimeout,fExtractTimeout);
 end;
 
 destructor TBackgroundTasks.Destroy;
@@ -1453,6 +1461,8 @@ function TBackgroundTasks.AddTask(aParamArray : array of const; aOwnedParams : B
 var
   worktask : IWorkTask;
 begin
+  if (fMaxQueue > 0) and (fTaskQueue.QueueSize >= fMaxQueue) then raise ETaskAddError.Create('Max queue reached: Task cannot be added');
+
   worktask := TWorkTask.Create(aParamArray,aOwnedParams,aTaskProc);
   Inc(fNumPushedTasks);
   worktask.SetIdTask(fNumPushedTasks);
