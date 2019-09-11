@@ -1213,7 +1213,12 @@ begin
         begin
           if (aValue.TypeInfo = System.TypeInfo(Boolean)) then
           begin
+            {$IFDEF DELPHIRX10_UP}
             Result.JsonValue := TJSONBool.Create(aValue.AsBoolean);
+            {$ELSE}
+            if aValue.AsBoolean then Result.JsonValue := TJsonTrue.Create
+              else Result.JsonValue := TJsonFalse.Create;
+            {$ENDIF}
           end
           else
           begin
@@ -1515,7 +1520,11 @@ function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObje
 var
   json: TJSONObject;
 begin
+  {$If Defined(FPC) OR Defined(DELPHIRX10_UP)}
   json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
+  {$ELSE}
+  json := TJsonObject.ParseJSONValue(TEncoding.UTF8.GetBytes(aJson),0,True) as TJSONObject;
+  {$ENDIF}
   try
     Result := fRTTIJson.DeserializeClass(aType,json);
   finally
@@ -1532,8 +1541,12 @@ end;
 function TJsonSerializer.JsonToObject(aObject: TObject; const aJson: string): TObject;
 var
   json: TJSONObject;
-begin
-  json := TJsonObject(TJSONObject.ParseJSONValue(aJson,True));
+begin;
+  {$If Defined(FPC) OR Defined(DELPHIRX10_UP)}
+  json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
+  {$ELSE}
+  json := TJsonObject.ParseJSONValue(TEncoding.UTF8.GetBytes(aJson),0,True) as TJSONObject;
+  {$ENDIF}
   try
     Result := fRTTIJson.DeserializeObject(aObject,json);
   finally

@@ -1150,7 +1150,11 @@ begin
       begin
         fTaskStatus := TWorkTaskStatus.wtsException;
         {$IFNDEF FPC}
-        fFaultControl.FailedExecution(AcquireExceptionObject as Exception);
+          {$IF DELPHIRX10_UP}
+          fFaultControl.FailedExecution(AcquireExceptionObject as Exception);
+          {$ELSE}
+          fFaultControl.FailedExecution(Exception(AcquireExceptionObject));
+          {$ENDIF}
         {$ELSE}
         fFaultControl.FailedExecution(Exception(AcquireExceptionObject));
         {$ENDIF}
@@ -2167,7 +2171,11 @@ begin
     on E : Exception do
     begin
       {$IFNDEF FPC}
-      if Assigned(fExceptionProc) then fExceptionProc(AcquireExceptionObject as Exception)
+        {$IF DELPHIRX10_UP}
+        if Assigned(fExceptionProc) then fExceptionProc(AcquireExceptionObject as Exception)
+        {$ELSE}
+        if Assigned(fExceptionProc) then fExceptionProc(Exception(AcquireExceptionObject))
+        {$ENDIF}
       {$ELSE}
       if Assigned(fExceptionProc) then fExceptionProc(Exception(AcquireExceptionObject))
       {$ENDIF}
