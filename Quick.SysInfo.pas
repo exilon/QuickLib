@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 17/05/2018
-  Modified    : 11/09/2019
+  Modified    : 14/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -39,6 +39,10 @@ interface
 
 uses
   SysUtils,
+  Types,
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
   {$IFNDEF FPC}
     {$IFDEF NEXTGEN}
     System.IOUtils,
@@ -64,16 +68,18 @@ type
     fUserName : string;
     fOSVersion : string;
     fCPUCores : Integer;
+    fProcessId : DWORD;
     function GetOSVersion : string;
   public
     procedure GetInfo;
-    property AppName : string read fAppName write fAppName;
-    property AppVersion : string read fAppVersion write fAppVersion;
-    property AppPath : string read fAppPath write fAppPath;
-    property HostName : string read fHostName write fHostName;
-    property UserName : string read fUserName write fUserName;
-    property OsVersion : string read fOSVersion write fOSVersion;
-    property CPUCores : Integer read fCPUCores write fCPUCores;
+    property AppName : string read fAppName;
+    property AppVersion : string read fAppVersion;
+    property AppPath : string read fAppPath;
+    property HostName : string read fHostName;
+    property UserName : string read fUserName;
+    property OsVersion : string read fOSVersion;
+    property CPUCores : Integer read fCPUCores;
+    property ProcessId : DWORD read fProcessId;
   end;
 
 var
@@ -110,6 +116,11 @@ begin
   fHostName := GetComputerName;
   fOSVersion := GetOSVersion;
   fCPUCores := CPUCount;
+  {$IFDEF MSWINDOWS}
+  fProcessId := GetCurrentProcessID;
+  {$ELSE}
+
+  {$ENDIF}
 end;
 
 function TSystemInfo.GetOSVersion: string;
