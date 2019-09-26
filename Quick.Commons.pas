@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 14/07/2017
-  Modified    : 27/08/2019
+  Modified    : 15/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -174,6 +174,8 @@ type
 
   //generates a random password with complexity options
   function RandomPassword(const PasswordLength : Integer; Complexity : TPasswordComplexity = [pfIncludeNumbers,pfIncludeSigns]) : string;
+  //generates a random string
+  function RandomString(const aLength: Integer) : string;
   //extracts file extension from a filename
   function ExtractFileNameWithoutExt(const FileName: string): string;
   //converts a Unix path to Windows path
@@ -426,6 +428,21 @@ begin
       Result[Random(PasswordLength)+1] := PassSigns[Random(Length(PassSigns))+1];
       Inc(NumSigns);
     until NumSigns = MinSigns;
+  end;
+end;
+
+function RandomString(const aLength: Integer) : string;
+const
+  chars : string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+var
+  i : Integer;
+  clong : Integer;
+begin
+  clong := High(chars);
+  SetLength(Result, aLength);
+  for i := 1 to aLength do
+  begin
+    Result[i] := chars[Random(clong) + 1];
   end;
 end;
 
