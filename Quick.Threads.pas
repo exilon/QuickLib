@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 11/09/2019
+  Modified    : 14/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -720,8 +720,8 @@ begin
   try
     if FQueueSize >= High(FQueue) then
     begin
-      if FQueueSize < 512 then Grow(FQueueSize * 2)
-        else Grow(10);
+      if FQueueSize < 1024 then Grow(FQueueSize)
+        else Grow(FQueueSize Div 2);
     end;
 
     Result := wrSignaled;
