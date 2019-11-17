@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 24/03/2019
-  Modified    : 31/08/2019
+  Modified    : 16/10/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -84,11 +84,26 @@ type
 
   TPairArray = TArray<TPair>;
 
+  PPairArray = ^TPairArray;
+
   TPairXArray = TXArray<TPair>;
 
   TFlexArray = TXArray<TFlexValue>;
 
   TFlexPairArray = TArray<TFlexPair>;
+
+  TPairArrayHelper = record helper for TPairArray
+  public
+    function GetValue(const aName : string) : string;
+    function GetPair(const aName : string) : TPair;
+    function Add(aPair : TPair) : Integer; overload;
+    function Add(const aName, aValue : string) : Integer; overload;
+    procedure AddOrUpdate(const aName, aValue : string);
+    function Exists(const aName : string) : Boolean;
+    function Remove(const aName : string) : Boolean;
+    function Count : Integer;
+    property Items[const aName : string] : string read GetValue write AddOrUpdate;
+  end;
 
   TFlexPairArrayHelper = record helper for TFlexPairArray
   public
@@ -96,11 +111,12 @@ type
     function GetPair(const aName : string) : TFlexPair;
     function Add(aFlexPair : TFlexPair) : Integer; overload;
     function Add(const aName: string; aValue : TFlexValue): Integer; overload;
+    procedure AddOrUpdate(const aName : string; aValue : TFlexValue);
     function Exists(const aName : string) : Boolean;
     function Remove(const aName : string) : Boolean;
     function Count : Integer;
+    property Items[const aName : string] : TFlexValue read GetValue write AddOrUpdate;
   end;
-
 
 implementation
 
@@ -268,6 +284,7 @@ function TFlexPairArrayHelper.GetValue(const aName: string): TFlexValue;
 var
   i : Integer;
 begin
+  Result.Clear;
   for i := Low(Self) to High(Self) do
   begin
     if CompareText(Self[i].Name,aName) = 0 then Exit(Self[i].Value);
@@ -286,6 +303,23 @@ begin
       Exit(True);
     end;
   end;
+  Result := False;
+end;
+
+procedure TFlexPairArrayHelper.AddOrUpdate(const aName : string; aValue : TFlexValue);
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i].Name,aName) = 0 then
+    begin
+      Self[i].Value := aValue;
+      Exit;
+    end;
+  end;
+  //if not exists add it
+  Self.Add(aName,aValue);
 end;
 
 { TPair }
@@ -294,6 +328,91 @@ constructor TPair.Create(const aName, aValue: string);
 begin
   Name := aName;
   Value := aValue;
+end;
+
+{ TPairArrayHelper }
+
+function TPairArrayHelper.Add(aPair: TPair): Integer;
+begin
+  SetLength(Self,Length(Self)+1);
+  Self[High(Self)] := aPair;
+  Result := High(Self);
+end;
+
+function TPairArrayHelper.Add(const aName, aValue: string): Integer;
+begin
+  SetLength(Self,Length(Self)+1);
+  Self[High(Self)].Name := aName;
+  Self[High(Self)].Value := aValue;
+  Result := High(Self);
+end;
+
+procedure TPairArrayHelper.AddOrUpdate(const aName, aValue: string);
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i].Name,aName) = 0 then
+    begin
+      Self[i].Value := aValue;
+      Exit;
+    end;
+  end;
+  //if not exists add it
+  Self.Add(aName,aValue);
+end;
+
+function TPairArrayHelper.Count: Integer;
+begin
+  Result := High(Self) + 1;
+end;
+
+function TPairArrayHelper.Exists(const aName: string): Boolean;
+var
+  i : Integer;
+begin
+  Result := False;
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i].Name,aName) = 0 then Exit(True)
+  end;
+end;
+
+function TPairArrayHelper.GetPair(const aName: string): TPair;
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i].Name,aName) = 0 then Exit(Self[i]);
+  end;
+end;
+
+function TPairArrayHelper.GetValue(const aName: string): string;
+var
+  i : Integer;
+begin
+  Result := '';
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i].Name,aName) = 0 then Exit(Self[i].Value);
+  end;
+end;
+
+function TPairArrayHelper.Remove(const aName: string): Boolean;
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i].Name,aName) = 0 then
+    begin
+      System.Delete(Self,i,1);
+      Exit(True);
+    end;
+  end;
+  Result := False;
 end;
 
 end.

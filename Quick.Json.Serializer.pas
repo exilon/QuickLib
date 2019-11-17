@@ -5,9 +5,9 @@
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
-  Version     : 1.8
+  Version     : 1.10
   Created     : 21/05/2018
-  Modified    : 12/04/2019
+  Modified    : 10/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -53,6 +53,7 @@ uses
     {$IFDEF DELPHIRX103_UP}
     System.Generics.Collections,
     {$ENDIF}
+    Variants,
   {$ENDIF}
   DateUtils,
   Quick.Commons,
@@ -88,6 +89,7 @@ type
     function JsonToObject(aType: TClass; const aJson: string): TObject; overload;
     function JsonToObject(aObject: TObject; const aJson: string): TObject; overload;
     function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
+    function ValueToJson(aValue : TValue; aIndent : Boolean = False) : string;
   end;
 
   TSerializeLevel = (slPublicProperty, slPublishedProperty);
@@ -143,6 +145,7 @@ type
     function Serialize(const aName : string; aValue : TValue) : TJSONPair;
     {$ENDIF}
     function Serialize(aObject : TObject) : TJSONObject; overload;
+    function GetJsonPairValueByName(aJson : TJSONObject; const aName : string) : TJsonValue;
     function GetJsonPairByName(aJson : TJSONObject; const aName : string) : TJSONPair;
   end;
 
@@ -165,6 +168,13 @@ type
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
     function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
     function ObjectToJsonString(aObject : TObject; aIndent : Boolean = False): string;
+    function ValueToJson(aValue : TValue; aIndent : Boolean = False) : string;
+    function ValueToJsonString(aValue : TValue; aIndent : Boolean = False) : string;
+    function ArrayToJson<T>(aArray : TArray<T>; aIndent : Boolean = False) : string;
+    function ArrayToJsonString<T>(aArray : TArray<T>; aIndent : Boolean = False) : string;
+    {$IFNDEF FPC}
+    function JsonToArray<T>(const aJson : string) : TArray<T>;
+    {$ENDIF}
   end;
 
   PPByte = ^PByte;
@@ -315,7 +325,7 @@ var
   rRec : TRttiRecordType;
   rField : TRttiField;
   rValue : TValue;
-  member : TJSONPair;
+  member : TJsonValue;
   jArray : TJSONArray;
   json : TJSONObject;
   objClass : TClass;
@@ -327,7 +337,7 @@ begin
     begin
       rValue := nil;
       //member := TJSONPair(aJson.GetValue(rField.Name));
-      member := GetJsonPairByName(aJson,rField.Name);
+      member := GetJsonPairValueByName(aJson,rField.Name);
       if member <> nil then
       case rField.FieldType.TypeKind of
         tkDynArray :
@@ -480,7 +490,7 @@ var
   ctx : TRttiContext;
   rType : TRttiType;
   jarray : TJSONArray;
-  member : TJSONPair;
+  member : TJsonValue;
   rvalue : TValue;
   i : Integer;
   rProp : TRttiProperty;
@@ -498,7 +508,7 @@ begin
     ctx.Free;
   end;
 
-  member := GetJsonPairByName(aJson,aName);
+  member := GetJsonPairValueByName(aJson,aName);
   if member = nil then jArray := TJSONObject.ParseJSONValue(aJson.ToJSON) as TJSONArray
     else jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
   try
@@ -546,7 +556,7 @@ var
   rRec : TRttiRecordType;
   rfield : TRttiField;
   rValue : TValue;
-  member : TJSONPair;
+  member : TJsonValue;
   jArray : TJSONArray;
 begin
   rRec := ctx.GetType(aRecord.TypeInfo).AsRecord;
@@ -556,7 +566,7 @@ begin
     begin
       rValue := nil;
       //member := TJSONPair(aJson.GetValue(rField.Name));
-      member := GetJsonPairByName(aJson,aPropertyName);
+      member := GetJsonPairValueByName(aJson,aPropertyName);
       if (member <> nil) and (rField.FieldType.TypeKind = tkDynArray) then
       begin
         jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
@@ -579,7 +589,7 @@ function TRTTIJson.DeserializeProperty(aObject : TObject; const aName : string; 
 var
   rValue : TValue;
   {$IFNDEF FPC}
-  member : TJSONPair;
+  member : TJsonValue;
   {$ELSE}
   member : TJsonObject;
   {$ENDIF}
@@ -591,7 +601,7 @@ begin
     rValue := nil;
     {$IFNDEF FPC}
      //member := TJSONPair(aJson.GetValue(aName));
-     member := GetJsonPairByName(aJson,aName);
+     member := GetJsonPairValueByName(aJson,aName);
     {$ELSE}
     member := TJsonObject(aJson.Find(aName));
     {$ENDIF}
@@ -866,9 +876,31 @@ begin
   Result := aClassName.StartsWith('TXArray');
 end;
 
-function TRTTIJson.GetJsonPairByName(aJson: TJSONObject; const aName: string): TJSONPair;
+function TRTTIJson.GetJsonPairValueByName(aJson: TJSONObject; const aName: string): TJsonValue;
 var
   candidate : TJSONPair;
+  i : Integer;
+begin
+  if fUseJsonCaseSense then
+  begin
+    Result := aJson.GetValue(aName);
+    Exit;
+  end
+  else
+  begin
+    for i := 0 to aJson.Count - 1 do
+    begin
+      candidate := aJson.Pairs[I];
+      if candidate.JsonValue = nil then Exit(nil);
+      if CompareText(candidate.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then
+        Exit(candidate.JsonValue);
+    end;
+  end;
+  Result := nil;
+end;
+
+function TRTTIJson.GetJsonPairByName(aJson: TJSONObject; const aName: string): TJSONPair;
+var
   i : Integer;
 begin
   if fUseJsonCaseSense then
@@ -880,10 +912,9 @@ begin
   begin
     for i := 0 to aJson.Count - 1 do
     begin
-      candidate := aJson.Pairs[I];
-      if candidate.JsonValue = nil then Exit(nil);
-      if CompareText(candidate.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then
-        Exit(TJsonPair(candidate.JsonValue));
+      Result := aJson.Pairs[I];
+      if Result.JsonValue = nil then Exit(nil);
+      if CompareText(Result.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then Exit;
     end;
   end;
   Result := nil;
@@ -1032,10 +1063,7 @@ var
   jpair : TJSONPair;
   ExcludeSerialize : Boolean;
   propertyname : string;
-
-  //listtype : TRttiType;
-  //listprop : TRttiProperty;
-  //listvalue : TValue;
+  propvalue : TValue;
 begin
   if (aObject = nil) then
   begin
@@ -1071,20 +1099,21 @@ begin
             if comment <> '' then Result.AddPair(TJSONPair.Create('#Comment#->'+propertyname,Comment));
             {$ENDIF}
             begin
-              if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
+              propvalue := rProp.GetValue(aObject);
+              if (propvalue.IsObject) and (IsGenericList(propvalue.AsObject)) then
               begin
-                jpair := Serialize(propertyname,GetPropertyValueFromObject(rProp.GetValue(aObject).AsObject,'List'));
+                jpair := Serialize(propertyname,GetPropertyValueFromObject(propvalue.AsObject,'List'));
               end
               {$IFNDEF FPC}
-              else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+              else if (not propvalue.IsObject) and (IsGenericXArray(propvalue{$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
               begin
-                jpair := Serialize(propertyname,GetFieldValueFromRecord(rProp.GetValue(aObject),'fArray'));
+                jpair := Serialize(propertyname,GetFieldValueFromRecord(propvalue,'fArray'));
               end
               {$ENDIF}
               else
               begin
                 {$IFNDEF FPC}
-                jpair := Serialize(propertyname,rProp.GetValue(aObject));
+                jpair := Serialize(propertyname,propvalue);
                 {$ELSE}
                 jpair := Serialize(aObject,rProp.PropertyType.TypeKind,propertyname);
                 {$ENDIF}
@@ -1243,6 +1272,14 @@ begin
             Result.JsonValue := json;
           finally
             ctx.Free;
+          end;
+        end;
+      tkVariant :
+        begin
+          case VarType(aValue.AsVariant) and VarTypeMask of
+            varInteger, varInt64 : Result.JsonValue := TJSONNumber.Create(aValue.AsInteger);
+            varString, varUString, varEmpty : Result.JsonValue := TJSONString.Create(aValue.AsString);
+            varDouble : Result.JsonValue := TJSONNumber.Create(aValue.AsExtended);
           end;
         end;
       tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
@@ -1516,6 +1553,12 @@ begin
   fRTTIJson.UseJsonCaseSense := fUseJsonCaseSense;
 end;
 
+destructor TJsonSerializer.Destroy;
+begin
+  fRTTIJson.Free;
+  inherited;
+end;
+
 function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
 var
   json: TJSONObject;
@@ -1530,12 +1573,6 @@ begin
   finally
     json.Free;
   end;
-end;
-
-destructor TJsonSerializer.Destroy;
-begin
-  fRTTIJson.Free;
-  inherited;
 end;
 
 function TJsonSerializer.JsonToObject(aObject: TObject; const aJson: string): TObject;
@@ -1579,6 +1616,134 @@ begin
     json.Free;
   end;
 end;
+
+{$IFNDEF FPC}
+function TJsonSerializer.ValueToJson(aValue: TValue; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('value',aValue));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.P['value'].ToJSON)
+      else Result := json.P['value'].ToJSON;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ValueToJsonString(aValue: TValue; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('value',aValue));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.P['value'].ToString)
+      else  Result := json.P['value'].ToString;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ArrayToJson<T>(aArray: TArray<T>; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('array',TValue.From<TArray<T>>(aArray)));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.P['array'].ToJSON)
+      else Result := json.P['array'].ToJSON;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ArrayToJsonString<T>(aArray: TArray<T>; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('array',TValue.From<TArray<T>>(aArray)));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.P['array'].ToString)
+      else Result := json.P['array'].ToString;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.JsonToArray<T>(const aJson: string): TArray<T>;
+var
+  jarray: TJSONArray;
+  value : TValue;
+begin;
+  {$If Defined(FPC) OR Defined(DELPHIRX10_UP)}
+  jarray := TJSONObject.ParseJSONValue(aJson,True) as TJSONArray;
+  {$ELSE}
+  jarray := TJsonObject.ParseJSONValue(TEncoding.UTF8.GetBytes(aJson),0,True) as TJSONArray;
+  {$ENDIF}
+  try
+    value := fRTTIJson.DeserializeDynArray(PTypeInfo(TypeInfo(TArray<T>)),nil,jarray);
+    Result := value.AsType<TArray<T>>;
+  finally
+    jarray.Free;
+  end;
+end;
+{$ELSE}
+function TJsonSerializer.ValueToJson(aValue: TValue; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create;
+  json.AddPair(fRTTIJson.Serialize('value',aValue));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.Get('value').ToJSON)
+      else Result := json.Get('value').ToJSON;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ValueToJsonString(aValue: TValue; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create;
+  json.AddPair(fRTTIJson.Serialize('value',aValue));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.Get('value').ToString)
+      else  Result := json.Get('value').ToString;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ArrayToJson<T>(aArray: TArray<T>; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create;
+  json.AddPair(fRTTIJson.Serialize('array',TValue.From<TArray<T>>(aArray)));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.Get('array').ToJSON)
+      else Result := json.Get('array').ToJSON;
+  finally
+    json.Free;
+  end;
+end;
+
+function TJsonSerializer.ArrayToJsonString<T>(aArray: TArray<T>; aIndent: Boolean): string;
+var
+  json: TJSONObject;
+begin
+  json := TJSONObject.Create;
+  json.AddPair(fRTTIJson.Serialize('array',TValue.From<TArray<T>>(aArray)));
+  try
+    if aIndent then Result := TJsonUtils.JsonFormat(json.Get('array').ToString)
+      else Result := json.Get('array').ToString;
+  finally
+    json.Free;
+  end;
+end;
+{$ENDIF}
 
 procedure TJsonSerializer.SetUseEnumNames(const Value: Boolean);
 begin

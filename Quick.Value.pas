@@ -267,6 +267,8 @@ type
     function  IsObject : Boolean; inline;
     function  IsPointer : Boolean; inline;
     function  IsVariant : Boolean; inline;
+    function IsRealInteger : Boolean;
+    function IsRealExtended : Boolean;
     procedure Clear; inline;
     procedure _AddRef; inline;
     procedure _Release; inline;
@@ -908,6 +910,20 @@ end;
 function TFlexValue.IsPointer: Boolean;
 begin
   Result := fDataType = dtPointer;
+end;
+
+function TFlexValue.IsRealExtended: Boolean;
+var
+  i : Extended;
+begin
+  Result := TryStrToFloat(AsString,i);
+end;
+
+function TFlexValue.IsRealInteger: Boolean;
+var
+  i : Int64;
+begin
+  Result := TryStrToInt64(AsString,i);
 end;
 
 function TFlexValue.IsString: Boolean;

@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 27/05/2019
+  Modified    : 29/10/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -47,14 +47,16 @@ type
   private class var
     fCtx : TRttiContext;
   public
-    class function GetType(aTypeInfo : Pointer) : TRttiType;
     {$IFNDEF FPC}
+    class constructor Create;
+    class destructor Destroy;
     class function GetField(aInstance : TObject; const aFieldName : string) : TRttiField; overload;
     class function GetField(aTypeInfo : Pointer; const aFieldName : string) : TRttiField; overload;
     class function FieldExists(aTypeInfo : Pointer; const aFieldName : string) : Boolean;
     class function GetFieldValue(aInstance : TObject; const aFieldName : string) : TValue; overload;
     class function GetFieldValue(aTypeInfo : Pointer; const aFieldName: string) : TValue; overload;
     {$ENDIF}
+    class function GetType(aTypeInfo : Pointer) : TRttiType;
     class function GetProperty(aInstance : TObject; const aPropertyName : string) : TRttiProperty; overload;
     class function GetProperty(aTypeInfo : Pointer; const aPropertyName : string) : TRttiProperty; overload;
     class function GetPropertyPath(aInstance : TObject; const aPropertyPath : string) : TRttiProperty;
@@ -67,6 +69,7 @@ type
     class function GetPropertyValue(aTypeInfo : Pointer; const aPropertyName : string) : TValue; overload;
     {$IFNDEF FPC}
     class function FindClass(const aClassName: string): TClass;
+    class function CreateInstance<T>: T;
     {$ENDIF}
   end;
 
@@ -77,6 +80,36 @@ implementation
 { TRTTIUtils }
 
 {$IFNDEF FPC}
+class constructor TRTTI.Create;
+begin
+  fCtx := TRttiContext.Create;
+end;
+
+class function TRTTI.CreateInstance<T>: T;
+var
+  value: TValue;
+  rtype: TRttiType;
+  rmethod: TRttiMethod;
+  rinstype: TRttiInstanceType;
+begin
+  rtype := fCtx.GetType(TypeInfo(T));
+  for rmethod in rtype.GetMethods do
+  begin
+    if (rmethod.IsConstructor) and (Length(rmethod.GetParameters) = 0) then
+    begin
+      rinstype := rtype.AsInstance;
+      value := rmethod.Invoke(rinstype.MetaclassType,[]);
+      Result := value.AsType<T>;
+      Exit;
+    end;
+  end;
+end;
+
+class destructor TRTTI.Destroy;
+begin
+  fCtx.Free;
+end;
+
 class function TRTTI.FieldExists(aTypeInfo: Pointer; const aFieldName: string): Boolean;
 var
   rtype : TRttiType;

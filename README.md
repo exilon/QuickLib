@@ -9,7 +9,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 **Areas of functionality:**
   
 * **Mapping**: Map fields from a class to other class, copy objects, etc..
-* **Config**: Thread your config as an object and load/save from/to file (Json/Yaml) or Windows Registry.
+* **Config**: Use your config as an object and load/save from/to file (Json/Yaml) or Windows Registry.
 * **Serialization**: Serialize objects to/from json/Yaml.
 * **Scheduling**: Schedule tasks launching as independent threads with retry policies.
 * **Threading**: Simplify run and control of multithread background tasks, Thread-safe Lists, queues, etc
@@ -19,6 +19,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Benchmark**: Time elapsed control and benchmark functions.
 * **Filesystem**: Process and Services control, file modify monitors and helpers, etc...
 * **FailControl**: Fail and Retry policies.
+* **Caching:**: Cache string or objects to retrieve fast later.
 
 **Main units description:**
 
@@ -48,10 +49,13 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Quick.YAML.Serializer:** Serialize/Deserialize object from/to Yaml.
 * **Quick.Expression:** Evaluate object properties using expressions.
 * **Quick.Linq:** Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
+* **Quick.MemoryCache:** Caches objects/info with an expiration time, to avoid generate this info everytime is needed (database queries, hard to calculate info, etc).
 
 
 **Updates:**
 
+* NEW: Options file settings with sections.
+* NEW: MemoryCache with expiration & object compression.
 * NEW: Now included on RAD Studio GetIt package manager.
 * NEW: Background & Scheduled task with retry policies
 * NEW: RunTask, FaultControl
@@ -78,7 +82,9 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 
 **Documentation:**
 ----------
-**Quick.AppService:** Allow a console app to run as console mode or service mode with same code simplifying debug tasks.
+**Quick.AppService:**
+--
+Allow a console app to run as console mode or service mode with same code simplifying debug tasks.
 
 ```delphi
 if not AppService.IsRunningAsService then
@@ -100,7 +106,9 @@ begin
 end;
 ```
 
-**Quick.Azure/Amazon:** Simplifies blob iteraction with Azure and Amazon Cloud Storage.
+**Quick.Azure/Amazon:**
+--
+Simplifies blob iteraction with Azure and Amazon Cloud Storage.
 
 ```delphi
 //connect to a Azure blobstorage
@@ -120,7 +128,9 @@ end;
 ```
 
 
-**Quick.Network:** CIDR and IP Range functions.
+**Quick.Network:**
+--
+CIDR and IP Range functions.
 
 ```delphi
 //convert ip string to integer
@@ -130,7 +140,9 @@ IPv4ToInt('192.168.1.10');
 GetIpRange('192.168.100.0','255.255.255.0',LowIp,HighIP);
 ```
 
-**Quick.Commons:** Functions frequently needed in the everyday of a developer.
+**Quick.Commons:**
+--
+Functions frequently needed in the everyday of a developer.
 
 ```delphi
 //coverts UTC time TDateTime to Local date time
@@ -158,7 +170,9 @@ begin
 end;
 ```
 
-**Quick.Chrono:** Chronometer and Benchmark a piece of code is simple.
+**Quick.Chrono:**
+--
+Chronometer and Benchmark a piece of code is simple.
 
 ```delphi
 //get elapsed time execution of a code part
@@ -187,7 +201,9 @@ end;
 writeln(Chrono.ElapsedTime(False)); //shows total time elapsed in 00:00:00 format
 ```
 
-**Quick.Console:** Write log messages to console with colors and more...
+**Quick.Console:**
+--
+Write log messages to console with colors and more...
 
 ```delphi
 //define which level of output needed
@@ -209,7 +225,9 @@ Console.Verbose := LOG_ONLYERRORS;
 Console.Log := MyQuickLog;
 ```
 
-**Quick.Log:** Log to disk or memory with verbose levels and daily or max space rotation.
+**Quick.Log:**
+--
+Log to disk or memory with verbose levels and daily or max space rotation.
 
 ```delphi
 //write a header on start with info as running path, appname, debugmode, user, etc...
@@ -225,7 +243,9 @@ Log.Add('Error x',etError);
 Log.Add('Error is %s',[ErrorStr],etError);
 ```
 
-**Quick.Config:** Load/Save a config as Json or Yaml file or Windows Registry keys. Create a descend class from TAppConfigJson, TAppConfigYaml or TAppConfigRegistry and added published properties will be loaded/saved. Files configs can be reloaded on detect files changes.
+**Quick.Config:**
+--
+Load/Save a config as Json or Yaml file or Windows Registry keys. Create a descend class from TAppConfigJson, TAppConfigYaml or TAppConfigRegistry and added published properties will be loaded/saved. Files configs can be reloaded on detect files changes.
 
 ```delphi
 //create a class heritage
@@ -274,7 +294,9 @@ MyConfig := TMyConfig.Create(TAppConfigJsonProvider.Create('.\config.json');
 
 ```
 
-**Quick.FileMonitor:** Monitorizes a file for changes and throws events.
+**Quick.FileMonitor:**
+--
+Monitorizes a file for changes and throws events.
 
 ```delphi
 FileMonitor.Filename := '.\myfile.txt';
@@ -286,7 +308,9 @@ FileMonitor.OnFileChange := MyFileChangeFunction;
 FileMonitor.Enabled := True;
 ```
 	
-**Quick.JsonUtils:** Utils for working with json objects.
+**Quick.JsonUtils:**
+--
+Utils for working with json objects.
 
 ```delphi
 //When unit declared in uses, a TObject Helper allows all your objects to be loaded or saved to/from json string
@@ -297,7 +321,9 @@ MyString := MyObject.ToJson;
 MyObject1.Clone(MyObject2);
 ```
 
-**Quick.SMTP:** Send email with two code lines.
+**Quick.SMTP:**
+--
+Send email with two code lines.
 
 ```delphi
 //Send email
@@ -316,11 +342,17 @@ SMTP.Attachments.Add('.\notes.txt');
 SMTP.SendMail;
 ```
 
-**Quick.Threads:** Thread safe classes.
-- **TThreadedQueueCS:** Version of TThreadedQueue with Critical Section.
-- **TThreadObjectList:** Thread safe Object List.
-- **TThreadedQueueList:** Thread safe Queue List. Autogrow and with Critical Section.
-- **TAnonymousThread:** Creates anonymous thread defining unchained Execute and OnTerminate methods. Use Execute_Sync and OnTerminate_Sync methods if code needs to update UI.
+**Quick.Threads:**
+--
+Thread safe classes.
+
+**TThreadedQueueCS:** Version of TThreadedQueue with Critical Section.
+
+**TThreadObjectList:** Thread safe Object List.
+
+**TThreadedQueueList:** Thread safe Queue List. Autogrow and with Critical Section.
+
+**TAnonymousThread:** Creates anonymous thread defining unchained Execute and OnTerminate methods. Use Execute_Sync and OnTerminate_Sync methods if code needs to update UI.
   - **Execute:** Specify code to execute on start.
   - **Execute_Sync:** Like Execute but runs code with syncronized thread method (avoids problems if your code updates UI).
   - **OnTerminate:** Specify code to execute when task finishes.
@@ -345,7 +377,7 @@ TAnonymousThread.Execute(
     .Start;
 ```
 
-- **TRunTask:** Launch an autofree single task thread with fault & retry control policies. Params can be passed and created into code.
+**TRunTask:** Launch an autofree single task thread with fault & retry control policies. Params can be passed and created into code.
 - *Define code to execute:*
   - **Execute:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on termination task) and method than will be executed. 
   - **Execute_Sync:** Like Execute but runs code with synchronize thread method (avoids problems if your code updates UI).
@@ -400,7 +432,7 @@ TAnonymousThread.Execute(
     .Run;
 ```
 
-- **TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers with fault and retry control policies. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
+**TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers with fault and retry control policies. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
 - *Add a task to execute:*
   - **AddTask:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
   - **AddTask_Sync:** Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
@@ -446,7 +478,7 @@ TAnonymousThread.Execute(
     end;
     backgroundtasks.Start;
 ```
-- **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date and fail and retry control policies. Use AddTask_Sync, OnTerminate_Sync and OnExpired_Sync if code needs to update UI.
+**TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date and fail and retry control policies. Use AddTask_Sync, OnTerminate_Sync and OnExpired_Sync if code needs to update UI.
 You can assign anonymous methods to execute, exception, terminate and expiration events.
 - *Add a task to execute:*
   - **AddTask:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
@@ -523,9 +555,13 @@ scheduledtasks.Start;
   - **CircuitBreaked:** Return true if max retries has been reached or user cancelled into OnRetry event.
   - **IsEnabled:** Return status of task.
 
-**Quick.FaultControl:** Manages fail and retry policies, defining max retries, wait time beetween retries and circuit break mecanism.
+**Quick.FaultControl:**
+--
+Manages fail and retry policies, defining max retries, wait time beetween retries and circuit break mecanism.
 
-**Quick.Process:** Manages windows processes.
+**Quick.Process:**
+--
+Manages windows processes.
 ```delphi
 //kill explorer process
 KillProcess('explorer.exe');
@@ -537,7 +573,9 @@ writeln('Explorer.exe open by: ' + GetProcessUser('explorer.exe');
 if FindWindowTimeout('MainWindow',20) then writeln('Window detected');
 ```
 
-**Quick.Services:** Manages windows services.
+**Quick.Services:**
+--
+Manages windows services.
 ```delphi
 //detect if a service is installed
 if not ServiceIsPresent('localhost','MySvc') then raise Exception.Create('Service not installed!');
@@ -547,7 +585,9 @@ ServiceStart('localhost','MySvc');
 ServiceUninstall('MySvc');
 ```
 
-**Quick.Format:** String format.
+**Quick.Format:**
+--
+String format.
 
 ```delphi
 //Format bytes to MB, GB, TB...
@@ -555,7 +595,9 @@ FormatBytes(50000) //shows 50KB
 FormatBytes(90000000) //shows 90MB
 ```
 
-**Quick.JsonSerializer:** Serializes an object from/to json text. You can define if public or published will be processed (only Delphi, fpc rtti only supports published properties)	
+**Quick.JsonSerializer:**
+--
+Serializes an object from/to json text. You can define if public or published will be processed (only Delphi, fpc rtti only supports published properties)	
 
 ```delphi
 json := '{"name":"Peter","age":30}';
@@ -567,7 +609,9 @@ finally
 end;
 ```
 
-**Quick.AutoMapper:** Map fields from one class to another class. Allows custom mappings to match different fields and custom mapping procedure to cast/convert fields manually.	
+**Quick.AutoMapper:**
+--
+Map fields from one class to another class. Allows custom mappings to match different fields and custom mapping procedure to cast/convert fields manually.	
 
 ```delphi
 //Map values from User1 to User2
@@ -597,7 +641,9 @@ AutoMapper.OnAfterMapping := procedure(const aSrcObj : TUser; aTgtObj : TUser2)
 User2 := AutoMapper.Map(User);
 ```
 
-**Quick.JsonRecord:** Used as a DTO class, with json serialize and mapping functions included.	
+**Quick.JsonRecord:**
+--
+Used as a DTO class, with json serialize and mapping functions included.	
 
 ```delphi
 type
@@ -625,7 +671,9 @@ begin
 end;
 ```
 
-**Quick.Lists:** Improved lists with indexing or search features.
+**Quick.Lists:**
+--
+Improved lists with indexing or search features.
 - **TIndexedObjectList:** Allows fast hashed searches by object properties or fields.
 - **TSearchObjectList:** Allows iteration search by object properties or fields.
 ```delphi
@@ -642,7 +690,9 @@ begin
 end;
 ```
 
-**Quick.Value** FlexValue stores any data type and allow pass to other class with integrated operators and autofrees.
+**Quick.Value**
+--
+FlexValue stores any data type and allow pass to other class with integrated operators and autofrees.
 ```delphi
 var
   value : TFlexValue;
@@ -656,8 +706,11 @@ begin
 end;
 ```
 
-**Quick.Arrays:** Improved arrays.
-- **TXArray:** Array with methods like TList.
+**Quick.Arrays:**
+--
+Improved arrays.
+
+**TXArray:** Array with methods like TList.
 ```delphi
 var
    users : TXArray<TUser>;
@@ -673,7 +726,7 @@ begin
 end;
 ```
 
-- **TFlexArray:** Array with methods like TList than can storage different value types into same array.
+**TFlexArray:** Array with methods like TList than can storage different value types into same array.
 ```delphi
 var
   flexarray : TFlexArray;
@@ -693,7 +746,7 @@ begin
     end;
 end;
 ```
-- **TFlexPairArray:** Array with methods like TList than can store different value types into same array, and search by item name.
+**TFlexPairArray:** Array with methods like TList than can store different value types into same array, and search by item name.
 ```delphi
 var
   flexarray : TFlexPairArray;
@@ -714,8 +767,11 @@ begin
 end;
 ```
 
-**Quick.YAML:** Yaml object structure.
-- **TYamlObject:** A Yaml object is and array of YamlValue pairs.
+**Quick.YAML:**
+--
+Yaml object structure.
+
+**TYamlObject:** A Yaml object is and array of YamlValue pairs.
 ```delphi
   //create Yaml object from yaml text
   yamlobj.ParseYamlValue(aYaml)
@@ -724,17 +780,19 @@ end;
   //display as yaml structure
   Writeln(yamlobj.ToYaml);
 ```
-- **TYamlArray:** Array of objects or scalars.
+**TYamlArray:** Array of objects or scalars.
 ```delphi
   yamlarray.AddElement(TYamlPair.Create('Age',30));
   yamlobj.AddPair('myarray',yamlarray);
 ```
-- **TYamlPair:** Name-Value pair. Value can be object, array or scalar.
+**TYamlPair:** Name-Value pair. Value can be object, array or scalar.
 ```delphi
   n := yamlobj.GetPair('Name').Value as TYamlInteger;
 ```
 
-**Quick.YAML.Serializer:** Serialize/Deserialize object from/to Yaml.
+**Quick.YAML.Serializer:**
+--
+Serialize/Deserialize object from/to Yaml.
 ```delphi
   //Serialize
   text := YamlSerializer.ObjectToYaml(obj);
@@ -742,7 +800,9 @@ end;
   YamlSerializer.YamlToObject(obj,yamltext);
 ```
 
-**Quick.Expression:** Evaluate object properties using expressions.
+**Quick.Expression:**
+--
+ Evaluate object properties using expressions.
 ```delphi
   if TExpressionParser.Validate(user,('(Age > 30) AND (Dept.Name = "Financial")') then
   begin
@@ -750,7 +810,9 @@ end;
   end;
 ```
 
-**Quick.Linq:** Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
+**Quick.Linq:**
+--
+Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
 - **From:** Array, XArray or TObjectList to use.
 - **Where:** Expression to search. You can use a dots to define property path.
 - **SelectAll:** Returns an array of objects matching where clause
@@ -782,4 +844,209 @@ end;
   
   //count results
   numusers := TLinq<TUser>.From(userlist).Where('(Age > ?) AND (Age < ?)',[30,40]).Count;
+```
+
+**Quick.HTTPServer:**
+--
+TCustomHttpServer is a simple interfaced HttpServer with own HttpRequest and HttpResponse implementations to allow easy httpserver engine changes. 
+THttpServer is the IndyHttpServer implementation, but you can define your own.
+```delphi
+TMyHttpServer = class(THttpServer)
+  public
+    procedure ProcessRequest(aRequest: IHttpRequest; aResponse: IHttpResponse); override;
+  end;
+
+  procedure TMyHttpServer.ProcessRequest(aRequest: IHttpRequest; aResponse: IHttpResponse);
+  begin
+    aResponse.ContentText := 'Hello world!';
+  end;
+```
+
+**Quick.MemoryCache:**
+--
+Caches objects or strings with an expiration time, to avoid generate this info everytime is needed (database queries, hard to calculate info, etc). TMemoryCache allows to cache objects and strings. Generic version TMemoryCache<T> allows to cache a defined type only.
+- Create: Could be defined Purge interval and Serialization and Compression engines. By default serializes as Json and compress with gzip.
+```delphi
+ //create MemoryCache with 10 seconds purge interval
+ cache := TMemoryCache.Create(10);
+
+ //create MemoryCache for a type
+ cache := TMemoryCache<TMyObj>.Create;
+```
+- Compression: Enables/Disables cache data compression.
+- CachedObjects: Returns number of objects currently in cache.
+- CacheSize: Returns size in bytes of all objects currently in cache. Real memory used depends of memory managers or architecture. This value is the real size of data bytes.
+- PurgeInterval: Interval purge job tries to find expired objects to remove from cache (Default value 20 seconds).
+- OnCacheFlushed: When cache is flushed.
+- OnBeginPurgerJob: When PurgerJob starts.
+- OnEndPurgerJob: When PurgerJob ends.
+- Flush: Removes all cache objects.
+- SetValue: Adds an object to cache. You can indicate expiration date or number of milliseconds to expire. If not defined cache will be infinity. MemoryCache can store objects or strings.
+```delphi
+//set string to cache without expiration
+cache.SetValue('mystring','hello world');
+
+//set string to cache with expiration to 10 seconds
+cache.SetValue('mystring','this cache will expire in 10 seconds';
+
+//set object to cache
+cache.SetValue('Obj1',valueobj);
+```
+- TryGetValue: Tries to get and object from cache. Returns false if object doesn't exists or it's expired.
+```delphi
+//get string query result
+cache.GetValue('Query12');
+
+//get integer
+cache.TryGetValue<Integer>('number',valueint);
+
+//get object
+cache.TryGetValue('Obj1',valueobj);
+```
+
+- RemoveValue: Removes an object from cache.
+
+- **Cache Engine providers:**
+
+- TCacheSerializerJSON: Uses JSON to serialize cache data.  
+- TCacheCompressorGzip: Uses Gzip to compress cache data.
+- TCacheCompressorLZO: Uses LZO to compress cache data.
+   
+```delphi 
+ //create MemoryCache with 20 seconds purge interval and compression with LZO engine
+ cache := TMemoryCache.Create(10,nil,TCacheCompressorLZO.Create);
+ ```
+
+ **Quick.IOC:**
+ --
+  Inversion of Control manager allows autocreate interfaced o instanced object or autoinject them in constructor classes, to avoid dependency.
+
+ Create a container to manage dependency injection. 
+ ```delphi
+iocContainer := TIocContainer.Create;
+```
+**Register Types:**
+
+You need to register types before you can inject them. A Type can be registered as Singleton, Transient.
+**Singleton**: Life cycle will be one single instance for all injections, similar to a Global variable.
+**Transient**: Life cycle will be one instance per each injection.
+Register an interface type into container as transient:
+```delphi
+iocContainer.RegisterType<IMultService,TMultService>.AsTransient;
+```
+Register an interface type as singleton, delegating construction:
+```delphi
+iocContainer.RegisterType<ISumService,TSumService>.AsSingleTon.DelegateTo(
+  function : TSumService
+  begin
+    Result := TSumService.Create;
+  end
+);
+```
+**Register Instances:**
+
+Register a named instance object as transient, delegating construction:
+```delphi
+iocContainer.RegisterInstance<TDivideService>('one').AsTransient.DelegateTo(
+  function : TDivideService
+  begin
+    Result := TDivideService.Create(True);
+  end
+);
+```
+**Register Options:**
+
+Register IOptions (only singleton):
+```delphi
+ iocContainer.RegisterOptions<TMyOptions>(MyOptions);
+```
+**Resolve Types:**
+
+AbtractFactory:
+Creates a class trying to resolve all creation method parameter with dependency injection.
+```delphi
+MyClass := iocContainer.AbstractFactory<TMyBaseClass>(TMyClass);
+```
+Resolve an interface dependency:
+```delphi
+multservice := iocContainer.Resolve<IMultService>;
+result := multservice.Mult(2,4);
+```
+**Resolve Instances:**
+
+Resolve a named instance dependency:
+```delphi
+divideservice := iocContainer.Resolve<TDivideService>('other');
+result := divideservice.Divide(100,2);
+```
+Interface instances will be freed automatically, but instance dependencies only will be freed if defined as singleton, transient instances will be destroyed by code.
+
+**Quick.Options:**
+ --
+You define sections as classes and saves as single file settings. Works similar to dotnet Options. Options file can be in JSON or YAML format.
+
+Define your option class inherited from TOptions and all published properties will be load/save.
+Create options container, with JsonSerializer and reloading on change:
+```delphi
+Options := TOptionsContainer.Create('.\options.conf',TJsonOptionsSerializer.Create,True);
+```
+Add a section to your container options:
+```delphi
+Options.AddSection<TLoggingOptions>('Logging')
+```
+**Configure Options:**
+
+You can define section name to save into file and delegate configuration default settings and validating values:
+```delphi
+Options.AddSection<TLoggingOptions>('Logging').ConfigureOptions(
+  procedure(aOptions : TLoggingOptions)
+  begin
+    aOptions.Path := 'C:\';
+  end
+).ValidateOptions;
+```
+**Validate Options:**
+
+Validate options allows verify if option settings are setted between defined ranges. This validation needs previously assigned custom attributes to properties in your TOptions class.
+- **StringLength(max,messagestr):** Allows define max length in string properties, returning messagestr if length greater than max.
+- **Range(min,max,messagestr):** Allows define a range of min and max values permitted, returning messagestr if value length outbounds margins.
+```delphi
+TLoggingOptions = class(TOptions)
+  private
+    fPath : string;
+  published
+    [Required, StringLength(255,'Path too long')]
+    property Path : string read fPath write fPath;
+    [Range(0.0,5.2)]
+    property Level : Double read fLevel write fLevel;
+  end;
+```
+**Use Options:**
+To retrieve option section:
+```delphi
+LoggingOptions := Options.GetSection<TLoggingOptions>;
+LoggginOptions.Path := 'C:\Path';
+```
+**Use IOptions:**
+IOptions is a dependency injectable interface to TOptions. You can register with IocContainer.RegisterOptions<TOptions> to make injectable into constructor methods.
+```delphi
+UIOptions := Options.GetSectionInterface<TUIOptions>.Value;
+UIOptions.WindowColor := clBlue;
+```
+**Load/Save Options:**
+
+Load options from file settings:
+```delphi
+options.Load;
+```
+Save options to file settings:
+```delphi
+options.Save;
+```
+If you defined container creation with ReloadOnChanged parameter to true, every time file settings is changed, configuration will be reloaded. If you need to control when to reload, you can listen to the event:
+```
+Options.OnFileModified := procedure
+  begin
+    cout('Detected config file modification!',etWarning);
+  end;
 ```

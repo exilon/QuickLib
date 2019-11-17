@@ -5,9 +5,9 @@
   Unit        : Quick.AutoMapper
   Description : Auto Mapper object properties
   Author      : Kike Pérez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 25/08/2018
-  Modified    : 10/05/2019
+  Modified    : 16/10/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -97,6 +97,13 @@ type
     class procedure Map(aSrcObjList : TObject; aTgtObjList : TObject; aDoMappingProc : TMappingProc<TObject>; aCustomMapping : TCustomMapping = nil); overload;
     {$ENDIF}
   end;
+
+  {$IFNDEF FPC}
+  TMapper = class
+  public
+    class function Map<T : class, constructor>(aSrcObj : TObject) : T;
+  end;
+  {$ENDIF}
 
   TMapper<T : class, constructor> = class
   public
@@ -495,6 +502,16 @@ begin
 
 end;
 
+{$ENDIF}
+
+{ TMapper }
+
+{$IFNDEF FPC}
+class function TMapper.Map<T>(aSrcObj: TObject): T;
+begin
+  Result := T.Create;
+  TObjMapper.Map(aSrcObj,Result,nil);
+end;
 {$ENDIF}
 
 end.
