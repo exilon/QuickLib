@@ -62,6 +62,7 @@ begin
     case DataType of
       dtNull : Result := TValueExtended;
       dtBoolean : Result := AsBoolean;
+      dtString : Result := AsString;
       {$IFDEF MSWINDOWS}
       dtAnsiString : Result := AsAnsiString;
       dtWideString : Result := AsWideString;
