@@ -1,4 +1,35 @@
+{ ***************************************************************************
+
+  Copyright (c) 2016-2019 Kike Pérez
+
+  Unit        : Quick.CloudStorage.Provider.Azure
+  Description : CloudStorage Azure provider
+  Author      : Kike Pérez
+  Version     : 1.8
+  Created     : 14/10/2018
+  Modified    : 07/10/2019
+
+  This file is part of QuickLib: https://github.com/exilon/QuickLib
+
+ ***************************************************************************
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+ *************************************************************************** }
+
 unit Quick.CloudStorage.Provider.Azure;
+
+{$i QuickLib.inc}
 
 interface
 
@@ -6,9 +37,9 @@ uses
   Classes,
   System.SysUtils,
   System.Generics.Collections,
+  IPPeerClient,
   Quick.Commons,
   Quick.CloudStorage,
-  IPPeerClient,
   Data.Cloud.CloudAPI,
   Data.Cloud.AzureAPI;
 
@@ -135,14 +166,141 @@ begin
   end;
 end;
 
+{$IFDEF DELPHITOKYO_UP}
+procedure TCloudStorageAzureProvider.OpenDir(const aPath: string);
+var
+  BlobService : TAzureBlobService;
+  azBlob : TAzureBlobItem;
+  DirItem : TCloudItem;
+  CloudResponseInfo : TCloudResponseInfo;
+  cNextMarker : string;
+  azBlobList : TArray<TAzureBlobItem>;
+  blobprefix : TArray<string>;
+  xmlresp : string;
+  azResponseInfo : TResponseInfo;
+  azContainer : string;
+  folder : string;
+  prop : TPair<string,string>;
+begin
+  Status := stSearching;
+  cNextMarker := '';
+  if aPath = '..' then
+  begin
+    CurrentPath := RemoveLastPathSegment(CurrentPath);
+  end
+  else
+  begin
+    if (CurrentPath = '') or (aPath.StartsWith('/')) then CurrentPath := aPath
+      else CurrentPath := CurrentPath + aPath;
+  end;
+  if Assigned(OnBeginReadDir) then OnBeginReadDir(CurrentPath);
+  if CurrentPath.StartsWith('/') then CurrentPath := Copy(CurrentPath,2,CurrentPath.Length);
+  if (not CurrentPath.IsEmpty) and (not CurrentPath.EndsWith('/')) then CurrentPath := CurrentPath + '/';
+
+  azContainer := RootFolder;
+  if azContainer = '' then azContainer := '$root';
+  BlobService := TAzureBlobService.Create(fAzureConnection);
+  try
+    BlobService.Timeout := Timeout;
+    Status := stRetrieving;
+    if Assigned(OnGetListItem) then
+    begin
+      DirItem := TCloudItem.Create;
+      try
+        DirItem.Name := '..';
+        DirItem.IsDir := True;
+        DirItem.Date := 0;
+        OnGetListItem(DirItem);
+      finally
+        DirItem.Free;
+      end;
+    end;
+    repeat
+      if not (Status in [stSearching,stRetrieving]) then Exit;
+      if fCancelOperation then
+      begin
+        fCancelOperation := False;
+        Exit;
+      end;
+      CloudResponseInfo := TCloudResponseInfo.Create;
+      try
+        azBlobList := BlobService.ListBlobs(azContainer,CurrentPath,'/',cNextMarker,100,[],cNextMarker,blobprefix,xmlresp,CloudResponseInfo);
+        azResponseInfo.Get(CloudResponseInfo);
+        if azResponseInfo.StatusCode = 200 then
+        begin
+          //get folders (prefix)
+          for folder in blobprefix do
+          begin
+            if not (Status in [stSearching,stRetrieving]) then Exit;
+            DirItem := TCloudItem.Create;
+            try
+              if folder.EndsWith('/') then DirItem.Name := RemoveLastChar(folder)
+                else DirItem.Name := folder;
+              DirItem.Name := Copy(DirItem.Name,DirItem.Name.LastDelimiter('/')+2,DirItem.Name.Length);
+              DirItem.IsDir := True;
+              if Assigned(OnGetListItem) then OnGetListItem(DirItem);
+            finally
+              DirItem.Free;
+            end;
+          end;
+          //get files (blobs)
+          for azBlob in azBlobList do
+          begin
+            if not (Status in [stSearching,stRetrieving]) then Exit;
+            if fCancelOperation then
+            begin
+              fCancelOperation := False;
+              Exit;
+            end;
+            DirItem := TCloudItem.Create;
+            try
+              DirItem.Name := azBlob.Name;
+              if DirItem.Name.StartsWith(CurrentPath) then DirItem.Name := StringReplace(DirItem.Name,CurrentPath,'',[]);
+              if DirItem.Name.Contains('/') then
+              begin
+                DirItem.IsDir := True;
+                DirItem.Name := Copy(DirItem.Name,1,DirItem.Name.IndexOf('/'));
+              end
+              else
+              begin
+                DirItem.IsDir := False;
+                for prop in azBlob.Properties do
+                begin
+                  if prop.Key = 'Content-Length' then DirItem.Size := StrToInt64Def(prop.Value,0)
+                    else if prop.Key = 'Last-Modified' then DirItem.Date := GMT2DateTime(prop.Value);
+                end;
+              end;
+              if Assigned(OnGetListItem) then OnGetListItem(DirItem);
+            finally
+              DirItem.Free;
+            end;
+          end;
+        end
+        else
+        begin
+          Status := stFailed;
+          Exit;
+        end;
+      finally
+        CloudResponseInfo.Free;
+      end;
+      if Assigned(OnRefreshReadDir) then OnRefreshReadDir(CurrentPath);
+    until (cNextMarker = '') or (azResponseInfo.StatusCode <> 200);
+    Status := stDone;
+  finally
+    BlobService.Free;
+    if Assigned(OnEndReadDir) then OnEndReadDir(CurrentPath);
+  end;
+end;
+{$ELSE}
 procedure TCloudStorageAzureProvider.OpenDir(const aPath: string);
 var
   BlobService : TAzureBlobService;
   azBlob : TAzureBlob;
-  azBlobList : TList<TAzureBlob>;
   DirItem : TCloudItem;
   CloudResponseInfo : TCloudResponseInfo;
   cNextMarker : string;
+  azBlobList : TList<TAzureBlob>;
   AzParams : TStrings;
   azResponseInfo : TResponseInfo;
   azContainer : string;
@@ -255,6 +413,7 @@ begin
     if Assigned(OnEndReadDir) then OnEndReadDir(CurrentPath);
   end;
 end;
+{$ENDIF}
 
 {procedure TCloudStorageAzureProvider.OpenDir(const aPath : string);
 var
