@@ -5,9 +5,9 @@
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
-  Version     : 1.8
+  Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 15/09/2019
+  Modified    : 10/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -169,6 +169,52 @@ type
     procedure Reset;
   end;
 
+  {$IFNDEF FPC}
+  TArrayOfStringHelper = record helper for TArray<string>
+  public
+    function Add(const aValue : string) : Integer;
+    function AddIfNotExists(const aValue : string; aCaseSense : Boolean = False) : Integer;
+    function Remove(const aValue : string) : Boolean;
+    function Exists(const aValue : string) : Boolean;
+    function Count : Integer;
+  end;
+  {$ENDIF}
+
+  TPairItem = record
+    Name : string;
+    Value : string;
+    constructor Create(const aName, aValue : string);
+  end;
+
+  TPairList = class
+  type
+    TPairEnumerator = class
+      private
+        fArray : ^TArray<TPairItem>;
+        fIndex : Integer;
+        function GetCurrent: TPairItem;
+      public
+        constructor Create(var aArray: TArray<TPairItem>);
+        property Current : TPairItem read GetCurrent;
+        function MoveNext: Boolean;
+      end;
+  private
+    fItems : TArray<TPairItem>;
+  public
+    function GetEnumerator : TPairEnumerator;
+    function GetValue(const aName : string) : string;
+    function GetPair(const aName : string) : TPairItem;
+    function Add(aPair : TPairItem) : Integer; overload;
+    function Add(const aName, aValue : string) : Integer; overload;
+    procedure AddOrUpdate(const aName, aValue : string);
+    function Exists(const aName : string) : Boolean;
+    function Remove(const aName : string) : Boolean;
+    function Count : Integer;
+    property Items[const aName : string] : string read GetValue write AddOrUpdate;
+    function ToArray : TArray<TPairItem>;
+    procedure FromArray(aValue : TArray<TPairItem>);
+  end;
+
   EEnvironmentPath = class(Exception);
   EShellError = class(Exception);
 
@@ -249,6 +295,12 @@ type
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
   //Removes last segment of a path
   function RemoveLastPathSegment(cDir : string) : string;
+  //returns path delimiter if found
+  function GetPathDelimiter(const aPath : string) : string;
+  //returns first segment of a path
+  function GetFirstPathSegment(const aPath : string) : string;
+  //returns last segment of a path
+  function GetLastPathSegment(const aPath : string) : string;
   //finds swith in commandline params
   function ParamFindSwitch(const Switch : string) : Boolean;
   //gets value for a switch if exists
@@ -273,10 +325,16 @@ type
   function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
   //count number of digits of a Integer
   function CountDigits(anInt: Cardinal): Cardinal; inline;
+  //count times a string is present in other string
+  function CountStr(const aFindStr, aSourceStr : string) : Integer;
   //save stream to file
-  procedure SaveStreamToFile(stream : TStream; const filename : string);
+  procedure SaveStreamToFile(aStream : TStream; const aFilename : string);
   //save stream to string
-  function StreamToString(stream : TStream) : string;
+  function StreamToString(aStream : TStream) : string;
+  function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
+  //save string to stream
+  procedure StringToStream(const aStr : string; aStream : TStream);
+  procedure StringToStream2(const aStr : string; aStream : TStream);
   //returns a real comma separated text from stringlist
   function CommaText(aList : TStringList) : string; overload;
   //returns a real comma separated text from array of string
@@ -902,6 +960,37 @@ begin
   if (Result <> '') and (EndsWithDelim) then Result := Result + delim;
 end;
 
+function GetPathDelimiter(const aPath : string) : string;
+begin
+  if aPath.Contains('/') then Result := '/'
+    else if aPath.Contains('\') then Result := '\'
+    else Result := '';
+end;
+
+function GetFirstPathSegment(const aPath : string) : string;
+var
+  delimiter : string;
+  spath : string;
+begin
+  delimiter := GetPathDelimiter(aPath);
+  if delimiter.IsEmpty then Exit(aPath);
+  if aPath.StartsWith(delimiter) then spath := Copy(aPath,2,aPath.Length)
+    else spath := aPath;
+  Result := Copy(spath,0,spath.IndexOf(delimiter));
+end;
+
+function GetLastPathSegment(const aPath : string) : string;
+var
+  delimiter : string;
+  spath : string;
+begin
+  delimiter := GetPathDelimiter(aPath);
+  if delimiter.IsEmpty then Exit(aPath);
+  if aPath.EndsWith(delimiter) then spath := Copy(aPath,0,aPath.Length - 1)
+    else spath := aPath;
+  Result := spath.Substring(spath.LastDelimiter(delimiter)+1);
+end;
+
 function ParamFindSwitch(const Switch : string) : Boolean;
 begin
   Result := FindCmdLineSwitch(Switch,['-', '/'],True);
@@ -1225,31 +1314,94 @@ begin
   end;
 end;
 
-procedure SaveStreamToFile(stream : TStream; const filename : string);
+function CountStr(const aFindStr, aSourceStr : string) : Integer;
+var
+  i : Integer;
+  found : Integer;
+  findstr : string;
+  mainstr : string;
+begin
+  findstr := aFindStr.ToLower;
+  mainstr := aSourceStr.ToLower;
+  Result := 0;
+  i := 0;
+  while i < mainstr.Length do
+  begin
+    found := Pos(findstr,mainstr,i);
+    if found > 0 then
+    begin
+      i := found;
+      Inc(Result);
+    end
+    else Break;
+  end;
+end;
+
+procedure SaveStreamToFile(aStream : TStream; const aFileName : string);
 var
   fs : TFileStream;
 begin
-  fs := TFileStream.Create(filename,fmCreate);
+  fs := TFileStream.Create(aFileName,fmCreate);
   try
-    stream.Seek(0,soBeginning);
-    fs.CopyFrom(stream,stream.Size);
+    aStream.Seek(0,soBeginning);
+    fs.CopyFrom(aStream,aStream.Size);
   finally
     fs.Free;
   end;
 end;
 
-function StreamToString(stream : TStream) : string;
+function StreamToString(aStream : TStream) : string;
 var
   ss : TStringStream;
 begin
-  if stream = nil then Exit;
-  ss := TStringStream.Create;
+  aStream.Position := 0;
+  if aStream = nil then Exit;
+  if aStream is TMemoryStream then
+  begin
+    SetString(Result, PChar(TMemoryStream(aStream).Memory), TMemoryStream(aStream).Size div SizeOf(Char));
+  end
+  else if aStream is TStringStream then
+  begin
+    Result := TStringStream(aStream).DataString;
+  end
+  else
+  begin
+    ss := TStringStream.Create;
+    try
+      aStream.Seek(0,soBeginning);
+      ss.CopyFrom(aStream,aStream.Size);
+      Result := ss.DataString;
+    finally
+      ss.Free;
+    end;
+  end;
+end;
+
+function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
+var
+  sbytes: TBytes;
+begin
+  aStream.Position := 0;
+  SetLength(sbytes, aStream.Size);
+  aStream.ReadBuffer(sbytes,aStream.Size);
+  Result := aEncoding.GetString(sbytes);
+end;
+
+procedure StringToStream(const aStr : string; aStream : TStream);
+begin
+  aStream.Seek(0,soBeginning);
+  aStream.WriteBuffer(Pointer(aStr)^,aStr.Length * SizeOf(Char));
+end;
+
+procedure StringToStream2(const aStr : string; aStream : TStream);
+var
+  stream : TStringStream;
+begin
+  stream := TStringStream.Create(aStr,TEncoding.UTF8);
   try
-    stream.Seek(0,soBeginning);
-    ss.CopyFrom(stream,stream.Size);
-    Result := ss.DataString;
+    aStream.CopyFrom(stream,stream.Size);
   finally
-    ss.Free;
+    stream.Free;
   end;
 end;
 
@@ -1361,6 +1513,199 @@ end;
 procedure TTimeCounter.Reset;
 begin
   fCurrentTime := Now();
+end;
+
+{ TArrayOfStringHelper}
+
+{$IFNDEF FPC}
+function TArrayOfStringHelper.Add(const aValue : string) : Integer;
+begin
+  SetLength(Self,Length(Self)+1);
+  Self[High(Self)] := aValue;
+  Result := High(Self);
+end;
+
+function TArrayOfStringHelper.AddIfNotExists(const aValue : string; aCaseSense : Boolean = False) : Integer;
+var
+  i : Integer;
+  found : Boolean;
+begin
+  found := False;
+  for i := Low(Self) to High(Self) do
+  begin
+    if aCaseSense then found := Self[i] = aValue
+    else
+    begin
+      found := CompareText(Self[i],aValue) = 0;
+      Exit(i)
+    end;
+  end;
+  if not found then
+  begin
+    //if not exists add it
+    i := Self.Add(aValue);
+    Exit(i);
+  end;
+  Result := -1;
+end;
+
+function TArrayOfStringHelper.Remove(const aValue : string) : Boolean;
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i],aValue) = 0 then
+    begin
+      System.Delete(Self,i,1);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+function TArrayOfStringHelper.Exists(const aValue : string) : Boolean;
+var
+  value : string;
+begin
+  Result := False;
+  for value in Self do
+  begin
+    if CompareText(value,aValue) = 0 then Exit(True)
+  end;
+end;
+
+function TArrayOfStringHelper.Count : Integer;
+begin
+  Result := High(Self) + 1;
+end;
+{$ENDIF}
+
+{ TPairItem }
+
+constructor TPairItem.Create(const aName, aValue: string);
+begin
+  Name := aName;
+  Value := aValue;
+end;
+
+{ TPairList }
+
+function TPairList.GetEnumerator : TPairEnumerator;
+begin
+  Result := TPairEnumerator.Create(fItems);
+end;
+
+function TPairList.Add(aPair: TPairItem): Integer;
+begin
+  SetLength(fItems,Length(fItems)+1);
+  fItems[High(fItems)] := aPair;
+  Result := High(fItems);
+end;
+
+function TPairList.Add(const aName, aValue: string): Integer;
+begin
+  SetLength(fItems,Length(fItems)+1);
+  fItems[High(fItems)].Name := aName;
+  fItems[High(fItems)].Value := aValue;
+  Result := High(fItems);
+end;
+
+procedure TPairList.AddOrUpdate(const aName, aValue: string);
+var
+  i : Integer;
+begin
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then
+    begin
+      fItems[i].Value := aValue;
+      Exit;
+    end;
+  end;
+  //if not exists add it
+  Self.Add(aName,aValue);
+end;
+
+function TPairList.Count: Integer;
+begin
+  Result := High(fItems) + 1;
+end;
+
+function TPairList.Exists(const aName: string): Boolean;
+var
+  i : Integer;
+begin
+  Result := False;
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then Exit(True)
+  end;
+end;
+
+function TPairList.GetPair(const aName: string): TPairItem;
+var
+  i : Integer;
+begin
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then Exit(fItems[i]);
+  end;
+end;
+
+function TPairList.GetValue(const aName: string): string;
+var
+  i : Integer;
+begin
+  Result := '';
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then Exit(fItems[i].Value);
+  end;
+end;
+
+function TPairList.Remove(const aName: string): Boolean;
+var
+  i : Integer;
+begin
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then
+    begin
+      System.Delete(fItems,i,1);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+function TPairList.ToArray : TArray<TPairItem>;
+begin
+  Result := fItems;
+end;
+
+procedure TPairList.FromArray(aValue : TArray<TPairItem>);
+begin
+  fItems := aValue;
+end;
+
+{ TPairList.TPairEnumerator}
+
+constructor TPairList.TPairEnumerator.Create(var aArray: TArray<TPairItem>);
+begin
+  fIndex := -1;
+  fArray := @aArray;
+end;
+
+function TPairList.TPairEnumerator.GetCurrent : TPairItem;
+begin
+  Result := TArray<TPairItem>(fArray^)[fIndex];
+end;
+
+function TPairList.TPairEnumerator.MoveNext: Boolean;
+begin
+  Inc(fIndex);
+  Result := fIndex < High(TArray<TPairItem>(fArray^))+1;
 end;
 
 {$IFDEF MSWINDOWS}
