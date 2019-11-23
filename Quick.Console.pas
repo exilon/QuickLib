@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 22/05/2019
+  Modified    : 23/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -553,7 +553,7 @@ begin
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
   {$ELSE}
     {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
-    write(AEC,0,';',Color+10*10);
+    write(AEC,Color,';3m');
     {$ELSE}
     crt.TextBackground(Color);
     {$ENDIF}
@@ -566,8 +566,12 @@ begin
   SetConsoleTextAttribute(hStdOut, DefConsoleColor);
   TextAttr := DefConsoleColor;
   {$ELSE}
-  TextColor(ccLightGray);
-  TextBackground(ccBlack);
+  {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
+    write(AEC,0,'m');
+  {$ELSE}
+    TextColor(ccLightGray);
+    TextBackground(ccBlack);
+    {$ENDIF}
   {$ENDIF}
 end;
 
