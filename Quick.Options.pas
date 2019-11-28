@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 29/10/2019
+  Modified    : 28/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -129,13 +129,13 @@ type
 
   IOptionsSerializer = interface
   ['{7DECE203-4AAE-4C9D-86C8-B3D583DF7C8B}']
-    procedure Load(const aFilename : string; aSections : TSectionList);
+    function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
     procedure Save(const aFilename : string; aSections : TSectionList);
   end;
 
   TOptionsSerializer = class(TInterfacedObject,IOptionsSerializer)
   public
-    procedure Load(const aFilename : string; aSections : TSectionList); virtual; abstract;
+    function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; virtual; abstract;
     procedure Save(const aFilename : string; aSections : TSectionList); virtual; abstract;
   end;
 
@@ -184,7 +184,7 @@ type
     function GetSectionInterface<T : TOptions> : IOptions<T>;
     function GetSection<T : TOptions>(const aSectionName : string = '') : T; overload;
     function Count : Integer;
-    procedure Load;
+    procedure Load(aFailOnSectionNotExists : Boolean = False);
     procedure Save;
   end;
 
@@ -245,7 +245,7 @@ begin
     if Assigned(fOnFileModified) then fOnFileModified;
     if fReloadIfFileChanged then
     begin
-      Load;
+      Load(False);
     end;
   end;
 end;
@@ -330,13 +330,13 @@ begin
   Result := TOptionValue<T>.Create(Self.GetSection<T>);
 end;
 
-procedure TOptionsContainer.Load;
+procedure TOptionsContainer.Load(aFailOnSectionNotExists : Boolean = False);
 var
   option : TOptions;
 begin
   if FileExists(fFilename) then
   begin
-    fSerializer.Load(fFilename,fSections);
+    if not fSerializer.Load(fFilename,fSections,aFailOnSectionNotExists) then Save;
     if not fLoaded then
     begin
       fLoaded := True;

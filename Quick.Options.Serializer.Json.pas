@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 22/10/2019
+  Modified    : 28/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -51,7 +51,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    procedure Load(const aFilename : string; aSections : TSectionList); override;
+    function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
     procedure Save(const aFilename : string; aSections : TSectionList); override;
   end;
 
@@ -70,13 +70,14 @@ begin
   inherited;
 end;
 
-procedure TJsonOptionsSerializer.Load(const aFilename : string; aSections : TSectionList);
+function TJsonOptionsSerializer.Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
 var
   option : TOptions;
   fileoptions : string;
   json : TJsonObject;
   jpair : TJSONPair;
 begin
+  Result := False;
   if FileExists(aFilename) then
   begin
     //read option file
@@ -85,7 +86,11 @@ begin
     for option in aSections do
     begin
       jpair := fSerializer.GetJsonPairByName(json,option.Name);
-      if jpair = nil then raise Exception.CreateFmt('Config section "%s" not found',[option.Name]);
+      if jpair = nil then
+      begin
+        if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
+          else Continue;
+      end;
       if jpair.JsonValue <> nil then
       begin
         //deserialize option

@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 22/10/2019
+  Modified    : 28/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -50,7 +50,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    procedure Load(const aFilename : string; aSections : TSectionList); override;
+    function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
     procedure Save(const aFilename : string; aSections : TSectionList); override;
   end;
 
@@ -69,25 +69,31 @@ begin
   inherited;
 end;
 
-procedure TYamlOptionsSerializer.Load(const aFilename : string; aSections : TSectionList);
+function TYamlOptionsSerializer.Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
 var
   option : TOptions;
   fileoptions : string;
-  json : TYamlObject;
-  jpair : TYamlPair;
+  yaml : TYamlObject;
+  ypair : TYamlPair;
 begin
+  Result := False;
   if FileExists(aFilename) then
   begin
     //read option file
     fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
-    json := TYamlObject.ParseYAMLValue(fileoptions) as TYamlObject;
+    yaml := TYamlObject.ParseYAMLValue(fileoptions) as TYamlObject;
     for option in aSections do
     begin
-      jpair := fSerializer.GetYamlPairByName(json,option.Name);
-      if jpair.Value <> nil then
+      ypair := fSerializer.GetYamlPairByName(yaml,option.Name);
+      if ypair = nil then
+      begin
+        if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
+          else Continue;
+      end;
+      if ypair.Value <> nil then
       begin
         //deserialize option
-        fSerializer.DeserializeObject(option,jpair.Value as TYamlObject);
+        fSerializer.DeserializeObject(option,ypair.Value as TYamlObject);
         //validate loaded configuration
         option.ValidateOptions;
       end;
