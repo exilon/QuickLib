@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 02/09/2018
+  Modified    : 28/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -233,7 +233,8 @@ begin
           SSLHandler.SSLOptions.Mode := sslmUnassigned;
           SSLHandler.SSLOptions.VerifyMode := [];
           SSLHandler.SSLOptions.VerifyDepth := 0;
-          //Self.UseTLS := utUseExplicitTLS;
+          if fPort = 465 then Self.UseTLS := utUseImplicitTLS
+            else Self.UseTLS := utUseExplicitTLS;
         end;
         //server auth
         if ServerAuth then Self.AuthType := TIdSMTPAuthenticationType.satDefault;
