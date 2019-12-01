@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 14/09/2019
+  Modified    : 01/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -273,7 +273,7 @@ type
     function WaitAndRetry(aWaitTimeArray : TArray<Integer>) : IWorkTask; overload;
     function WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IWorkTask; overload;
     function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer) : IWorkTask; overload;
-    function WaitAndRetryForever(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IWorkTask; overload;
+    function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IWorkTask; overload;
     function SetParameter(const aName : string; aValue : TFlexValue; aOwned : Boolean) : IWorkTask; overload;
     function SetParameter(const aName : string; aValue : TFlexValue) : IWorkTask; overload;
     procedure Run;
@@ -295,7 +295,7 @@ type
     function WaitAndRetry(aWaitTimeArray : TArray<Integer>) : IScheduledTask; overload;
     function WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IScheduledTask; overload;
     function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer) : IScheduledTask; overload;
-    function WaitAndRetryForever(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IScheduledTask; overload;
+    function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IScheduledTask; overload;
     function CheckSchedule : Boolean;
     procedure DoExpire;
     function GetTaskName : string;
@@ -393,7 +393,7 @@ type
     function WaitAndRetry(aWaitTimeArray : TArray<Integer>) : IWorkTask; overload;
     function WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IWorkTask; overload;
     function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer) : IWorkTask; overload;
-    function WaitAndRetryForever(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IWorkTask; overload;
+    function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IWorkTask; overload;
     function SetParameter(const aName : string; aValue : TFlexValue; aOwned : Boolean) : IWorkTask; overload;
     function SetParameter(const aName : string; aValue : TFlexValue) : IWorkTask; overload;
     procedure Run; virtual;
@@ -452,7 +452,7 @@ type
     function WaitAndRetry(aWaitTimeArray : TArray<Integer>) : IScheduledTask; overload;
     function WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IScheduledTask; overload;
     function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer) : IScheduledTask; overload;
-    function WaitAndRetryForever(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IScheduledTask; overload;
+    function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : IScheduledTask; overload;
     function SetParameter(const aName : string; aValue : TFlexValue; aOwned : Boolean) : IScheduledTask; overload;
     function SetParameter(const aName : string; aValue : TFlexValue) : IScheduledTask; overload;
     function IsFinished : Boolean;
@@ -1313,6 +1313,7 @@ end;
 
 procedure TTask.SetRetryPolicy(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor: Double);
 begin
+  if aWaitTimeMultiplierFactor = 0 then raise ETaskParamError.Create('WaitTimeMultiplierFactor cannot be 0');
   fFaultControl.MaxRetries := aMaxRetries;
   fFaultControl.WaitTimeBetweenRetriesMS := aWaitTimeBetweenRetriesMS;
   fFaultControl.WaitTimeMultiplierFactor := aWaitTimeMultiplierFactor;
@@ -1328,7 +1329,7 @@ procedure TTask.SetRetryPolicy(aWaitTimeMSArray: TArray<Integer>);
 begin
   fFaultControl.MaxRetries := High(aWaitTimeMSArray) + 1;
   fFaultControl.WaitTimeBetweenRetriesMS := 0;
-  fFaultControl.WaitTimeMultiplierFactor := 0;
+  fFaultControl.WaitTimeMultiplierFactor := 1;
   fFaultControl.WaitTimeMSArray := aWaitTimeMSArray;
   fCustomFaultPolicy := True;
 end;
@@ -1384,19 +1385,19 @@ end;
 function TWorkTask.Retry(aMaxRetries: Integer): IWorkTask;
 begin
   Result := Self;
-  SetRetryPolicy(aMaxRetries,0,0);
+  SetRetryPolicy(aMaxRetries,0,1);
 end;
 
 function TWorkTask.RetryForever: IWorkTask;
 begin
   Result := Self;
-  SetRetryPolicy(-1,0,0);
+  SetRetryPolicy(-1,0,1);
 end;
 
 function TWorkTask.WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer): IWorkTask;
 begin
   Result := Self;
-  SetRetryPolicy(aMaxRetries,aWaitTimeBetweenRetriesMS,0);
+  SetRetryPolicy(aMaxRetries,aWaitTimeBetweenRetriesMS,1);
 end;
 
 function TWorkTask.WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor : Double): IWorkTask;
@@ -1414,10 +1415,10 @@ end;
 function TWorkTask.WaitAndRetryForever(aWaitTimeBetweenRetriesMS: Integer): IWorkTask;
 begin
   Result := Self;
-  SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,0);
+  SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,1);
 end;
 
-function TWorkTask.WaitAndRetryForever(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor: Double): IWorkTask;
+function TWorkTask.WaitAndRetryForever(aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor: Double): IWorkTask;
 begin
   Result := Self;
   SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,aWaitTimeMultiplierFactor);
@@ -1826,19 +1827,19 @@ end;
 function TScheduledTask.Retry(aMaxRetries: Integer): IScheduledTask;
 begin
   Result := Self;
-  SetRetryPolicy(aMaxRetries,0,0);
+  SetRetryPolicy(aMaxRetries,0,1);
 end;
 
 function TScheduledTask.RetryForever: IScheduledTask;
 begin
   Result := Self;
-  SetRetryPolicy(-1,0,0);
+  SetRetryPolicy(-1,0,1);
 end;
 
 function TScheduledTask.WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer): IScheduledTask;
 begin
   Result := Self;
-  SetRetryPolicy(aMaxRetries,aWaitTimeBetweenRetriesMS,0);
+  SetRetryPolicy(aMaxRetries,aWaitTimeBetweenRetriesMS,1);
 end;
 
 function TScheduledTask.WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor : Double): IScheduledTask;
@@ -1856,10 +1857,10 @@ end;
 function TScheduledTask.WaitAndRetryForever(aWaitTimeBetweenRetriesMS: Integer): IScheduledTask;
 begin
   Result := Self;
-  SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,0);
+  SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,1);
 end;
 
-function TScheduledTask.WaitAndRetryForever(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor: Double): IScheduledTask;
+function TScheduledTask.WaitAndRetryForever(aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor: Double): IScheduledTask;
 begin
   Result := Self;
   SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,aWaitTimeMultiplierFactor);
