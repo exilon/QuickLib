@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/04/2019
-  Modified    : 31/05/2019
+  Modified    : 01/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -350,7 +350,11 @@ begin
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for obj in fList do
   begin
+    {$IFNDEF FPC}
     if obj = nil then continue;
+    {$ELSE}
+    if Pointer(obj) = nil then continue;
+    {$ENDIF}
     if fWhereClause.Validate(obj) then
     begin
       for i := Low(aFields) to High(aFields)  do
