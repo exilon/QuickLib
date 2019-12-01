@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 14/09/2017
-  Modified    : 05/10/2017
+  Modified    : 01/12/2017
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -318,7 +318,7 @@ begin
     WriteLn(' [/instance:<service name>]'+#9+'Install service with a custom name');
   end
   else Writeln(Format('%s [/console] [/install] [/remove] [/h] [/help]',[ExtractFileName(ParamStr(0))]));
-  WriteLn(' [/console]'+#9#9#9+'Run as a console application');
+  WriteLn(' [/console]'+#9#9#9+'Force run as a console application (when runned from another service)');
   WriteLn(' [/install]'+#9#9#9+'Install as a service');
   WriteLn(' [/remove]'+#9#9#9+'Remove service');
   WriteLn(' [/h /help]'+#9#9#9+'This help');
@@ -349,6 +349,10 @@ begin
           fDisplayName := svcname;
         end;
         Self.Remove;
+      end
+      else if ParamFindSwitch('console') then
+      begin
+        Writeln('Forced console mode');
       end
       else Writeln('Unknow parameter specified!');
   end
