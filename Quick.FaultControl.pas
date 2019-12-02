@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 20/06/2019
-  Modified    : 18/08/2019
+  Modified    : 02/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -69,12 +69,13 @@ type
     fOnCircuitBreak : TCircuitBreakEvent;
     fTaskFailed : Boolean;
     procedure WaitBeforeRetry(aNumWaitMilliseconds : Integer);
+    procedure SetWaitTimeMultiplierFactor(const Value: Double);
   public
     constructor Create;
     destructor Destroy; override;
     property MaxRetries : Integer read fMaxRetries write fMaxRetries;
     property WaitTimeBetweenRetriesMS : Integer read fWaitTimeBetweenRetries write fWaitTimeBetweenRetries;
-    property WaitTimeMultiplierFactor : Double read fWaitTimeMultiplierFactor write fWaitTimeMultiplierFactor;
+    property WaitTimeMultiplierFactor : Double read fWaitTimeMultiplierFactor write SetWaitTimeMultiplierFactor;
     property WaitTimeMSArray : TArray<Integer> read fWaitTimeArray write fWaitTimeArray;
     property OnRetry : TRetryEvent read fOnRetry write fOnRetry;
     property OnCircuitBreak : TCircuitBreakEvent read fOnCircuitBreak write fOnCircuitBreak;
@@ -87,6 +88,8 @@ type
     procedure Reset;
     function NeedToRetry : Boolean;
   end;
+
+  EFaultControlConfigError = class(Exception);
 
 implementation
 
@@ -102,7 +105,7 @@ begin
   fNumRetries := 0;
   fMaxRetries := 0;
   fWaitTimeBetweenRetries := 0;
-  fWaitTimeMultiplierFactor := 1.0;
+  fWaitTimeMultiplierFactor := 1;
   fWaitTimeArray := [];
 end;
 
@@ -130,8 +133,12 @@ begin
         //wait between retries
         if (Result) and (fMaxRetries <> 0) then
         begin
-          if IsEmptyArray(fWaitTimeArray) then waitretryMS := fWaitTimeBetweenRetries * Round(fNumRetries * fWaitTimeMultiplierFactor)
-            else waitretryMS := fWaitTimeArray[fNumRetries - 1];
+          if IsEmptyArray(fWaitTimeArray) then
+          begin
+            if fWaitTimeMultiplierFactor = 1 then waitretryMS := fWaitTimeBetweenRetries
+              else waitretryMS := fWaitTimeBetweenRetries * Round(fNumRetries * fWaitTimeMultiplierFactor);
+          end
+          else waitretryMS := fWaitTimeArray[fNumRetries - 1];
           if waitretryMS > 0 then WaitBeforeRetry(waitretryMS);
         end;
       end
@@ -151,6 +158,12 @@ begin
   fTaskFailed := False;
   fNumRetries := 0;
   fLastException := nil;
+end;
+
+procedure TFaultControl.SetWaitTimeMultiplierFactor(const Value: Double);
+begin
+  if Value = 0 then raise EFaultControlConfigError.Create('WaitTimeMultiplierFactor cannot be 0')
+    else fWaitTimeMultiplierFactor := Value;
 end;
 
 procedure TFaultControl.SuccessExecution;

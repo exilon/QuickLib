@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 01/12/2019
+  Modified    : 02/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1313,7 +1313,6 @@ end;
 
 procedure TTask.SetRetryPolicy(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor: Double);
 begin
-  if aWaitTimeMultiplierFactor = 0 then raise ETaskParamError.Create('WaitTimeMultiplierFactor cannot be 0');
   fFaultControl.MaxRetries := aMaxRetries;
   fFaultControl.WaitTimeBetweenRetriesMS := aWaitTimeBetweenRetriesMS;
   fFaultControl.WaitTimeMultiplierFactor := aWaitTimeMultiplierFactor;
