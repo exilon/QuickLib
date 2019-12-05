@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 10/11/2019
+  Modified    : 05/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -851,9 +851,16 @@ function GetLoggedUserName : string;
     Result := GetEnvironmentVariable('USERNAME');
   end;
   {$ELSE}
+  var
+    plogin : PAnsiChar;
   begin
     {$IFDEF POSIX}
-    Result := string(getlogin);
+    try
+      plogin := getlogin;
+      Result := Copy(plogin,1,Length(Trim(plogin)));
+    except
+      Result := 'N/A';
+    end;
     {$ELSE}
     Result := 'N/A';
     {$ENDIF}
@@ -906,12 +913,18 @@ function GetComputerName : string;
     {$ELSE}
       {$IFDEF DELPHILINUX}
       var
-        puser : PAnsiChar;
+        phost : PAnsiChar;
       begin
-        //puser := '';
         try
-          if gethostname(puser,_SC_HOST_NAME_MAX) = 0 then Result := string(puser)
-            else Result := 'N/A';
+          if gethostname(phost,_SC_HOST_NAME_MAX) = 0 then
+          begin
+            {$IFDEF DEBUG}
+            Result := Copy(Trim(phost),1,Length(Trim(phost)));
+            {$ELSE}
+            Result := Copy(phost,1,Length(phost));
+            {$ENDIF}
+          end
+          else Result := 'N/A.';
         except
           Result := 'N/A';
         end;
