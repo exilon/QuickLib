@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 27/08/2015
-  Modified    : 20/01/2019
+  Modified    : 05/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -70,10 +70,6 @@ resourcestring
 
 type
 
-  {$IF Defined(NEXTGEN) OR Defined(LINUX) OR Defined(OSX)}
-  TLargeInteger = Int64;
-  {$ENDIF}
-
   TTimeValue = (utDay, utHour, utMinute, utSecond, utMillisecond,utMicrosecond,utNanosecond);
   TTimeFmt = (tfHoursAndMinutes, tfMinutesAndSeconds);
   TPrecissionFormat = (pfFloat, pfRound, pfTruncate);
@@ -92,20 +88,20 @@ type
 
   TChronometer = class
   private
-    fFrequency: TLargeInteger;
+    fFrequency: Int64;
     fIsRunning: Boolean;
     fIsHighResolution: Boolean;
-    fStartCount, fStopCount: TLargeInteger;
-    fStartBreakPoint, fStopBreakPoint : TLargeInteger;
+    fStartCount, fStopCount: Int64;
+    fStartBreakPoint, fStopBreakPoint : Int64;
     fReportFormatPrecission : TPrecissionFormat;
     class function Precission(aValue : Extended; FormatPrecission : TPrecissionFormat) : Extended;
-    procedure SetTickStamp(var lInt: TLargeInteger);
-    function GetElapsedTicks: TLargeInteger;
-    function GetElapsedMilliseconds: TLargeInteger;
+    function GetTickStamp : Int64;
+    function GetElapsedTicks: Int64;
+    function GetElapsedMilliseconds: Int64;
     function GetElapsedMillisecondsWithPrecission: Extended;
-    function GetElapsedMilliseconds_BreakPoint: TLargeInteger;
+    function GetElapsedMilliseconds_BreakPoint: Int64;
     function GetElapsedMillisecondsWithPrecission_BreakPoint: Extended;
-    function GetElapsedSeconds : TLargeInteger;
+    function GetElapsedSeconds : Int64;
     class function GetUnitTime(TimeValue : TTimeValue; LongFormat : Boolean) : string;
     class function GetFmtTime(TimeFmt : TTimeFmt; LongFormat : Boolean) : string;
   public
@@ -118,15 +114,15 @@ type
     property IsHighResolution: Boolean read fIsHighResolution;
     property IsRunning: Boolean read fIsRunning;
     property ReportFormatPrecission: TPrecissionFormat read fReportFormatPrecission write fReportFormatPrecission;
-    property ElapsedTicks: TLargeInteger read GetElapsedTicks;
-    property ElapsedMilliseconds: TLargeInteger read GetElapsedMilliseconds;
-    property ElapsedMilliseconds_Breakpoint: TLargeInteger read GetElapsedMilliseconds_BreakPoint;
+    property ElapsedTicks: Int64 read GetElapsedTicks;
+    property ElapsedMilliseconds: Int64 read GetElapsedMilliseconds;
+    property ElapsedMilliseconds_Breakpoint: Int64 read GetElapsedMilliseconds_BreakPoint;
     property ElapsedMillisecondsWithPrecission: Extended read GetElapsedMillisecondsWithPrecission;
     property ElapsedMillisecondsWithPrecission_BreakPoint: Extended read GetElapsedMillisecondsWithPrecission_BreakPoint;
-    property ElapsedSeconds: TLargeInteger read GetElapsedSeconds;
+    property ElapsedSeconds: Int64 read GetElapsedSeconds;
     function ElapsedTime(LongFormat : Boolean = False) : string;
     function ElapsedTime_BreakPoint(LongFormat : Boolean = False) : string;
-    class function MillisecondsToString(aMilliseconds : TLargeInteger; LongFormat : Boolean = False) : string; overload;
+    class function MillisecondsToString(aMilliseconds : Int64; LongFormat : Boolean = False) : string; overload;
     class function MillisecondsToString(aMilliseconds : Extended; FormatPrecission : TPrecissionFormat = pfFloat; LongFormat : Boolean = False) : string; overload;
 
   end;
@@ -137,17 +133,17 @@ type
     fLastUpdateTime : TDateTime;
     fCurrentProcess : Int64;
     fFirstUpdateTime : TDateTime;
-    fEstimatedMilliseconds : TLargeInteger;
+    fEstimatedMilliseconds : Int64;
     fSpeed : Single;
     procedure SetCurrentProcess(NewCurrentProcess : Int64);
-    function GetElapsedMilliseconds : TLargeInteger;
+    function GetElapsedMilliseconds : Int64;
   public
     constructor Create;
     property TotalProcess : Int64 read fTotalProcess write fTotalProcess;
     property CurrentProcess : Int64 read fCurrentProcess write SetCurrentProcess;
     property Speed : Single read fSpeed write fSpeed;
-    property ElapsedMilliseconds : TLargeInteger read GetElapsedMilliseconds;
-    property EstimatedMilliseconds : TLargeInteger read fEstimatedMilliseconds write fEstimatedMilliseconds;
+    property ElapsedMilliseconds : Int64 read GetElapsedMilliseconds;
+    property EstimatedMilliseconds : Int64 read fEstimatedMilliseconds write fEstimatedMilliseconds;
     function ElapsedTime(LongFormat : Boolean) : string;
     function EstimatedTime(LongFormat : Boolean) : string;
     procedure Reset;
@@ -187,27 +183,27 @@ begin
   if StartOnCreate then Start;
 end;
 
-function TChronometer.GetElapsedTicks: TLargeInteger;
+function TChronometer.GetElapsedTicks: Int64;
 begin
   Result := fStopCount - fStartCount;
 end;
 
-procedure TChronometer.SetTickStamp(var lInt: TLargeInteger);
+function TChronometer.GetTickStamp : Int64;
 {$IF (Defined(POSIX) OR Defined(LINUX)) AND NOT Defined(MACOS)}
 var
   res: timespec;
 {$ENDIF}
 begin
   {$IFDEF MSWINDOWS}
-  if fIsHighResolution then QueryPerformanceCounter(lInt)
-    else lInt := MilliSecondOf(Now);
+  if fIsHighResolution then QueryPerformanceCounter(Result)
+    else Result := MilliSecondOf(Now);
   {$ELSE}
     {$IFDEF MACOS}
-    lInt := Int64(AbsoluteToNanoseconds(mach_absolute_time) div 100);
+    Result := Int64(AbsoluteToNanoseconds(mach_absolute_time) div 100);
     {$ENDIF}
     {$IF (Defined(POSIX) OR Defined(LINUX)) AND NOT Defined(MACOS)}
     clock_gettime(CLOCK_MONOTONIC, @res);
-    lInt := (Int64(1000000000) * res.tv_sec + res.tv_nsec) div 100;
+    Result := (Int64(1000000000) * res.tv_sec + res.tv_nsec) div 100;
     {$ENDIF}
   {$ENDIF}
 end;
@@ -234,7 +230,7 @@ begin
     else Result := FmtShortTime[TimeFmt];
 end;
 
-class function TChronometer.MillisecondsToString(aMilliseconds : TLargeInteger; LongFormat : Boolean = False) : string;
+class function TChronometer.MillisecondsToString(aMilliseconds : Int64; LongFormat : Boolean = False) : string;
 begin
   Result := MillisecondsToString(aMilliseconds.ToExtended,pfTruncate,LongFormat);
 end;
@@ -300,12 +296,12 @@ begin
   end;
 end;
 
-function TChronometer.GetElapsedMilliseconds : TLargeInteger;
+function TChronometer.GetElapsedMilliseconds : Int64;
 begin
   result := (MSecsPerSec * (fStopCount - fStartCount)) div fFrequency;
 end;
 
-function TChronometer.GetElapsedMilliseconds_BreakPoint : TLargeInteger;
+function TChronometer.GetElapsedMilliseconds_BreakPoint : Int64;
 begin
   result := (MSecsPerSec * (fStopBreakPoint - fStartBreakPoint)) div fFrequency;
 end;
@@ -320,31 +316,31 @@ begin
   result := (MSecsPerSec * (fStopBreakPoint - fStartBreakPoint)) / fFrequency;
 end;
 
-function TChronometer.GetElapsedSeconds : TLargeInteger;
+function TChronometer.GetElapsedSeconds : Int64;
 begin
   result := ((MSecsPerSec * (fStopCount - fStartCount)) div fFrequency) div MSecsPerSec;
 end;
 
 procedure TChronometer.Start;
 begin
-  SetTickStamp(fStartCount);
+  fStartCount := GetTickStamp;
   fIsRunning := true;
 end;
 
 procedure TChronometer.Stop;
 begin
-  SetTickStamp(fStopCount);
+  fStopCount := GetTickStamp;
   fIsRunning := false;
 end;
 
 procedure TChronometer.Reset;
 begin
-  SetTickStamp(fStartCount);
+  fStartCount := GetTickStamp;
 end;
 
 procedure TChronometer.Check;
 begin
-  if fIsRunning then SetTickStamp(fStopCount);
+  if fIsRunning then fStopCount := GetTickStamp;
 end;
 
 procedure TChronometer.BreakPoint;
@@ -353,13 +349,13 @@ begin
   begin
     if fStartBreakPoint = 0 then
     begin
-      SetTickStamp(fStopBreakPoint);
+      fStopBreakPoint := GetTickStamp;
       fStartBreakPoint := fStartCount;
     end
     else
     begin
       fStartBreakPoint := fStopBreakPoint;
-      SetTickStamp(fStopBreakPoint);
+      fStopBreakPoint := GetTickStamp;
     end;
   end
   else fStopBreakPoint := fStopCount;
@@ -394,7 +390,7 @@ begin
   fCurrentProcess := NewCurrentProcess;
 end;
 
-function TChronoBenchmark.GetElapsedMilliseconds : TLargeInteger;
+function TChronoBenchmark.GetElapsedMilliseconds : Int64;
 begin
   Result := Round(((Now() - fFirstUpdateTime) * 86400 * 1000));
 end;
