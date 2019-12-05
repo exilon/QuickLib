@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 17/05/2018
-  Modified    : 14/09/2019
+  Modified    : 05/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -109,7 +109,7 @@ begin
   fAppPath := TPath.GetDocumentsPath;
   {$ENDIf}
     {$IFDEF DELPHILINUX}
-    fUserName := String.Copy(GetLoggedUserName);
+    fUserName := GetLoggedUserName;
     {$ELSE}
     fUserName := Trim(GetLoggedUserName);
     {$ENDIF}
