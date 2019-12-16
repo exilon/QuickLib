@@ -13,12 +13,30 @@ uses
   Quick.Options.Serializer.Yaml;
 
 type
+  TLogConfig = class
+  private
+    fVerbose : Boolean;
+    fTimePrecission : Boolean;
+    fEnvironment : string;
+  published
+    property Verbose : Boolean read fVerbose write fVerbose;
+    property TimePrecission : Boolean read fTimePrecission write fTimePrecission;
+    [Required, StringLength(5)]
+    property Environment : string read fEnvironment write fEnvironment;
+  end;
+
   TLoggingOptions = class(TOptions)
   private
     fPath : string;
+    fConfig : TLogConfig;
+  public
+    constructor Create;
+    destructor Destroy; override;
   published
     [Required, StringLength(255,'Path too long')]
     property Path : string read fPath write fPath;
+    [Required]
+    property Config : TLogConfig read fConfig write fConfig;
   end;
 
   TGlobalOptions = class(TOptions)
@@ -50,6 +68,19 @@ var
   GlobalOptions : TGlobalOptions;
   UIOptions : TUIOptions;
 
+{ TLoggingOptions }
+
+constructor TLoggingOptions.Create;
+begin
+  fConfig := TLogConfig.Create;
+end;
+
+destructor TLoggingOptions.Destroy;
+begin
+  fConfig.Free;
+  inherited;
+end;
+
 begin
   try
     Options := TOptionsContainer.Create('.\options.conf',TJsonOptionsSerializer.Create,True);
@@ -61,6 +92,8 @@ begin
     Options.AddSection<TLoggingOptions>('Logging').ConfigureOptions(procedure(aOptions : TLoggingOptions)
                                                             begin
                                                               aOptions.Path := 'C:\';
+                                                              aOptions.Config.Verbose := True;
+                                                              aOptions.Config.Environment := 'PRO';
                                                             end
                                                             ).ValidateOptions;
     Options.AddSection<TGlobalOptions>('GlobalOptions').ConfigureOptions(procedure(aOptions : TGlobalOptions)
@@ -83,6 +116,7 @@ begin
     GlobalOptions := Options.GetSectionInterface<TGlobalOptions>.Value;
 
     coutFmt('Logging.Path = %s',[LoggingOptions.Path],etInfo);
+    coutFmt('Logging.Config.Environment = %s',[LoggingOptions.Config.Environment],etInfo);
     coutFmt('UIOptions.BackgroundColor = %d',[UIOptions.BackgroundColor],etInfo);
     coutFmt('GlobalOptions.StarMinimized = %s',[BoolToStr(GlobalOptions.StartMinimized,True)],etInfo);
 

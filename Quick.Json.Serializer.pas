@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.10
   Created     : 21/05/2018
-  Modified    : 10/11/2019
+  Modified    : 16/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -910,11 +910,14 @@ begin
   end
   else
   begin
-    for i := 0 to aJson.Count - 1 do
+    if aJson <> nil then
     begin
-      Result := aJson.Pairs[I];
-      if Result.JsonValue = nil then Exit(nil);
-      if CompareText(Result.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then Exit;
+      for i := 0 to aJson.Count - 1 do
+      begin
+        Result := aJson.Pairs[I];
+        if Result.JsonValue = nil then Exit(nil);
+        if CompareText(Result.JsonString{$IFNDEF FPC}.Value{$ENDIF},aName) = 0 then Exit;
+      end;
     end;
   end;
   Result := nil;

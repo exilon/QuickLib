@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 28/11/2019
+  Modified    : 16/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -90,14 +90,16 @@ type
   TOptions = class(TInterfacedObject,IOptionsValidator)
   private
     fName : string;
-    procedure ValidateRequired(aProperty : TRttiProperty);
-    procedure ValidateStringLength(aProperty: TRttiProperty; aValidation : StringLength);
-    procedure ValidateRange(aProperty : TRttiProperty; aValidation : Range);
+    procedure ValidateRequired(const aInstance : TObject; aProperty: TRttiProperty);
+    procedure ValidateStringLength(const aInstance : TObject; aProperty: TRttiProperty; aValidation : StringLength);
+    procedure ValidateRange(const aInstance : TObject; aProperty: TRttiProperty; aValidation : Range);
     procedure DoValidateOptions; virtual;
+    procedure ValidateObject(aObj : TObject);
+    procedure ValidateArray(aValue : TValue);
   public
     constructor Create;
     property Name : string read fName write fName;
-    procedure DefaultValues; virtual; abstract;
+    procedure DefaultValues; virtual;
     function ConfigureOptions<T : TOptions>(aOptionsFunc : TConfigureOptionsProc<T>) : IOptionsValidator;
     procedure ValidateOptions;
   end;
@@ -122,7 +124,7 @@ type
   ['{A593C8BB-53CF-4AA4-9641-BF974E45CBD1}']
     function AddSection(aOption : TOptionsClass; const aOptionsName : string = '') : TOptions;
     function GetOptions(aOptionClass : TOptionsClass): TOptions;
-    function GetSection(aOptionsSection : TOptionsClass; aOptions : TOptions) : Boolean; overload;
+    function GetSection(aOptionsSection : TOptionsClass; var vOptions : TOptions) : Boolean; overload;
   end;
 
   TSectionList = TObjectList<TOptions>;
@@ -167,7 +169,7 @@ type
     procedure SetReloadIfFileChanged(const Value: Boolean);
     function GetOptions(aOptionClass : TOptionsClass): TOptions; overload;
     function GetOptions(aIndex : Integer) : TOptions; overload;
-    function GetSection(aOptionsSection : TOptionsClass; aOptions : TOptions) : Boolean; overload;
+    function GetSection(aOptionsSection : TOptionsClass; var vOptions : TOptions) : Boolean; overload;
   public
     constructor Create(const aFilename : string; aOptionsSerializer : IOptionsSerializer; aReloadIfFileChanged : Boolean = False);
     destructor Destroy; override;
@@ -282,7 +284,7 @@ begin
   Result := fSections[aIndex];
 end;
 
-function TOptionsContainer.GetSection(aOptionsSection: TOptionsClass; aOptions: TOptions): Boolean;
+function TOptionsContainer.GetSection(aOptionsSection: TOptionsClass; var vOptions: TOptions): Boolean;
 var
   option : TOptions;
 begin
@@ -291,7 +293,7 @@ begin
   begin
     if option is TOptionsClass then
     begin
-      aOptions := option as TOptionsClass;
+      vOptions := option as TOptionsClass;
       Exit;
     end;
   end;
@@ -396,16 +398,27 @@ begin
   fName := '';
 end;
 
+procedure TOptions.DefaultValues;
+begin
+  //nothing
+end;
+
 procedure TOptions.DoValidateOptions;
+begin
+  ValidateObject(Self);
+end;
+
+procedure TOptions.ValidateObject(aObj : TObject);
 var
   ctx : TRttiContext;
   rtype : TRttiType;
   rprop : TRttiProperty;
   attrib : TCustomAttribute;
+  rvalue : TValue;
 begin
   ctx := TRttiContext.Create;
   try
-    rtype := ctx.GetType(Self.ClassInfo);
+    rtype := ctx.GetType(aObj.ClassInfo);
     for rprop in rtype.GetProperties do
     begin
       //check only published properties
@@ -414,9 +427,45 @@ begin
         //check validation option attributes
         for attrib in rprop.GetAttributes do
         begin
-          if attrib is Required  then ValidateRequired(rprop)
-          else if attrib is StringLength then ValidateStringLength(rprop,StringLength(attrib))
-          else if attrib is Range then ValidateRange(rprop,Range(attrib));
+          if attrib is Required  then ValidateRequired(aObj,rprop)
+          else if attrib is StringLength then ValidateStringLength(aObj,rprop,StringLength(attrib))
+          else if attrib is Range then ValidateRange(aObj,rprop,Range(attrib));
+        end;
+        rvalue := rprop.GetValue(aObj);
+        if not rvalue.IsEmpty then
+        begin
+          case rvalue.Kind of
+            tkClass : ValidateObject(rvalue.AsObject);
+            tkDynArray : ValidateArray(rvalue);
+          end;
+        end;
+      end;
+    end;
+  finally
+    ctx.Free;
+  end;
+end;
+
+procedure TOptions.ValidateArray(aValue : TValue);
+type
+  PPByte = ^PByte;
+var
+  ctx : TRttiContext;
+  rDynArray : TRttiDynamicArrayType;
+  itvalue : TValue;
+  i : Integer;
+begin
+  ctx := TRttiContext.Create;
+  try
+    rDynArray := ctx.GetType(aValue.TypeInfo) as TRTTIDynamicArrayType;
+    for i := 0 to aValue.GetArrayLength - 1 do
+    begin
+      TValue.Make(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType.Handle,itvalue);
+      if not itvalue.IsEmpty then
+      begin
+        case itvalue.Kind of
+          tkClass : ValidateObject(itvalue.AsObject);
+          tkDynArray : ValidateArray(itvalue);
         end;
       end;
     end;
@@ -437,19 +486,19 @@ begin
   end;
 end;
 
-procedure TOptions.ValidateRange(aProperty: TRttiProperty; aValidation : Range);
+procedure TOptions.ValidateRange(const aInstance : TObject; aProperty: TRttiProperty; aValidation : Range);
 var
   value : TValue;
   msg : string;
 begin
-  value := aProperty.GetValue(Self);
+  value := aProperty.GetValue(aInstance);
   if not value.IsEmpty then
   begin
     if value.Kind = tkFloat then
     begin
       if (value.AsExtended < aValidation.Min) or (value.AsExtended > aValidation.Max) then
       begin
-        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option "%s.%s" exceeds predefined range (%2f - %2f)',[Self.Name,aProperty.Name,aValidation.Min,aValidation.Max])
+        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds predefined range (%2f - %2f)',[Self.Name,aInstance.ClassName,aProperty.Name,aValidation.Min,aValidation.Max])
           else msg := aValidation.ErrorMsg;
         raise EOptionValidationError.Create(msg);
       end;
@@ -458,7 +507,7 @@ begin
     begin
       if (value.AsInt64 < aValidation.Min) or (value.AsInt64 > aValidation.Max) then
       begin
-        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option "%s.%s" exceeds predefined range (%d - %d)',[Self.Name,aProperty.Name,Round(aValidation.Min),Round(aValidation.Max)])
+        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds predefined range (%d - %d)',[Self.Name,aInstance.ClassName,aProperty.Name,Round(aValidation.Min),Round(aValidation.Max)])
           else msg := aValidation.ErrorMsg;
         raise EOptionValidationError.Create(msg);
       end;
@@ -466,20 +515,20 @@ begin
   end;
 end;
 
-procedure TOptions.ValidateRequired(aProperty: TRttiProperty);
+procedure TOptions.ValidateRequired(const aInstance : TObject; aProperty: TRttiProperty);
 begin
-  if aProperty.GetValue(Self).IsEmpty then raise EOptionValidationError.CreateFmt('Option "%s.%s" is required',[Self.Name,aProperty.Name]);
+  if aProperty.GetValue(aInstance).IsEmpty then raise EOptionValidationError.CreateFmt('Option %s "%s.%s" is required',[Self.Name,aInstance.ClassName,aProperty.Name]);
 end;
 
-procedure TOptions.ValidateStringLength(aProperty: TRttiProperty; aValidation : StringLength);
+procedure TOptions.ValidateStringLength(const aInstance : TObject; aProperty: TRttiProperty; aValidation : StringLength);
 var
   value : TValue;
   msg : string;
 begin
-  value := aProperty.GetValue(Self);
+  value := aProperty.GetValue(aInstance);
   if (not value.IsEmpty) and (value.AsString.Length > aValidation.MaxLength) then
   begin
-    if aValidation.ErrorMsg.IsEmpty then msg := Format('Option "%s.%s" exceeds max length (%d)',[Self.Name,aProperty.Name,aValidation.MaxLength])
+    if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds max length (%d)',[Self.Name,aInstance.ClassName,aProperty.Name,aValidation.MaxLength])
       else msg := aValidation.ErrorMsg;
 
     raise EOptionValidationError.Create(msg);
