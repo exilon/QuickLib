@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 17/04/2019
-  Modified    : 03/07/2019
+  Modified    : 14/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,6 +36,7 @@ interface
 uses
   Classes,
   SysUtils,
+  Quick.Commons,
   Generics.Collections,
   Quick.Value;
 
@@ -246,6 +247,7 @@ implementation
 
 const
   CRLF = #13#10;
+  NUM_INDENT = 2;
 
 
 { TYamlAncestor }
@@ -343,7 +345,7 @@ var
   trimed : string;
 begin
   trimed := aValue.Trim;
-  if trimed.StartsWith(#9) or trimed.IsEmpty or trimed.StartsWith('#') then Exit(99999);
+  if trimed.IsEmpty or trimed.StartsWith('#') then Exit(99999);
 
   for i := Low(aValue) to aValue.Length do
   begin
@@ -498,16 +500,19 @@ procedure TYamlObject.ParseYaml(const aData: string);
 var
   yaml : TList<string>;
   line : string;
+  data : string;
   yamlvalue : TYamlAncestor;
   vIndex : Integer;
 begin
   yaml := TList<string>.Create;
   try
     vIndex := 0;
+    //normalize tabs
+    data := StringReplace(aData,#9,Spaces(4),[rfReplaceAll]);
     {$IFNDEF LINUX}
-    for line in aData.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
+    for line in data.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
     {$ELSE}
-    for line in aData.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
+    for line in data.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
     {$ENDIF}
     while yaml.Count > vIndex do
     begin
@@ -524,16 +529,19 @@ class function TYamlObject.ParseYamlValue(const aData : string) : TYamlAncestor;
 var
   yaml : TList<string>;
   line : string;
+  data : string;
   yamlvalue : TYamlAncestor;
   vIndex : Integer;
 begin
   yaml := TList<string>.Create;
   try
     vIndex := 0;
+    //normalize tabs
+    data := StringReplace(aData,#9,Spaces(4),[rfReplaceAll]);
     {$IFNDEF LINUX}
-    for line in aData.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
+    for line in data.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
     {$ELSE}
-    for line in aData.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
+    for line in data.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
     {$ENDIF}
     if yaml[0].TrimLeft.StartsWith('- ') then Result := TYamlArray.Create
       else Result := TYamlObject.Create;
@@ -576,35 +584,45 @@ end;
 
 function TYamlObject.ParseToYaml(aIndent : Integer) : string;
 var
+  i : Integer;
   member : TYamlPair;
   yaml : TYamlWriter;
   yvalue : TYamlAncestor;
   indent : string;
   isscalar : Boolean;
+  scalar : string;
   rarray : string;
 begin
   yaml := TYamlWriter.Create;
   try
     indent := StringOfChar(' ',aIndent);
-    for member in fMembers do
+    for i := 0 to fMembers.Count - 1 do
     begin
+      member := fMembers[i];
       if member = nil then continue;
 
       yvalue := member.Value;
       if yvalue.IsScalar then
       begin
         if yvalue is TYamlComment then yaml.Writeln(Format('#%s%s',[indent,TYamlComment(member.Value).AsString]))
-          else yaml.Writeln(Format('%s%s: %s',[indent,member.Name,member.Value.Value.AsString]));
+        else
+        begin
+          scalar := member.Value.Value.AsString;
+          if scalar.IsEmpty then scalar := '""';
+          yaml.Writeln(Format('%s%s: %s',[indent,member.Name,scalar]));
+          if (i < fMembers.Count - 1) and (fMembers[i+1].Value is TYamlComment) then yaml.Writeln('');
+        end;
       end
       else if (yvalue is TYamlObject) then
       begin
         yaml.Writeln(Format('%s%s:',[indent,member.Name]));
-        yaml.Write((yvalue as TYamlObject).ParseToYaml(aIndent + 2));
+        yaml.Write((yvalue as TYamlObject).ParseToYaml(aIndent + NUM_INDENT));
+        if aIndent = 0 then yaml.Writeln('');
       end
       else if (yvalue is TYamlArray) then
       begin
         isscalar := False;
-        rarray := (yvalue as TYamlArray).ParseToYaml(aIndent + 2,isscalar);
+        rarray := (yvalue as TYamlArray).ParseToYaml(aIndent + NUM_INDENT,isscalar);
         if isscalar then yaml.Writeln(Format('%s%s: %s',[indent,member.Name,rarray]))
         else
         begin
@@ -925,12 +943,13 @@ begin
       end
       else if (yvalue is TYamlObject) then
       begin
-        yaml.Write(indent + '- ' + (yvalue as TYamlObject).ParseToYaml(aIndent + 2).TrimLeft);
+        yaml.Write(indent + '- ' + (yvalue as TYamlObject).ParseToYaml(aIndent + NUM_INDENT).TrimLeft);
       end
       else if (yvalue is TYamlArray) then
       begin
-        yaml.Write(Format('%s%s',[indent,(yvalue as TYamlArray).ParseToYaml(aIndent + 2,isscalar)]))
+        yaml.Write(Format('%s%s',[indent,(yvalue as TYamlArray).ParseToYaml(aIndent + NUM_INDENT,isscalar)]))
       end;
+      yaml.Writeln('');
     end;
     if yvalue.IsScalar then
     begin

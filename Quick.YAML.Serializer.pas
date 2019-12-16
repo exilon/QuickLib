@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 12/04/2019
-  Modified    : 27/04/2019
+  Modified    : 10/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -866,7 +866,7 @@ begin
     for i := 0 to aYaml.Count - 1 do
     begin
       candidate := aYaml.Pairs[I];
-      if candidate.Value = nil then Exit(nil);
+      if (candidate = nil) or (candidate.Value = nil) then Exit(nil);
       if CompareText(candidate.Name,aName) = 0 then
         Exit(candidate);
     end;
