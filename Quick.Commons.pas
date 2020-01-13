@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 05/12/2019
+  Modified    : 12/01/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -852,7 +852,11 @@ function GetLoggedUserName : string;
   end;
   {$ELSE}
   var
+    {$IFNDEF NEXTGEN}
     plogin : PAnsiChar;
+    {$ELSE}
+    plogin : string;
+    {$ENDIF}
   begin
     {$IFDEF POSIX}
     try
