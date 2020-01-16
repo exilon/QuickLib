@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 12/01/2020
+  Modified    : 16/01/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -855,7 +855,7 @@ function GetLoggedUserName : string;
     {$IFNDEF NEXTGEN}
     plogin : PAnsiChar;
     {$ELSE}
-    plogin : string;
+    plogin : MarshaledAString;
     {$ENDIF}
   begin
     {$IFDEF POSIX}
