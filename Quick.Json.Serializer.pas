@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
   Version     : 1.10
   Created     : 21/05/2018
-  Modified    : 16/12/2019
+  Modified    : 16/01/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1566,10 +1566,14 @@ function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObje
 var
   json: TJSONObject;
 begin
-  {$If Defined(FPC) OR Defined(DELPHIRX10_UP)}
+  {$IFDEF DELPHIRX10_UP}
   json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
   {$ELSE}
-  json := TJsonObject.ParseJSONValue(TEncoding.UTF8.GetBytes(aJson),0,True) as TJSONObject;
+   {$IFDEF FPC}
+   json := TJSONObject(TJSONObject.ParseJSONValue(aJson,True));
+   {$ELSE}
+   json := TJsonObject.ParseJSONValue(TEncoding.UTF8.GetBytes(aJson),0,True) as TJSONObject;
+   {$ENDIF}
   {$ENDIF}
   try
     Result := fRTTIJson.DeserializeClass(aType,json);
@@ -1582,10 +1586,14 @@ function TJsonSerializer.JsonToObject(aObject: TObject; const aJson: string): TO
 var
   json: TJSONObject;
 begin;
-  {$If Defined(FPC) OR Defined(DELPHIRX10_UP)}
+  {$IFDEF DELPHIRX10_UP}
   json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
   {$ELSE}
-  json := TJsonObject.ParseJSONValue(TEncoding.UTF8.GetBytes(aJson),0,True) as TJSONObject;
+   {$IFDEF FPC}
+   json := TJSONObject(TJSONObject.ParseJSONValue(aJson,True));
+   {$ELSE}
+   json := TJsonObject.ParseJSONValue(TEncoding.UTF8.GetBytes(aJson),0,True) as TJSONObject;
+   {$ENDIF}
   {$ENDIF}
   try
     Result := fRTTIJson.DeserializeObject(aObject,json);
