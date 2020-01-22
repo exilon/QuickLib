@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 17/05/2018
-  Modified    : 21/01/2019
+  Modified    : 05/12/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -39,6 +39,10 @@ interface
 
 uses
   SysUtils,
+  Types,
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
   {$IFNDEF FPC}
     {$IFDEF NEXTGEN}
     System.IOUtils,
@@ -64,16 +68,18 @@ type
     fUserName : string;
     fOSVersion : string;
     fCPUCores : Integer;
+    fProcessId : DWORD;
     function GetOSVersion : string;
   public
     procedure GetInfo;
-    property AppName : string read fAppName write fAppName;
-    property AppVersion : string read fAppVersion write fAppVersion;
-    property AppPath : string read fAppPath write fAppPath;
-    property HostName : string read fHostName write fHostName;
-    property UserName : string read fUserName write fUserName;
-    property OsVersion : string read fOSVersion write fOSVersion;
-    property CPUCores : Integer read fCPUCores write fCPUCores;
+    property AppName : string read fAppName;
+    property AppVersion : string read fAppVersion;
+    property AppPath : string read fAppPath;
+    property HostName : string read fHostName;
+    property UserName : string read fUserName;
+    property OsVersion : string read fOSVersion;
+    property CPUCores : Integer read fCPUCores;
+    property ProcessId : DWORD read fProcessId;
   end;
 
 var
@@ -86,7 +92,8 @@ implementation
 procedure TSystemInfo.GetInfo;
 begin
   {$IFNDEF NEXTGEN}
-  fAppName := ExtractFilenameWithoutExt(ParamStr(0));
+  if IsLibrary then fAppName := ExtractFileNameWithoutExt(GetModuleName(0))
+    else fAppName := ExtractFilenameWithoutExt(ParamStr(0));
   {$ELSE}
     {$IFDEF ANDROID}
     fAppName := JStringToString(SharedActivityContext.getPackageName);
@@ -96,18 +103,24 @@ begin
   {$ENDIF}
   fAppVersion := GetAppVersionFullStr;
   {$IFNDEF NEXTGEN}
-  fAppPath := ExtractFilePath(ParamStr(0));
+  if IsLibrary then fAppPath := ExtractFilePath(GetModuleName(0))
+    else fAppPath := ExtractFilePath(ParamStr(0));
   {$ELSE}
   fAppPath := TPath.GetDocumentsPath;
   {$ENDIf}
-  {$IFDEF DELPHILINUX}
-  fUserName := GetLoggedUserName;
-  {$ELSE}
-  fUserName := Trim(GetLoggedUserName);
-  {$ENDIF}
+    {$IFDEF DELPHILINUX}
+    fUserName := GetLoggedUserName;
+    {$ELSE}
+    fUserName := Trim(GetLoggedUserName);
+    {$ENDIF}
   fHostName := GetComputerName;
   fOSVersion := GetOSVersion;
   fCPUCores := CPUCount;
+  {$IFDEF MSWINDOWS}
+  fProcessId := GetCurrentProcessID;
+  {$ELSE}
+
+  {$ENDIF}
 end;
 
 function TSystemInfo.GetOSVersion: string;
@@ -120,6 +133,15 @@ begin
 end;
 
 initialization
-  SystemInfo.GetInfo;
+  try
+    SystemInfo.GetInfo;
+  except
+    {$IFDEF MSWINDOWS}
+    on E : Exception do
+    begin
+      if (not IsLibrary) and (not IsService) then raise Exception.CreateFmt('Error getting SystemInfo: %s',[e.Message]);
+    end;
+    {$ENDIF}
+  end;
 
 end.

@@ -5,9 +5,9 @@
   Unit        : Quick.Azure
   Description : Azure blobs operations
   Author      : Kike Pérez
-  Version     : 1.2
+  Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 11/03/2019
+  Modified    : 08/10/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -29,6 +29,8 @@
 
 unit Quick.Azure;
 
+{$i QuickLib.inc}
+
 interface
 
 uses
@@ -38,7 +40,8 @@ uses
   IPPeerClient,
   IdURI,
   Data.Cloud.CloudAPI,
-  Data.Cloud.AzureAPI;
+  Data.Cloud.AzureAPI,
+  Quick.Commons;
 
 type
 
@@ -54,6 +57,7 @@ type
   TAzureBlobObject = class
     Name : string;
     Size : Int64;
+    IsDir : Boolean;
     LastModified : TDateTime;
   end;
 
@@ -565,6 +569,70 @@ begin
   end;
 end;
 
+{$IFDEF DELPHITOKYO_UP}
+function TQuickAzure.ListBlobs(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TBlobList;
+var
+  BlobService : TAzureBlobService;
+  azBlob : TAzureBlobItem;
+  azBlobList : TArray<TAzureBlobItem>;
+  Blob : TAzureBlobObject;
+  CloudResponseInfo : TCloudResponseInfo;
+  cNextMarker : string;
+  container : string;
+  prefix : string;
+  blobprefix : TArray<string>;
+  xmlresp : string;
+  folder : string;
+  prop : TPair<string,string>;
+begin
+  Result := TBlobList.Create(True);
+  cNextMarker := '';
+  container := CheckContainer(azContainer);
+  BlobService := TAzureBlobService.Create(fconAzure);
+  try
+    if Recursive then prefix := ''
+      else prefix := '/';
+    BlobService.Timeout := fTimeout;
+    repeat
+      CloudResponseInfo := TCloudResponseInfo.Create;
+      try
+        azBlobList := BlobService.ListBlobs(azContainer,azBlobsStartWith,'/',cNextMarker,100,[],cNextMarker,blobprefix,xmlresp,CloudResponseInfo);
+        azResponseInfo := GetResponseInfo(CloudResponseInfo);
+        //get folders (prefix)
+        for folder in blobprefix do
+        begin
+          Blob := TAzureBlobObject.Create;
+          if folder.EndsWith('/') then Blob.Name := RemoveLastChar(folder)
+            else Blob.Name := folder;
+          Blob.Name := Copy(Blob.Name,Blob.Name.LastDelimiter('/')+2,Blob.Name.Length);
+          Blob.IsDir := True;
+          Result.Add(Blob);
+        end;
+        //get files (blobs)
+        if Assigned(azBlobList) then
+        begin
+          for azBlob in azBlobList do
+          begin
+            Blob := TAzureBlobObject.Create;
+            Blob.Name := azBlob.Name;
+            for prop in azBlob.Properties do
+            begin
+              if prop.Key = 'Content-Length' then Blob.Size := StrToInt64Def(prop.Value,0)
+                else if prop.Key = 'Last-Modified' then Blob.LastModified := GMT2DateTime(prop.Value);
+            end;
+            Blob.IsDir := False;
+            Result.Add(Blob);
+          end;
+        end;
+      finally
+        CloudResponseInfo.Free;
+      end;
+    until (cNextMarker = '') or (azResponseInfo.StatusCode <> 200);
+  finally
+    BlobService.Free;
+  end;
+end;
+{$ELSE}
 function TQuickAzure.ListBlobs(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TBlobList;
 var
   BlobService : TAzureBlobService;
@@ -620,6 +688,7 @@ begin
     BlobService.Free;
   end;
 end;
+{$ENDIF}
 
 function TQuickAzure.ListBlobsNames(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
 var

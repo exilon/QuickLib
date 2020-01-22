@@ -42,8 +42,11 @@ uses
   System.NetConsts,
   System.JSON;
   {$ELSE}
-  IdHTTP,
-  IdException,
+    {$IFDEF DELPHIXE7_UP}
+    System.JSON,
+    {$ENDIF}
+    IdHTTP,
+    IdException,
     {$IFDEF FPC}
     fpjson;
     {$ELSE}
@@ -150,7 +153,7 @@ begin
       {$IFDEF DELPHIXE8_UP}
       resp := fHTTPClient.Get(aURL,responsecontent,nil);
       {$ELSE}
-        {$IFDEF FPC}
+        {$If Defined(FPC) OR Not Defined(DELPHIXE8_UP)}
         fHTTPClient.Get(aURL,responsecontent);
         {$ELSE}
         fHTTPClient.Get(aURL,responsecontent,nil);
@@ -369,16 +372,23 @@ constructor THttpRequestResponse.Create(aResponse : TIdHTTPResponse; const aCont
 begin
   fStatusCode := aResponse.ResponseCode;
   fStatusText := aResponse.ResponseText;
+  {$If Defined(FPC) OR Defined(DELPHIXE8_UP)}
   if (aContent.Contains('{')) and (aContent.Contains('}')) then fResponse := GetJSON(aContent) as TJsonObject;
+  {$ELSE}
+  if (aContent.Contains('{')) and (aContent.Contains('}')) then fResponse:= TJsonObject.ParseJSONValue(aContent) as TJsonObject;
+  {$ENDIF}
   //if response is not json, get as json result
   if fResponse = nil then
   begin
     fResponse := TJSONObject.Create;
+    {$IFDEF DELPHIXE7_UP}
+    fResponse.AddPair('Result',aContent);
+    {$ELSE}
     fResponse.Add('Result',aContent);
+    {$ENDIF}
   end;
 end;
 {$ENDIF}
-
 
 destructor THttpRequestResponse.Destroy;
 begin

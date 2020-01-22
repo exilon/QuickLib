@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 22/06/2018
+  Modified    : 28/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -89,6 +89,7 @@ type
     property Mail : TMailMessage read fMail write fMail;
     function SendMail: Boolean; overload;
     function SendMail(aMail : TMailMessage) : Boolean; overload;
+    function SendEmail(const aFromEmail,aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean; overload;
     function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean; overload;
   end;
 
@@ -136,7 +137,7 @@ end;
 
 constructor TSMTP.Create(const cHost : string; cPort : Integer; cUseSSL : Boolean = False);
 begin
-  inherited Create;
+  Create;
   Host := cHost;
   Port := cPort;
   fUseSSL := cUseSSL;
@@ -148,14 +149,22 @@ begin
   inherited;
 end;
 
+function TSMTP.SendEmail(const aFromEmail, aFromName, aSubject, aTo, aCC, aBC, aBody: string): Boolean;
+begin
+  fMail.From := aFromEmail;
+  Result := SendEmail(aFromName,aSubject,aTo,aCC,aBC,aBody);
+end;
+
 function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean;
 var
   mail : TMailMessage;
 begin
+  if fMail.From.IsEmpty then raise Exception.Create('Email sender not specified!');
   mail := TMailMessage.Create;
   try
-    Mail.From := fMail.fFrom;
-    Mail.SenderName := aFromName;
+    Mail.From := fMail.From;
+    if aFromName.IsEmpty then Mail.SenderName := fMail.From
+      else Mail.SenderName := aFromName;
     Mail.Subject := aSubject;
     Mail.Body := aBody;
     Mail.Recipient := aTo;
@@ -224,7 +233,8 @@ begin
           SSLHandler.SSLOptions.Mode := sslmUnassigned;
           SSLHandler.SSLOptions.VerifyMode := [];
           SSLHandler.SSLOptions.VerifyDepth := 0;
-          //Self.UseTLS := utUseExplicitTLS;
+          if fPort = 465 then Self.UseTLS := utUseImplicitTLS
+            else Self.UseTLS := utUseExplicitTLS;
         end;
         //server auth
         if ServerAuth then Self.AuthType := TIdSMTPAuthenticationType.satDefault;

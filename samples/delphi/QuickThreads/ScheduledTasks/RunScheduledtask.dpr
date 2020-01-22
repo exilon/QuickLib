@@ -6,7 +6,7 @@ program RunScheduledtask;
 
 uses
   SysUtils,
-  DateUtils, 
+  DateUtils,
   Quick.Commons,
   Quick.Console,
   Quick.Threads;
@@ -44,7 +44,7 @@ begin
   cout('[%s] task "%s" doing job...',[DateTimeToStr(Now()),fName],etInfo);
   //Sleep(Random(1000));
   a := Random(100);
-  b := Random(5) + 1;
+  b := Random(5);// + 1;
 
   i := a div b;
   cout('task "%s" result %d / %d = %d',[fName,a,b,i],etSuccess);
@@ -56,19 +56,27 @@ begin
   try
     scheduledtasks := TScheduledTasks.Create;
     scheduledtasks.RemoveTaskAfterExpiration := True;
+    scheduledtasks.FaultPolicy.MaxRetries := 5;
     myjob := TMyJob.Create;
     myjob.Id := 1;
-    myjob.Name := 'Run now and repeat every 1 second for 5 times';
+    myjob.Name := 'Run now and repeat every 1 second for 30 times';
     scheduledtasks.AddTask('Task1',[myjob,1],True,
                             procedure(task : ITask)
                             begin
                               cout('task "%s" started',[TMyJob(task.Param[0]).Name],etDebug);
                               TMyJob(task.Param[0]).DoJob;
                             end
+                          ).WaitAndRetry(10,100
                           ).OnException(
                             procedure(task : ITask; aException : Exception)
                             begin
                               cout('task "%s" failed (%s)',[TMyJob(task.Param[0]).Name,aException.Message],etError);
+                            end
+                          ).OnRetry(
+                            procedure(task : ITask; aException : Exception;  var vStopRetries : Boolean)
+                            begin
+                              if not aException.Message.Contains('Division by zero') then vStopRetries := True
+                                else cout('task "%s" retried %d/%d (%s)',[TMyJob(task.Param[0]).Name,task.NumRetries,task.MaxRetries,aException.Message],etWarning);
                             end
                           ).OnTerminated(
                             procedure(task : ITask)
@@ -80,7 +88,7 @@ begin
                             begin
                               cout('task "%s" expired',[TMyJob(task.Param[0]).Name],etWarning);
                             end
-                          ).RepeatEvery(1,TTimeMeasure.tmSeconds,5);
+                          ).RepeatEvery(1,TTimeMeasure.tmSeconds,30);
 
     myjob := TMyJob.Create;
     myjob.Id := 2;
@@ -91,6 +99,7 @@ begin
                               cout('task "%s" started with params(Int=%d / Bool=%s / Float=%s /Class=%s)',[TMyJob(task.Param[0]).Name,task.Param[1].AsInteger,task.Param[2].AsString,task.Param[3].AsString,task.Param[4].AsString],etDebug);
                               TMyJob(task.Param[0]).DoJob;
                             end
+                          ).WaitAndRetry(10,100
                           ).OnException(
                             procedure(task : ITask; aException : Exception)
                             begin
@@ -123,6 +132,7 @@ begin
                               cout('task "%s" started',[TMyJob(task.Param[0]).Name],etDebug);
                               TMyJob(task.Param[0]).DoJob;
                             end
+                          ).WaitAndRetry(10,100
                           ).OnException(
                             procedure(task : ITask; aException : Exception)
                             begin
@@ -155,6 +165,7 @@ begin
                               cout('task "%s" started',[TMyJob(task.Param[0]).Name],etDebug);
                               TMyJob(task.Param[0]).DoJob;
                             end
+                          ).WaitAndRetry(10,100
                           ).OnException(
                             procedure(task : ITask; aException : Exception)
                             begin
@@ -175,6 +186,7 @@ begin
 
 
     scheduledtasks.Start;
+
     cout('Running tasks in background!',etInfo);
     Readln;
     cout('Stopping task2...',etWarning);

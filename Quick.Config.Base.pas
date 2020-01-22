@@ -36,17 +36,6 @@ interface
 uses
   Classes,
   SysUtils,
-  Rtti,
-  {$IFDEF FPC}
-  fpjson,
-  jsonparser,
-  fpjsonrtti,
-  {$ELSE}
-  DBXJSON,
-  System.JSON,
-  Rest.Json.Types,
-  Rest.Json,
-  {$ENDIF}
   Quick.Json.Serializer;
 
 type
@@ -78,31 +67,21 @@ type
 
   TApplyConfigEvent = procedure of object;
 
-  {$IFDEF DELPHIXE2_UP}[JsonSerialize(TJsonMemberSerialization.&Public)]{$ENDIF}
   TAppConfig = class
   private
-    {$IFDEF FPC}
     fOnApplyConfig : TApplyConfigEvent;
     fJsonIndent: Boolean;
     fLastSaved : TDateTime;
-    {$ELSE}
-    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
-    fOnApplyConfig : TApplyConfigEvent;
-    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
-    fJsonIndent: Boolean;
-    {$IF CompilerVersion < 32.0}[JSONMarshalledAttribute(False)]{$ENDIF}
-    fLastSaved : TDateTime;
-    {$ENDIF}
   protected
     fProvider : TAppConfigProvider;
   public
     constructor Create(aConfigProvider : TAppConfigProvider); virtual;
     destructor Destroy; override;
-    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
+    {$IFNDEF FPC}[TNotSerializableProperty]{$ENDIF}
     property OnApplyConfig : TApplyConfigEvent read fOnApplyConfig write fOnApplyConfig;
-    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
+    {$IFNDEF FPC}[TNotSerializableProperty]{$ENDIF}
     property JsonIndent : Boolean read fJsonIndent write fJsonIndent;
-    {$IFDEF DELPHIRX102_UP}[JsonIgnoreAttribute]{$ENDIF}
+    {$IFNDEF FPC}[TNotSerializableProperty]{$ENDIF}
     property LastSaved : TDateTime read fLastSaved write fLastSaved;
     procedure Apply;
     //override this method to provide your class initialization

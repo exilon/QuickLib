@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pï¿½rez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike Pï¿½rez
-  Version     : 1.7
+  Author      : Kike Pérez
+  Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 02/04/2019
+  Modified    : 16/01/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -27,10 +27,6 @@
 
  *************************************************************************** }
 
-{$IFDEF FPC}
-{$mode DELPHI}
-{$ENDIF}
-
 unit Quick.Commons;
 
 {$i QuickLib.inc}
@@ -44,7 +40,6 @@ interface
     {$IFDEF MSWINDOWS}
       Windows,
       ShlObj,
-      Registry,
     {$ENDIF MSWINDOWS}
     {$IFDEF FPC}
     Quick.Files,
@@ -174,11 +169,59 @@ type
     procedure Reset;
   end;
 
+  {$IFNDEF FPC}
+  TArrayOfStringHelper = record helper for TArray<string>
+  public
+    function Add(const aValue : string) : Integer;
+    function AddIfNotExists(const aValue : string; aCaseSense : Boolean = False) : Integer;
+    function Remove(const aValue : string) : Boolean;
+    function Exists(const aValue : string) : Boolean;
+    function Count : Integer;
+  end;
+  {$ENDIF}
+
+  TPairItem = record
+    Name : string;
+    Value : string;
+    constructor Create(const aName, aValue : string);
+  end;
+
+  TPairList = class
+  type
+    TPairEnumerator = class
+      private
+        fArray : ^TArray<TPairItem>;
+        fIndex : Integer;
+        function GetCurrent: TPairItem;
+      public
+        constructor Create(var aArray: TArray<TPairItem>);
+        property Current : TPairItem read GetCurrent;
+        function MoveNext: Boolean;
+      end;
+  private
+    fItems : TArray<TPairItem>;
+  public
+    function GetEnumerator : TPairEnumerator;
+    function GetValue(const aName : string) : string;
+    function GetPair(const aName : string) : TPairItem;
+    function Add(aPair : TPairItem) : Integer; overload;
+    function Add(const aName, aValue : string) : Integer; overload;
+    procedure AddOrUpdate(const aName, aValue : string);
+    function Exists(const aName : string) : Boolean;
+    function Remove(const aName : string) : Boolean;
+    function Count : Integer;
+    property Items[const aName : string] : string read GetValue write AddOrUpdate;
+    function ToArray : TArray<TPairItem>;
+    procedure FromArray(aValue : TArray<TPairItem>);
+  end;
+
   EEnvironmentPath = class(Exception);
   EShellError = class(Exception);
 
   //generates a random password with complexity options
   function RandomPassword(const PasswordLength : Integer; Complexity : TPasswordComplexity = [pfIncludeNumbers,pfIncludeSigns]) : string;
+  //generates a random string
+  function RandomString(const aLength: Integer) : string;
   //extracts file extension from a filename
   function ExtractFileNameWithoutExt(const FileName: string): string;
   //converts a Unix path to Windows path
@@ -221,11 +264,14 @@ type
   //change Date of a DateTime
   function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
   //returns n times a char
-  function FillStr(const C : Char; const Count : Byte) : string;
+  function FillStr(const C : Char; const Count : Integer) : string;
   //checks if string exists in array of string
   function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
   //checks if integer exists in array of integer
   function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
+  //check if array is empty
+  function IsEmptyArray(aArray : TArray<string>) : Boolean; overload;
+  function IsEmptyArray(aArray : TArray<Integer>) : Boolean; overload;
   //returns a number leading zero
   function Zeroes(const Number, Len : Int64) : string;
   //converts a number to thousand delimeter string
@@ -241,16 +287,20 @@ type
   //Upper case for first letter
   function Capitalize(s: string): string;
   function CapitalizeWords(s: string): string;
-  {$IFDEF MSWINDOWS}
   //returns current logged user
   function GetLoggedUserName : string;
   //returns computer name
   function GetComputerName : string;
-  {$ENDIF}
   //Changes incorrect delims in path
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
   //Removes last segment of a path
   function RemoveLastPathSegment(cDir : string) : string;
+  //returns path delimiter if found
+  function GetPathDelimiter(const aPath : string) : string;
+  //returns first segment of a path
+  function GetFirstPathSegment(const aPath : string) : string;
+  //returns last segment of a path
+  function GetLastPathSegment(const aPath : string) : string;
   //finds swith in commandline params
   function ParamFindSwitch(const Switch : string) : Boolean;
   //gets value for a switch if exists
@@ -275,12 +325,22 @@ type
   function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
   //count number of digits of a Integer
   function CountDigits(anInt: Cardinal): Cardinal; inline;
+  //count times a string is present in other string
+  function CountStr(const aFindStr, aSourceStr : string) : Integer;
   //save stream to file
-  procedure SaveStreamToFile(stream : TStream; const filename : string);
+  procedure SaveStreamToFile(aStream : TStream; const aFilename : string);
   //save stream to string
-  function StreamToString(stream : TStream) : string;
+  function StreamToString(aStream : TStream) : string;
+  function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
+  //save string to stream
+  procedure StringToStream(const aStr : string; aStream : TStream);
+  procedure StringToStream2(const aStr : string; aStream : TStream);
   //returns a real comma separated text from stringlist
-  function CommaText(aList : TStringList) : string;
+  function CommaText(aList : TStringList) : string; overload;
+  //returns a real comma separated text from array of string
+  function CommaText(aArray : TArray<string>) : string; overload;
+  //converts TStrings to array
+  function StringsToArray(aStrings : TStrings) : TArray<string>;
   {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
@@ -293,6 +353,13 @@ type
   function RemoveLastChar(const aText : string) : string;
   function DateTimeToSQL(aDateTime : TDateTime) : string;
   function IsInteger(const aValue : string) : Boolean;
+  //extract a substring and deletes from source string
+  function ExtractStr(var vSource : string; aIndex : Integer; aCount : Integer) : string;
+  //get first string between string delimiters
+  function GetSubString(const aSource, aFirstDelimiter, aLastDelimiter : string) : string;
+  //get double quoted or dequoted string
+  function DbQuotedStr(const str : string): string;
+  function UnDbQuotedStr(const str: string) : string;
 
 {$IFDEF MSWINDOWS}
 var
@@ -352,11 +419,7 @@ var
   info: TWin32FileAttributeData;
 begin
   Result := -1;
-  {$IFNDEF FPC}
   if not GetFileAttributesEx(PWideChar(FileName), GetFileExInfoStandard, @info) then Exit;
-  {$ELSE}
-  if not GetFileAttributesEx(PAnsiChar(FileName), GetFileExInfoStandard, @info) then Exit;
-  {$ENDIF}
   Result := Int64(info.nFileSizeLow) or Int64(info.nFileSizeHigh shl 32);
 end;
 {$ELSE}
@@ -371,8 +434,6 @@ end;
 
 {TDirectoryHelper}
 
-
-{$IFNDEF FPC}
 class function TDirectoryHelper.GetSize(const Path: String): Int64;
 var
   filename : string;
@@ -428,13 +489,24 @@ begin
   end;
 end;
 
+function RandomString(const aLength: Integer) : string;
+const
+  chars : string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+var
+  i : Integer;
+  clong : Integer;
+begin
+  clong := High(chars);
+  SetLength(Result, aLength);
+  for i := 1 to aLength do
+  begin
+    Result[i] := chars[Random(clong) + 1];
+  end;
+end;
+
 function ExtractFileNameWithoutExt(const FileName: string): string;
 begin
-  {$IFNDEF FPC}
   Result := TPath.GetFileNameWithoutExtension(FileName);
-  {$ELSE}
-  Result := ExtractFilePath(Filename);
-  {$ENDIF}
 end;
 
 function UnixToWindowsPath(const UnixPath: string): string;
@@ -461,7 +533,6 @@ end;
 procedure GetEnvironmentPaths;
 begin
   //gets path
-  {$IFNDEF FPC}
   path.EXEPATH := TPath.GetDirectoryName(ParamStr(0));
   path.WINDOWS := SysUtils.GetEnvironmentVariable('windir');
   path.PROGRAMFILES := SysUtils.GetEnvironmentVariable('ProgramFiles');
@@ -579,11 +650,7 @@ begin
     dmPelsHeight := Height;
     dmFields := DM_PELSWIDTH or DM_PELSHEIGHT;
   end;
-  {$IFNDEF FPC}
   Result := ChangeDisplaySettings(DeviceMode, CDS_UPDATEREGISTRY);
-  {$ELSE}
-  Result := Windows.ChangeDisplaySettings(DeviceMode, CDS_UPDATEREGISTRY);
-  {$ENDIF}
 end;
 {$ENDIF MSWINDOWS}
 
@@ -624,9 +691,9 @@ begin
   Result := EncodeDateTime(aYear,aMonth,aDay,h,m,s,0);
 end;
 
-function FillStr(const C : Char; const Count : Byte) : string;
+function FillStr(const C : Char; const Count : Integer) : string;
 var
-  i   : Byte;
+  i   : Integer;
 begin
   Result := '';
   for i := 1 to Count do Result := Result + C;
@@ -653,6 +720,16 @@ begin
     if i = aValue then Exit(True);
   end;
   Result := False;
+end;
+
+function IsEmptyArray(aArray : TArray<string>) : Boolean;
+begin
+  Result := Length(aArray) = 0;
+end;
+
+function IsEmptyArray(aArray : TArray<Integer>) : Boolean;
+begin
+  Result := Length(aArray) = 0;
 end;
 
 function Zeroes(const Number, Len : Int64) : string;
@@ -736,13 +813,8 @@ function Capitalize(s: string): string;
 begin
   Result := '';
   if s.Length = 0 then Exit;
-  {$IFNDEF FPC}
   s := LowerCase(s,loUserLocale);
   Result := UpperCase(s[1],loUserLocale) + Trim(Copy(s, 2, s.Length));
-  {$ELSE}
-  s := LowerCase(s);
-  Result := UpperCase(s[1]) + Trim(Copy(s, 2, s.Length));
-  {$ENDIF}
 end;
 
 function CapitalizeWords(s: string): string;
@@ -751,11 +823,7 @@ var
 begin
   Result := '';
   if s.Length = 0 then Exit;
-  {$IFNDEF FPC}
   s := LowerCase(s,loUserLocale);
-  {$ELSE}
-  s := LowerCase(s);
-  {$ENDIF}
   for cword in s.Split([' ']) do
   begin
     if Result = '' then Result := Capitalize(cword)
@@ -763,7 +831,6 @@ begin
   end;
 end;
 
-{$IFDEF MSWINDOWS}
 function GetLoggedUserName : string;
 {$IFDEF MSWINDOWS}
   const
@@ -784,9 +851,20 @@ function GetLoggedUserName : string;
     Result := GetEnvironmentVariable('USERNAME');
   end;
   {$ELSE}
+  var
+    {$IFNDEF NEXTGEN}
+    plogin : PAnsiChar;
+    {$ELSE}
+    plogin : MarshaledAString;
+    {$ENDIF}
   begin
     {$IFDEF POSIX}
-    Result := string(getlogin);
+    try
+      plogin := getlogin;
+      Result := Copy(plogin,1,Length(Trim(plogin)));
+    except
+      Result := 'N/A';
+    end;
     {$ELSE}
     Result := 'N/A';
     {$ENDIF}
@@ -839,12 +917,18 @@ function GetComputerName : string;
     {$ELSE}
       {$IFDEF DELPHILINUX}
       var
-        puser : PAnsiChar;
+        phost : PAnsiChar;
       begin
-        //puser := '';
         try
-          if gethostname(puser,_SC_HOST_NAME_MAX) = 0 then Result := string(puser)
-            else Result := 'N/A';
+          if gethostname(phost,_SC_HOST_NAME_MAX) = 0 then
+          begin
+            {$IFDEF DEBUG}
+            Result := Copy(Trim(phost),1,Length(Trim(phost)));
+            {$ELSE}
+            Result := Copy(phost,1,Length(phost));
+            {$ENDIF}
+          end
+          else Result := 'N/A.';
         except
           Result := 'N/A';
         end;
@@ -891,6 +975,37 @@ begin
   if posi = cDir.Length then posi := 0;
   Result := Copy(cDir,1,posi);
   if (Result <> '') and (EndsWithDelim) then Result := Result + delim;
+end;
+
+function GetPathDelimiter(const aPath : string) : string;
+begin
+  if aPath.Contains('/') then Result := '/'
+    else if aPath.Contains('\') then Result := '\'
+    else Result := '';
+end;
+
+function GetFirstPathSegment(const aPath : string) : string;
+var
+  delimiter : string;
+  spath : string;
+begin
+  delimiter := GetPathDelimiter(aPath);
+  if delimiter.IsEmpty then Exit(aPath);
+  if aPath.StartsWith(delimiter) then spath := Copy(aPath,2,aPath.Length)
+    else spath := aPath;
+  Result := Copy(spath,0,spath.IndexOf(delimiter));
+end;
+
+function GetLastPathSegment(const aPath : string) : string;
+var
+  delimiter : string;
+  spath : string;
+begin
+  delimiter := GetPathDelimiter(aPath);
+  if delimiter.IsEmpty then Exit(aPath);
+  if aPath.EndsWith(delimiter) then spath := Copy(aPath,0,aPath.Length - 1)
+    else spath := aPath;
+  Result := spath.Substring(spath.LastDelimiter(delimiter)+1);
 end;
 
 function ParamFindSwitch(const Switch : string) : Boolean;
@@ -946,12 +1061,7 @@ end;
 
 function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
 begin
-  {$IFNDEF FPC}
   Result := FindCmdLineSwitch(Switch,cvalue,True,[clstValueAppended]);
-  {$ELSE}
-  //Not result value in FPC :(
-  Result := FindCmdLineSwitch(Switch);
-  {$ENDIF}
 end;
 
 
@@ -1221,31 +1331,94 @@ begin
   end;
 end;
 
-procedure SaveStreamToFile(stream : TStream; const filename : string);
+function CountStr(const aFindStr, aSourceStr : string) : Integer;
+var
+  i : Integer;
+  found : Integer;
+  findstr : string;
+  mainstr : string;
+begin
+  findstr := aFindStr.ToLower;
+  mainstr := aSourceStr.ToLower;
+  Result := 0;
+  i := 0;
+  while i < mainstr.Length do
+  begin
+    found := Pos(findstr,mainstr,i);
+    if found > 0 then
+    begin
+      i := found;
+      Inc(Result);
+    end
+    else Break;
+  end;
+end;
+
+procedure SaveStreamToFile(aStream : TStream; const aFileName : string);
 var
   fs : TFileStream;
 begin
-  fs := TFileStream.Create(filename,fmCreate);
+  fs := TFileStream.Create(aFileName,fmCreate);
   try
-    stream.Seek(0,soBeginning);
-    fs.CopyFrom(stream,stream.Size);
+    aStream.Seek(0,soBeginning);
+    fs.CopyFrom(aStream,aStream.Size);
   finally
     fs.Free;
   end;
 end;
 
-function StreamToString(stream : TStream) : string;
+function StreamToString(aStream : TStream) : string;
 var
   ss : TStringStream;
 begin
-  if stream = nil then Exit;
-  ss := TStringStream.Create;
+  aStream.Position := 0;
+  if aStream = nil then Exit;
+  if aStream is TMemoryStream then
+  begin
+    SetString(Result, PChar(TMemoryStream(aStream).Memory), TMemoryStream(aStream).Size div SizeOf(Char));
+  end
+  else if aStream is TStringStream then
+  begin
+    Result := TStringStream(aStream).DataString;
+  end
+  else
+  begin
+    ss := TStringStream.Create;
+    try
+      aStream.Seek(0,soBeginning);
+      ss.CopyFrom(aStream,aStream.Size);
+      Result := ss.DataString;
+    finally
+      ss.Free;
+    end;
+  end;
+end;
+
+function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
+var
+  sbytes: TBytes;
+begin
+  aStream.Position := 0;
+  SetLength(sbytes, aStream.Size);
+  aStream.ReadBuffer(sbytes,aStream.Size);
+  Result := aEncoding.GetString(sbytes);
+end;
+
+procedure StringToStream(const aStr : string; aStream : TStream);
+begin
+  aStream.Seek(0,soBeginning);
+  aStream.WriteBuffer(Pointer(aStr)^,aStr.Length * SizeOf(Char));
+end;
+
+procedure StringToStream2(const aStr : string; aStream : TStream);
+var
+  stream : TStringStream;
+begin
+  stream := TStringStream.Create(aStr,TEncoding.UTF8);
   try
-    stream.Seek(0,soBeginning);
-    ss.CopyFrom(stream,stream.Size);
-    Result := ss.DataString;
+    aStream.CopyFrom(stream,stream.Size);
   finally
-    ss.Free;
+    stream.Free;
   end;
 end;
 
@@ -1266,6 +1439,37 @@ begin
     if sb.Length > 1 then Result := sb.ToString(0, sb.Length - 1);
   finally
     sb.Free;
+  end;
+end;
+
+function CommaText(aArray : TArray<string>) : string;
+var
+  value : string;
+  sb : TStringBuilder;
+begin
+  if High(aArray) < 0 then Exit;
+  sb := TStringBuilder.Create;
+  try
+    for value in aArray do
+    begin
+      sb.Append(value);
+      sb.Append(',');
+    end;
+    if sb.Length > 1 then Result := sb.ToString(0, sb.Length - 1);
+  finally
+    sb.Free;
+  end;
+end;
+
+function StringsToArray(aStrings : TStrings) : TArray<string>;
+var
+  i : Integer;
+begin
+  if aStrings.Count = 0 then Exit;
+  SetLength(Result,aStrings.Count);
+  for i := 0 to aStrings.Count - 1 do
+  begin
+    Result[i] := aStrings[i];
   end;
 end;
 
@@ -1328,6 +1532,199 @@ begin
   fCurrentTime := Now();
 end;
 
+{ TArrayOfStringHelper}
+
+{$IFNDEF FPC}
+function TArrayOfStringHelper.Add(const aValue : string) : Integer;
+begin
+  SetLength(Self,Length(Self)+1);
+  Self[High(Self)] := aValue;
+  Result := High(Self);
+end;
+
+function TArrayOfStringHelper.AddIfNotExists(const aValue : string; aCaseSense : Boolean = False) : Integer;
+var
+  i : Integer;
+  found : Boolean;
+begin
+  found := False;
+  for i := Low(Self) to High(Self) do
+  begin
+    if aCaseSense then found := Self[i] = aValue
+    else
+    begin
+      found := CompareText(Self[i],aValue) = 0;
+      Exit(i)
+    end;
+  end;
+  if not found then
+  begin
+    //if not exists add it
+    i := Self.Add(aValue);
+    Exit(i);
+  end;
+  Result := -1;
+end;
+
+function TArrayOfStringHelper.Remove(const aValue : string) : Boolean;
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i],aValue) = 0 then
+    begin
+      System.Delete(Self,i,1);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+function TArrayOfStringHelper.Exists(const aValue : string) : Boolean;
+var
+  value : string;
+begin
+  Result := False;
+  for value in Self do
+  begin
+    if CompareText(value,aValue) = 0 then Exit(True)
+  end;
+end;
+
+function TArrayOfStringHelper.Count : Integer;
+begin
+  Result := High(Self) + 1;
+end;
+{$ENDIF}
+
+{ TPairItem }
+
+constructor TPairItem.Create(const aName, aValue: string);
+begin
+  Name := aName;
+  Value := aValue;
+end;
+
+{ TPairList }
+
+function TPairList.GetEnumerator : TPairEnumerator;
+begin
+  Result := TPairEnumerator.Create(fItems);
+end;
+
+function TPairList.Add(aPair: TPairItem): Integer;
+begin
+  SetLength(fItems,Length(fItems)+1);
+  fItems[High(fItems)] := aPair;
+  Result := High(fItems);
+end;
+
+function TPairList.Add(const aName, aValue: string): Integer;
+begin
+  SetLength(fItems,Length(fItems)+1);
+  fItems[High(fItems)].Name := aName;
+  fItems[High(fItems)].Value := aValue;
+  Result := High(fItems);
+end;
+
+procedure TPairList.AddOrUpdate(const aName, aValue: string);
+var
+  i : Integer;
+begin
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then
+    begin
+      fItems[i].Value := aValue;
+      Exit;
+    end;
+  end;
+  //if not exists add it
+  Self.Add(aName,aValue);
+end;
+
+function TPairList.Count: Integer;
+begin
+  Result := High(fItems) + 1;
+end;
+
+function TPairList.Exists(const aName: string): Boolean;
+var
+  i : Integer;
+begin
+  Result := False;
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then Exit(True)
+  end;
+end;
+
+function TPairList.GetPair(const aName: string): TPairItem;
+var
+  i : Integer;
+begin
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then Exit(fItems[i]);
+  end;
+end;
+
+function TPairList.GetValue(const aName: string): string;
+var
+  i : Integer;
+begin
+  Result := '';
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then Exit(fItems[i].Value);
+  end;
+end;
+
+function TPairList.Remove(const aName: string): Boolean;
+var
+  i : Integer;
+begin
+  for i := Low(fItems) to High(fItems) do
+  begin
+    if CompareText(fItems[i].Name,aName) = 0 then
+    begin
+      System.Delete(fItems,i,1);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+function TPairList.ToArray : TArray<TPairItem>;
+begin
+  Result := fItems;
+end;
+
+procedure TPairList.FromArray(aValue : TArray<TPairItem>);
+begin
+  fItems := aValue;
+end;
+
+{ TPairList.TPairEnumerator}
+
+constructor TPairList.TPairEnumerator.Create(var aArray: TArray<TPairItem>);
+begin
+  fIndex := -1;
+  fArray := @aArray;
+end;
+
+function TPairList.TPairEnumerator.GetCurrent : TPairItem;
+begin
+  Result := TArray<TPairItem>(fArray^)[fIndex];
+end;
+
+function TPairList.TPairEnumerator.MoveNext: Boolean;
+begin
+  Inc(fIndex);
+  Result := fIndex < High(TArray<TPairItem>(fArray^))+1;
+end;
+
 {$IFDEF MSWINDOWS}
 procedure ProcessMessages;
 var
@@ -1363,9 +1760,46 @@ begin
   Result := TryStrToInt(aValue,i);
 end;
 
+function ExtractStr(var vSource : string; aIndex : Integer; aCount : Integer) : string;
+begin
+  if aIndex > vSource.Length then Exit('');
+
+  Result := Copy(vSource,aIndex,aCount);
+  Delete(vSource,aIndex,aCount);
+end;
+
+function GetSubString(const aSource, aFirstDelimiter, aLastDelimiter : string) : string;
+var
+  i : Integer;
+begin
+  i := Pos(aFirstDelimiter,aSource);
+  if i > -1 then Result := Copy(aSource, i + aFirstDelimiter.Length, Pos(aLastDelimiter, aSource, i + aFirstDelimiter.Length) - i - aFirstDelimiter.Length)
+    else Result := '';
+end;
+
+function DbQuotedStr(const str : string): string;
+var
+  i : Integer;
+begin
+  Result := str;
+  for i := Result.Length - 1 downto 0 do
+  begin
+    if Result.Chars[i] = '"' then Result := Result.Insert(i, '"');
+  end;
+  Result := '"' + Result + '"';
+end;
+
+function UnDbQuotedStr(const str: string) : string;
+begin
+  Result := Trim(str);
+  if not Result.IsEmpty then
+  begin
+    if Result.StartsWith('"') then Result := Copy(Result, 2, Result.Length - 2);
+  end;
+end;
+
 {$IFDEF MSWINDOWS}
 initialization
-{$IFDEF MSWINDOWS}
   try
     GetEnvironmentPaths;
   except

@@ -1,0 +1,6 @@
+JsonSerializer.app\Contents\MacOS\libcgunwind.1.0.dylib
+JsonSerializer.app\Contents\Info.plist
+JsonSerializer.app\Contents\MacOS\libcgsqlite3.dylib
+JsonSerializer.app\Contents\MacOS\JsonSerializer
+JsonSerializer.app\Contents\Resources\JsonSerializer.icns
+JsonSerializer.app\..\JsonSerializer.entitlements

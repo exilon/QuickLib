@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 29/03/2019
+  Modified    : 23/11/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -213,7 +213,7 @@ type
   {$ENDIF}
   procedure ConsoleWaitForEnterKey;
   {$IFDEF MSWINDOWS}
-  procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
+  function RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil) : Cardinal;
   procedure InitConsole;
   {$ENDIF}
 
@@ -553,7 +553,7 @@ begin
   if TextAttr <> LastMode then SetConsoleTextAttribute(hStdOut, TextAttr);
   {$ELSE}
     {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
-    write(AEC,0,';',Color+10*10);
+    write(AEC,Color,';3m');
     {$ELSE}
     crt.TextBackground(Color);
     {$ENDIF}
@@ -566,8 +566,12 @@ begin
   SetConsoleTextAttribute(hStdOut, DefConsoleColor);
   TextAttr := DefConsoleColor;
   {$ELSE}
-  TextColor(DefConsoleColor);
-  TextBackground(ccBlack);
+  {$IF DEFINED(DELPHILINUX) OR DEFINED(MACOS)}
+    write(AEC,0,'m');
+  {$ELSE}
+    TextColor(ccLightGray);
+    TextBackground(ccBlack);
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -795,7 +799,7 @@ end;
 {$ENDIF}
 
 {$IFDEF MSWINDOWS}
-procedure RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil);
+function RunConsoleCommand(const aCommand, aParameters : String; CallBack : TOutputProc<PAnsiChar> = nil; OutputLines : TStrings = nil) : Cardinal;
 const
   CReadBuffer = 2400;
 var
@@ -810,6 +814,7 @@ var
   dRunning: DWORD;
   dAvailable: DWORD;
 begin
+  Result := 0;
   saSecurity.nLength := SizeOf(Windows.TSecurityAttributes);
   saSecurity.bInheritHandle := true;
   saSecurity.lpSecurityDescriptor := nil;
@@ -855,6 +860,7 @@ begin
           CloseHandle(piProcess.hThread);
         end;
       end;
+      GetExitCodeProcess(piProcess.hProcess,Result);
     finally
       CloseHandle(hRead);
       CloseHandle(hWrite);

@@ -5,9 +5,9 @@
   Unit        : Quick.RTTI.Utils
   Description : Files functions
   Author      : Kike Pérez
-  Version     : 1.5
+  Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 20/02/2019
+  Modified    : 29/10/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -35,6 +35,10 @@ interface
 
 uses
   SysUtils,
+  Quick.Commons,
+  {$IFDEF FPC}
+  TypInfo,
+  {$ENDIF}
   Rtti;
 
 type
@@ -43,18 +47,30 @@ type
   private class var
     fCtx : TRttiContext;
   public
-    //class function GetProperties();
+    {$IFNDEF FPC}
+    class constructor Create;
+    class destructor Destroy;
     class function GetField(aInstance : TObject; const aFieldName : string) : TRttiField; overload;
     class function GetField(aTypeInfo : Pointer; const aFieldName : string) : TRttiField; overload;
     class function FieldExists(aTypeInfo : Pointer; const aFieldName : string) : Boolean;
     class function GetFieldValue(aInstance : TObject; const aFieldName : string) : TValue; overload;
     class function GetFieldValue(aTypeInfo : Pointer; const aFieldName: string) : TValue; overload;
+    {$ENDIF}
+    class function GetType(aTypeInfo : Pointer) : TRttiType;
     class function GetProperty(aInstance : TObject; const aPropertyName : string) : TRttiProperty; overload;
     class function GetProperty(aTypeInfo : Pointer; const aPropertyName : string) : TRttiProperty; overload;
+    class function GetPropertyPath(aInstance : TObject; const aPropertyPath : string) : TRttiProperty;
+    class function PathExists(aInstance: TObject; const aPropertyPath: string) : Boolean;
+    class function GetPathValue(aInstance : TObject; const aPropertyPath : string) : TValue;
+    class procedure SetPathValue(aInstance: TObject; const aPropertyPath: string; aValue : TValue);
+    class procedure SetPropertyValue(aInstance : TObject; const aPropertyName : string; aValue : TValue);
     class function PropertyExists(aTypeInfo : Pointer; const aPropertyName : string) : Boolean;
     class function GetPropertyValue(aInstance : TObject; const aPropertyName : string) : TValue; overload;
     class function GetPropertyValue(aTypeInfo : Pointer; const aPropertyName : string) : TValue; overload;
+    {$IFNDEF FPC}
     class function FindClass(const aClassName: string): TClass;
+    class function CreateInstance<T>: T;
+    {$ENDIF}
   end;
 
   ERTTIError = class(Exception);
@@ -62,6 +78,37 @@ type
 implementation
 
 { TRTTIUtils }
+
+{$IFNDEF FPC}
+class constructor TRTTI.Create;
+begin
+  fCtx := TRttiContext.Create;
+end;
+
+class function TRTTI.CreateInstance<T>: T;
+var
+  value: TValue;
+  rtype: TRttiType;
+  rmethod: TRttiMethod;
+  rinstype: TRttiInstanceType;
+begin
+  rtype := fCtx.GetType(TypeInfo(T));
+  for rmethod in rtype.GetMethods do
+  begin
+    if (rmethod.IsConstructor) and (Length(rmethod.GetParameters) = 0) then
+    begin
+      rinstype := rtype.AsInstance;
+      value := rmethod.Invoke(rinstype.MetaclassType,[]);
+      Result := value.AsType<T>;
+      Exit;
+    end;
+  end;
+end;
+
+class destructor TRTTI.Destroy;
+begin
+  fCtx.Free;
+end;
 
 class function TRTTI.FieldExists(aTypeInfo: Pointer; const aFieldName: string): Boolean;
 var
@@ -108,6 +155,7 @@ begin
   rfield := GetField(aTypeInfo,aFieldName);
   if rfield <> nil then rfield.GetValue(aTypeInfo);
 end;
+{$ENDIF}
 
 class function TRTTI.GetProperty(aInstance: TObject; const aPropertyName: string): TRttiProperty;
 var
@@ -125,12 +173,254 @@ begin
   if rtype <> nil then  Result := rtype.GetProperty(aPropertyName);
 end;
 
+class function TRTTI.GetPropertyPath(aInstance: TObject; const aPropertyPath: string): TRttiProperty;
+var
+  prop : TRttiProperty;
+  proppath : string;
+  propname : string;
+  i : Integer;
+  value : TValue;
+  rtype : TRttiType;
+  {$IFNDEF FPC}
+  rfield : TRttiField;
+  {$ENDIF}
+begin
+  Result := nil;
+  proppath := aPropertyPath;
+  rtype := fCtx.GetType(aInstance.ClassType);
+  repeat
+    i := proppath.IndexOf('.');
+    if i > -1 then
+    begin
+      propname := Copy(proppath,1,i);
+      Delete(proppath,1,i+1);
+    end
+    else propname := proppath;
+    if rtype.TypeKind = TTypeKind.tkRecord then
+    begin
+      {$IFNDEF FPC}
+      rfield := rtype.GetField(propname);
+      if rfield <> nil then value := rfield.GetValue(aInstance);
+      {$ELSE}
+      raise ERTTIError.Create('FPC not supports record fields in RTTI');
+      {$ENDIF}
+    end
+    else
+    begin
+      prop := rtype.GetProperty(propname);
+      if prop = nil then Exit;
+      value := prop.GetValue(aInstance);
+    end;
+    if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
+      else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+  until i < 0;
+  Result := prop;
+end;
+
+class function TRTTI.PathExists(aInstance: TObject; const aPropertyPath: string) : Boolean;
+var
+  proppath : string;
+  propname : string;
+  i : Integer;
+  value : TValue;
+  rtype : TRttiType;
+  rprop : TRttiProperty;
+  {$IFNDEF FPC}
+  rfield : TRttiField;
+  {$ENDIF}
+  lastsegment : Boolean;
+begin
+  if not Assigned(aInstance) then Exit;
+  lastsegment := False;
+  proppath := aPropertyPath;
+  rtype := fCtx.GetType(aInstance.ClassType);
+  repeat
+    Result := False;
+    i := proppath.IndexOf('.');
+    if i > -1 then
+    begin
+      propname := Copy(proppath,1,i);
+      Delete(proppath,1,i+1);
+    end
+    else
+    begin
+      propname := proppath;
+      lastsegment := True;
+    end;
+    if rtype.TypeKind = TTypeKind.tkRecord then
+    begin
+      {$IFNDEF FPC}
+      rfield := rtype.GetField(propname);
+      if rfield = nil then Exit
+      else
+      begin
+        value := rfield.GetValue(value.GetReferenceToRawData);
+        Result := True;
+      end;
+      {$ELSE}
+      raise ERTTIError.Create('FPC not supports record fields in RTTI');
+      {$ENDIF}
+    end
+    else
+    begin
+      rprop := rtype.GetProperty(propname);
+      if rprop = nil then Exit
+      else
+      begin
+        value := rprop.GetValue(aInstance);
+        Result := True;
+      end;
+    end;
+    if not lastsegment then
+    begin
+      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
+        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+    end;
+  until lastsegment;
+end;
+
+class function TRTTI.GetPathValue(aInstance: TObject; const aPropertyPath: string): TValue;
+var
+  proppath : string;
+  propname : string;
+  i : Integer;
+  value : TValue;
+  rtype : TRttiType;
+  rprop : TRttiProperty;
+  {$IFNDEF FPC}
+  rfield : TRttiField;
+  {$ENDIF}
+  lastsegment : Boolean;
+begin
+  Result := nil;
+  if not Assigned(aInstance) then Exit;
+
+  lastsegment := False;
+  proppath := aPropertyPath;
+  rtype := fCtx.GetType(aInstance.ClassType);
+  {$IFDEF FPC}
+  value := aInstance;
+  {$ENDIF}
+  repeat
+    i := proppath.IndexOf('.');
+    if i > -1 then
+    begin
+      propname := Copy(proppath,1,i);
+      Delete(proppath,1,i+1);
+    end
+    else
+    begin
+      propname := proppath;
+      lastsegment := True;
+    end;
+    if rtype.TypeKind = TTypeKind.tkRecord then
+    begin
+      {$IFNDEF FPC}
+      rfield := rtype.GetField(propname);
+      if rfield = nil then raise ERTTIError.CreateFmt('Field "%s" not found in record',[propname])
+        else value := rfield.GetValue(value.GetReferenceToRawData);
+      {$ELSE}
+      raise ERTTIError.Create('FPC not supports record fields in RTTI');
+      {$ENDIF}
+    end
+    else
+    begin
+      rprop := rtype.GetProperty(propname);
+      if rprop = nil then raise ERTTIError.CreateFmt('Property "%s" not found in object',[propname])
+        {$IFNDEF FPC}
+        else value := rprop.GetValue(aInstance);
+        {$ELSE}
+        else
+        begin
+          if rprop.PropertyType.IsInstance then value := GetObjectProp(value.AsObject,propname)
+             else value := rprop.GetValue(value.AsObject);
+        end;
+        {$ENDIF}
+    end;
+    if not lastsegment then
+    begin
+      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
+        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+    end;
+  until lastsegment;
+  Result := value;
+end;
+
+class procedure TRTTI.SetPathValue(aInstance: TObject; const aPropertyPath: string; aValue : TValue);
+var
+  proppath : string;
+  propname : string;
+  i : Integer;
+  value : TValue;
+  rtype : TRttiType;
+  rprop : TRttiProperty;
+  {$IFNDEF FPC}
+  rfield : TRttiField;
+  {$ENDIF}
+  lastsegment : Boolean;
+begin
+  if not Assigned(aInstance) then Exit;
+  lastsegment := False;
+  proppath := aPropertyPath;
+  rtype := fCtx.GetType(aInstance.ClassType);
+  repeat
+    i := proppath.IndexOf('.');
+    if i > -1 then
+    begin
+      propname := Copy(proppath,1,i);
+      Delete(proppath,1,i+1);
+    end
+    else
+    begin
+      propname := proppath;
+      lastsegment := True;
+    end;
+    if rtype.TypeKind = TTypeKind.tkRecord then
+    begin
+      {$IFNDEF FPC}
+      rfield := rtype.GetField(propname);
+      if rfield = nil then raise ERTTIError.CreateFmt('Field "%s" not found in record',[propname])
+      else
+      begin
+        if lastsegment then rfield.SetValue(value.GetReferenceToRawData,aValue)
+          else value := rfield.GetValue(value.GetReferenceToRawData);
+      end;
+      {$ELSE}
+      raise ERTTIError.Create('FPC not supports record fields in RTTI');
+      {$ENDIF}
+    end
+    else
+    begin
+      rprop := rtype.GetProperty(propname);
+      if rprop = nil then raise ERTTIError.CreateFmt('Property "%s" not found in object',[propname])
+      else
+      begin
+        if lastsegment then rprop.SetValue(aInstance,aValue)
+          else value := rprop.GetValue(aInstance);
+      end;
+    end;
+    if not lastsegment then
+    begin
+      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
+        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+    end;
+  until lastsegment;
+end;
+
 class function TRTTI.GetPropertyValue(aInstance: TObject; const aPropertyName: string): TValue;
 var
   rprop : TRttiProperty;
 begin
   rprop := GetProperty(aInstance,aPropertyName);
-  if rprop <> nil then Result := rprop.GetValue(aInstance);
+  if rprop <> nil then
+  begin
+    {$IFNDEF FPC}
+    Result := rprop.GetValue(aInstance);
+    {$ELSE}
+    if rprop.PropertyType.IsInstance then Result := GetObjectProp(aInstance,aPropertyName)
+      else Result := rprop.GetValue(aInstance);
+    {$ENDIF}
+  end;
 end;
 
 class function TRTTI.GetPropertyValue(aTypeInfo: Pointer; const aPropertyName: string): TValue;
@@ -138,14 +428,39 @@ var
   rprop : TRttiProperty;
 begin
   rprop := GetProperty(aTypeInfo,aPropertyName);
-  if rprop <> nil then Result := rprop.GetValue(aTypeInfo);
+  if rprop <> nil then
+  begin
+    {$IFNDEF FPC}
+    Result := rprop.GetValue(aTypeInfo);
+    {$ELSE}
+    if rprop.PropertyType.IsInstance then Result := GetObjectProp(aTypeInfo,aPropertyName)
+      else Result := rprop.GetValue(aTypeInfo);
+    {$ENDIF}
+  end;
 end;
 
-class function TRTTI.PropertyExists(aTypeInfo: Pointer; const aPropertyName: string): Boolean;
+class function TRTTI.GetType(aTypeInfo: Pointer): TRttiType;
 begin
-  Result := fCtx.GetType(aTypeInfo).GetProperty(aPropertyName) <> nil;
+  Result := fCtx.GetType(aTypeInfo);
 end;
 
+class function TRTTI.PropertyExists(aTypeInfo: Pointer; const aPropertyName: string) : Boolean;
+var
+  rtype : TRttiType;
+begin
+  rtype := fCtx.GetType(aTypeInfo);
+  if rtype <> nil then Result := rtype.GetProperty(aPropertyName) <> nil;
+end;
+
+class procedure TRTTI.SetPropertyValue(aInstance: TObject; const aPropertyName: string; aValue: TValue);
+var
+  rprop : TRttiProperty;
+begin
+  rprop := GetProperty(aInstance,aPropertyName);
+  if rprop <> nil then rprop.SetValue(aInstance,aValue);
+end;
+
+{$IFNDEF FPC}
 class function TRTTI.FindClass(const aClassName: string): TClass;
 var
   rType : TRttiType;
@@ -162,6 +477,7 @@ begin
       end;
   end;
 end;
+{$ENDIF}
 
 
 end.

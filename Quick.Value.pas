@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 07/01/2019
-  Modified    : 03/04/2019
+  Modified    : 27/08/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -192,6 +192,8 @@ type
     property Value : Variant read GetValue write SetValue;
   end;
 
+  { TFlexValue }
+
   TFlexValue = record
   private
     {$IFNDEF FPC}
@@ -216,7 +218,9 @@ type
     function CastToInterface: IInterface;
     function CastToVariant: Variant;
     function CastToCardinal : Cardinal;
+    function CastToVarRec: TVarRec;
     procedure SetAsString(const Value : string);
+    procedure SetAsVarRec(const Value: TVarRec);
     {$IFDEF MSWINDOWS}
     procedure SetAsAnsiString(const Value : AnsiString);
     procedure SetAsWideString(const Value : WideString);
@@ -251,6 +255,7 @@ type
     property AsVariant : Variant  read CastToVariant write SetAsVariant;
     property AsCardinal : Cardinal read CastToCardinal write SetAsCardinal;
     property AsDateTime : TDateTime read CastToDateTime write SetAsDateTime;
+    property AsVarRec : TVarRec read CastToVarRec write SetAsVarRec;
     //function AsType<T> : T;
     function  IsNullOrEmpty : Boolean; inline;
     function  IsString : Boolean; inline;
@@ -262,10 +267,11 @@ type
     function  IsObject : Boolean; inline;
     function  IsPointer : Boolean; inline;
     function  IsVariant : Boolean; inline;
+    function IsRealInteger : Boolean;
+    function IsRealExtended : Boolean;
     procedure Clear; inline;
     procedure _AddRef; inline;
     procedure _Release; inline;
-    {$IFNDEF FPCS}
     class operator Implicit(const Value : TFlexValue) : string;
     class operator Implicit(Value : TFlexValue) : Integer;
     class operator Implicit(Value : TFlexValue) : Int64;
@@ -276,6 +282,7 @@ type
     class operator Implicit(Value : TFlexValue) : TObject;
     class operator Implicit(Value : TFlexValue) : Pointer;
     class operator Implicit(Value : TFlexValue) : Variant;
+    class operator Implicit(Value : TFlexValue) : TVarRec;
     class operator Implicit(const Value : string) : TFlexValue;
     class operator Implicit(Value : Integer) : TFlexValue;
     class operator Implicit(Value : Int64) : TFlexValue;
@@ -286,12 +293,37 @@ type
     class operator Implicit(Value : TObject) : TFlexValue;
     class operator Implicit(Value : Pointer) : TFlexValue;
     class operator Implicit(Value : Variant) : TFlexValue;
-    {$ENDIF}
+    class operator Implicit(Value : TVarRec) : TFlexValue;
+    class operator Equal(a : TFlexValue; b : string) : Boolean;
+    class operator Equal(a : TFlexValue; b : Integer) : Boolean;
+    class operator Equal(a : TFlexValue; b : Int64) : Boolean;
+    class operator Equal(a : TFlexValue; b : Extended) : Boolean;
+    class operator Equal(a : TFlexValue; b : Boolean) : Boolean;
+    class operator NotEqual(a : TFlexValue; b : string) : Boolean;
+    class operator NotEqual(a : TFlexValue; b : Integer) : Boolean;
+    class operator NotEqual(a : TFlexValue; b : Int64) : Boolean;
+    class operator NotEqual(a : TFlexValue; b : Extended) : Boolean;
+    class operator NotEqual(a : TFlexValue; b : Boolean) : Boolean;
+    class operator GreaterThan(a : TFlexValue; b : Integer) : Boolean;
+    class operator GreaterThan(a : TFlexValue; b : Int64) : Boolean;
+    class operator GreaterThan(a : TFlexValue; b : Extended) : Boolean;
+    class operator GreaterThanOrEqual(a : TFlexValue; b : Integer) : Boolean;
+    class operator GreaterThanOrEqual(a : TFlexValue; b : Int64) : Boolean;
+    class operator GreaterThanOrEqual(a : TFlexValue; b : Extended) : Boolean;
+    class operator LessThan(a : TFlexValue; b : Integer) : Boolean;
+    class operator LessThan(a : TFlexValue; b : Int64) : Boolean;
+    class operator LessThan(a : TFlexValue; b : Extended) : Boolean;
+    class operator LessThanOrEqual(a : TFlexValue; b : Integer) : Boolean;
+    class operator LessThanOrEqual(a : TFlexValue; b : Int64) : Boolean;
+    class operator LessThanOrEqual(a : TFlexValue; b : Extended) : Boolean;
   end;
+
+  PFlexValue = ^TFlexValue;
 
   TFlexPair = record
     Name : string;
     Value : TFlexValue;
+    constructor Create(const aName : string; aValue : TFlexValue);
   end;
 
 implementation
@@ -528,11 +560,45 @@ begin
     case fDataType of
       dtNull : Result := Variants.Null;
       dtBoolean : Result := AsVariant;
+      {$IFDEF MSWINDOWS}
+      dtAnsiString : Result := string((fDataIntf as IValueAnsiString).Value);
+      dtWideString : Result := (fDataIntf as IValueWideString).Value;
+      {$ENDIF}
+      dtString : Result := (fDataIntf as IValueString).Value;
+      dtInteger,
+      dtInt64 : Result := (fDataIntf as IValueInteger).Value;
       dtVariant : Result := (fDataIntf as IValueVariant).Value;
       else raise Exception.Create('DataType not supported');
     end;
   except
     on E : Exception do raise Exception.CreateFmt('TFlexValue conversion to Variant error: %s',[e.message]);
+  end;
+end;
+
+function TFlexValue.CastToVarRec: TVarRec;
+begin
+  try
+    case fDataType of
+      dtNull : Result.VPointer := nil;
+      dtBoolean : Result.VBoolean := AsBoolean;
+      {$IFDEF MSWINDOWS}
+      dtAnsiString : Result.VAnsiString := Pointer((fDataIntf as IValueAnsiString).Value);
+      dtWideString : Result.VWideString := Pointer((fDataIntf as IValueWideString).Value);
+      {$ENDIF}
+      {$IFNDEF NEXTGEN}
+      dtString : Result.VString := Pointer((fDataIntf as IValueString).Value);
+      {$ELSE}
+      dtString : Result.VUnicodeString := Pointer((fDataIntf as IValueString));
+      {$ENDIF}
+      dtInteger : Result.VInteger := (fDataIntf as IValueInteger).Value;
+      dtInt64 : Result.VInt64 := Pointer((fDataIntf as IValueInteger).Value);
+      //dtVariant : Result.VVariant := ^fDataIntf as IValueVariant).Value;
+      dtObject : Result.VObject := AsObject;
+      dtPointer : Result.VPointer := AsPointer;
+      else raise Exception.Create('DataType not supported');
+    end;
+  except
+    on E : Exception do raise Exception.CreateFmt('TFlexValue conversion to TVarRec error: %s',[e.message]);
   end;
 end;
 
@@ -586,7 +652,6 @@ begin
   {$ENDIF}
 end;
 
-{$IFNDEF FPCS}
 class operator TFlexValue.Implicit(Value: TFlexValue): Boolean;
 begin
   Result := Value.AsBoolean;
@@ -635,6 +700,11 @@ end;
 class operator TFlexValue.Implicit(Value: TFlexValue): Variant;
 begin
   Result := Value.AsVariant;
+end;
+
+class operator TFlexValue.Implicit(Value: TFlexValue): TVarRec;
+begin
+  Result := Value.AsVarRec;
 end;
 
 class operator TFlexValue.Implicit(Value: Variant): TFlexValue;
@@ -687,7 +757,120 @@ begin
   Result.AsPointer := Value;
 end;
 
-{$ENDIF}
+class operator TFlexValue.Implicit(Value: TVarRec): TFlexValue;
+begin
+  Result.AsVarRec := Value;
+end;
+
+class operator TFlexValue.Equal(a: TFlexValue; b: string): Boolean;
+begin
+  Result := a.AsString = b;
+end;
+
+class operator TFlexValue.Equal(a: TFlexValue; b: Int64): Boolean;
+begin
+  Result := a.AsInt64 = b;
+end;
+
+class operator TFlexValue.Equal(a: TFlexValue; b: Extended): Boolean;
+begin
+  Result := a.AsExtended = b;
+end;
+
+class operator TFlexValue.Equal(a: TFlexValue; b: Boolean): Boolean;
+begin
+  Result := a.AsBoolean = b;
+end;
+
+class operator TFlexValue.Equal(a : TFlexValue; b : Integer) : Boolean;
+begin
+  Result := a.AsInteger = b;
+end;
+
+class operator TFlexValue.NotEqual(a: TFlexValue; b: Int64): Boolean;
+begin
+  Result := a.AsInt64 <> b;
+end;
+
+class operator TFlexValue.NotEqual(a: TFlexValue; b: Integer): Boolean;
+begin
+  Result := a.AsInteger <> b;
+end;
+
+class operator TFlexValue.NotEqual(a: TFlexValue; b: string): Boolean;
+begin
+  Result := a.AsString <> b;
+end;
+
+class operator TFlexValue.NotEqual(a: TFlexValue; b: Boolean): Boolean;
+begin
+  Result := a.AsBoolean <> b;
+end;
+
+class operator TFlexValue.NotEqual(a: TFlexValue; b: Extended): Boolean;
+begin
+  Result := a.AsExtended <> b;
+end;
+
+class operator TFlexValue.GreaterThan(a: TFlexValue; b: Integer): Boolean;
+begin
+  Result := a.AsInteger > b;
+end;
+
+class operator TFlexValue.GreaterThan(a: TFlexValue; b: Int64): Boolean;
+begin
+  Result := a.AsInt64 > b;
+end;
+
+class operator TFlexValue.GreaterThan(a: TFlexValue; b: Extended): Boolean;
+begin
+  Result := a.AsExtended > b;
+end;
+
+class operator TFlexValue.GreaterThanOrEqual(a: TFlexValue; b: Integer): Boolean;
+begin
+  Result := a.AsInteger >= b;
+end;
+
+class operator TFlexValue.GreaterThanOrEqual(a: TFlexValue; b: Int64): Boolean;
+begin
+  Result := a.AsInt64 >= b;
+end;
+
+class operator TFlexValue.GreaterThanOrEqual(a: TFlexValue; b: Extended): Boolean;
+begin
+  Result := a.AsExtended >= b;
+end;
+
+class operator TFlexValue.LessThan(a: TFlexValue; b: Integer): Boolean;
+begin
+  Result := a.AsInteger < b;
+end;
+
+class operator TFlexValue.LessThan(a: TFlexValue; b: Int64): Boolean;
+begin
+  Result := a.AsInt64 < b;
+end;
+
+class operator TFlexValue.LessThan(a: TFlexValue; b: Extended): Boolean;
+begin
+  Result := a.AsExtended < b;
+end;
+
+class operator TFlexValue.LessThanOrEqual(a: TFlexValue; b : Integer): Boolean;
+begin
+  Result := a.AsInteger <= b;
+end;
+
+class operator TFlexValue.LessThanOrEqual(a: TFlexValue; b : Int64): Boolean;
+begin
+  Result := a.AsInt64 <= b;
+end;
+
+class operator TFlexValue.LessThanOrEqual(a: TFlexValue; b: Extended): Boolean;
+begin
+  Result := a.AsExtended <= b;
+end;
 
 function TFlexValue.IsBoolean: Boolean;
 begin
@@ -727,6 +910,20 @@ end;
 function TFlexValue.IsPointer: Boolean;
 begin
   Result := fDataType = dtPointer;
+end;
+
+function TFlexValue.IsRealExtended: Boolean;
+var
+  i : Extended;
+begin
+  Result := TryStrToFloat(AsString,i);
+end;
+
+function TFlexValue.IsRealInteger: Boolean;
+var
+  i : Int64;
+begin
+  Result := TryStrToInt64(AsString,i);
 end;
 
 function TFlexValue.IsString: Boolean;
@@ -828,11 +1025,57 @@ begin
   fDataType := TValueDataType.dtString;
 end;
 
+function TryVarAsType(aValue : Variant; aVarType : Word) : Boolean;
+begin
+  try
+    VarAsType(aValue,aVarType);
+    Result := True;
+  except
+    Result := False;
+  end;
+end;
+
 procedure TFlexValue.SetAsVariant(const Value: Variant);
 begin
   Clear;
-  fDataIntf := TValueVariant.Create(Value);
-  fDataType := TValueDataType.dtVariant;
+  case VarType(Value) and varTypeMask of
+    varEmpty,
+    varNull      : Clear;
+    varSmallInt,
+    varInteger,
+    varByte,
+    varWord,
+    varLongWord,
+    varInt64     : SetAsInt64(Value);
+
+    varSingle,
+    varDouble,
+    varCurrency  : SetAsExtended(Value);
+    varDate      : SetAsDateTime(Value);
+    varOleStr    : SetAsString(Value);
+    varDispatch  : begin
+                     if TryVarAsType(Value,varInt64) then SetAsInt64(Value)
+                     else if TryVarAsType(Value,varDouble) then SetAsExtended(Value)
+                     else if TryVarAsType(Value,varBoolean) then SetAsBoolean(Value)
+                     else if TryVarAsType(Value,varString) then SetAsString(Value)
+                     else
+                     begin
+                       fDataIntf := TValueVariant.Create(Value);
+                       fDataType := TValueDataType.dtVariant;
+                     end;
+                   end;
+    //varError     : typeString := 'varError';
+    varBoolean   : SetAsBoolean(Value);
+    //varStrArg    : typeString := 'varStrArg';
+    varString    : SetAsString(Value);
+    //varAny       : typeString := 'varAny';
+    //varTypeMask  : typeString := 'varTypeMask';
+    else
+    begin
+      fDataIntf := TValueVariant.Create(Value);
+      fDataType := TValueDataType.dtVariant;
+    end;
+  end;
 end;
 
 {$IFDEF MSWINDOWS}
@@ -843,6 +1086,36 @@ begin
   fDataType := TValueDataType.dtWideString;
 end;
 {$ENDIF}
+
+procedure TFlexValue.SetAsVarRec(const Value: TVarRec);
+begin
+  case Value.VType of
+    {$IFNDEF NEXTGEN}
+    vtString : AsString := string(Value.VString^);
+    vtChar : AsString := string(Value.VChar);
+    {$ENDIF}
+    {$IFDEF MSWINDOWS}
+    vtAnsiString : AsAnsiString := AnsiString(Value.VAnsiString);
+    vtWideString : AsWideString := WideString(Value.VWideString);
+    {$ENDIF}
+    {$IFDEF UNICODE}
+    vtUnicodeString: AsString := string(Value.VUnicodeString);
+    {$ENDIF UNICODE}
+    vtInteger : AsInteger := Value.VInteger;
+    vtInt64 : AsInt64 := Value.VInt64^;
+    vtExtended : AsExtended := Value.VExtended^;
+    vtBoolean : AsBoolean := Value.VBoolean;
+    vtVariant : AsVariant := Value.VVariant^;
+    vtInterface : AsInterface := IInterface(Value.VInterface);
+    vtClass : AsClass := Value.VClass;
+    vtObject : AsObject := Value.VObject;
+    vtPointer : AsPointer := Value.VPointer;
+    else raise Exception.Create('DataType not supported by TFlexValue');
+  end;
+  {$IFDEF FPC}
+  fDataIntf._AddRef;
+  {$ENDIF}
+end;
 
 procedure TFlexValue._AddRef;
 begin
@@ -992,5 +1265,13 @@ begin
   fData := Value;
 end;
 
+
+{ TFlexPair }
+
+constructor TFlexPair.Create(const aName: string; aValue: TFlexValue);
+begin
+  Name := aName;
+  Value := aValue;
+end;
 
 end.

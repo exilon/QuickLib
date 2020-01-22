@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pérez
 
   Unit        : Quick.Lists
   Description : Generic Lists functions
   Author      : Kike Pérez
-  Version     : 1.0
+  Version     : 1.2
   Created     : 04/11/2018
-  Modified    : 07/11/2018
+  Modified    : 11/05/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -38,9 +38,14 @@ uses
   SysUtils,
   RTTI,
   TypInfo,
+  Generics.Collections,
+  Generics.Defaults,
   Quick.RTTI.Utils,
-  System.Generics.Collections,
-  System.Generics.Defaults;
+  Quick.Arrays,
+  Quick.Value;
+
+  //enable use of property paths (like namespaces) in search
+  {$DEFINE PROPERTYPATH_MODE}
 
 type
 
@@ -133,7 +138,14 @@ begin
     begin
       try
         if sindex.ClassField = TClassField.cfField then propvalue := TRTTI.GetFieldValue(TObject(Value),sindex.FieldName)
-          else propvalue := TRTTI.GetPropertyValue(TObject(Value),sindex.FieldName);
+        else
+        begin
+          {$IFNDEF PROPERTYPATH_MODE}
+          propvalue := TRTTI.GetPropertyValue(TObject(Value),sindex.FieldName);
+          {$ELSE}
+          propvalue := TRTTI.GetPathValue(TObject(Value),sindex.FieldName);
+          {$ENDIF}
+        end;
       except
         raise Exception.CreateFmt('Cannot add value to "%s" search dictionary!',[sindex.IndexName]);
       end;
@@ -147,7 +159,14 @@ begin
     begin
       try
         if sindex.ClassField = TClassField.cfField then propvalue := TRTTI.GetFieldValue(TObject(Value),sindex.FieldName)
-          else propvalue := TRTTI.GetPropertyValue(TObject(Value),sindex.FieldName);
+        else
+        begin
+          {$IFNDEF PROPERTYPATH_MODE}
+          propvalue := TRTTI.GetPropertyValue(TObject(Value),sindex.FieldName);
+          {$ELSE}
+          propvalue := TRTTI.GetPathValue(TObject(Value),sindex.FieldName);
+          {$ENDIF}
+        end;
       except
         raise Exception.CreateFmt('Cannot remove value to "%s" search dictionary!',[sindex.IndexName]);
       end;
