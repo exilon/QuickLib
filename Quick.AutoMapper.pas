@@ -118,7 +118,20 @@ type
     {$ENDIF}
   end;
 
-  TAutoMapper<TClass1, TClass2 : class, constructor> = class
+  IAutoMapper<TClass1, TClass2 : class, constructor> = interface['{9F7B2DEA-76D8-4DD1-95D0-22C22AEB5DD0}']
+    function Map(aSrcObj : TClass1) : TClass2; overload;
+    {$IFNDEF FPC}
+    function Map(aSrcObj : TClass2) : TClass1; overload;
+    procedure SetOnDoMapping(CustomProc : TMappingProc<TClass1>);
+    procedure SetOnAfterMapping(CustomProc : TAfterMappingProc<TClass1,TClass2>);
+    {$ELSE}
+    //freepascal detects overload with generic types as duplicated function, added dummy field to avoid this
+    function Map(aSrcObj : TClass2; dummy : Boolean = True) : TClass1; overload;
+    {$ENDIF}
+  end;
+
+
+  TAutoMapper<TClass1, TClass2 : class, constructor> = class(TInterfacedObject, IAutoMapper<TClass1, TClass2>)
   private
     fCustomMapping : TCustomMapping;
     {$IFNDEF FPC}
@@ -140,6 +153,8 @@ type
     function Map(aSrcObj : TClass1) : TClass2; overload;
     {$IFNDEF FPC}
     function Map(aSrcObj : TClass2) : TClass1; overload;
+    procedure SetOnDoMapping(CustomProc : TMappingProc<TClass1>);
+    procedure SetOnAfterMapping(CustomProc : TAfterMappingProc<TClass1,TClass2>);
     {$ELSE}
     //freepascal detects overload with generic types as duplicated function, added dummy field to avoid this
     function Map(aSrcObj : TClass2; dummy : Boolean = True) : TClass1; overload;
@@ -366,6 +381,16 @@ function TAutoMapper<TClass1, TClass2>.Map(aSrcObj: TClass2): TClass1;
 begin
   Result := TMapper<TClass1>.Map<TClass1>(aSrcObj,fOnDoMapping,fCustomMapping);
 end;
+procedure TAutoMapper<TClass1, TClass2>.SetOnAfterMapping(CustomProc: TAfterMappingProc<TClass1, TClass2>);
+begin
+  fOnAfterMapping := CustomProc;
+end;
+
+procedure TAutoMapper<TClass1, TClass2>.SetOnDoMapping(CustomProc: TMappingProc<TClass1>);
+begin
+  fOnDoMapping := CustomProc;
+end;
+
 {$ELSE}
 function TAutoMapper<TClass1, TClass2>.Map(aSrcObj: TClass2; dummy : Boolean = True): TClass1;
 begin
