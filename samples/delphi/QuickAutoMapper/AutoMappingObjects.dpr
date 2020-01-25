@@ -109,8 +109,13 @@ type
 var
   User : TUser;
   User2 : TUser2;
+  User3 : TUser2;
   job : TJob;
   AutoMapper : TAutoMapper<TUser,TUser2>;
+  {$IFNDEF FPC}
+  InterfacedAutoMapper : IAutoMapper<TUser,TUser2>;
+  {$ENDIF}
+
 
 { TUser }
 
@@ -221,7 +226,30 @@ begin
       //User2 := TUser2(User.Clone);
       //User2 := TMapper<TUserBase>.Clone(User) as TUser2;
 
-      cout('COMPARE USER VS USER2',etTrace);
+      {$IFNDEF FPC}
+      InterfacedAutoMapper := TAutoMapper<TUser,TUser2>.Create;
+
+      InterfacedAutoMapper.SetOnDoMapping(
+                                procedure(const aSrcObj : TUser; const aTargetName : string; out Value : TFlexValue)
+                                begin
+                                  if aTargetName = 'Money' then Value := aSrcObj.Cash * 2
+                                  else if aTargetName = 'IdUser' then Value := aSrcObj.Id;
+                                end
+      );
+
+      InterfacedAutoMapper.SetOnAfterMapping(
+                                     procedure(const aSrcObj : TUser; aTgtObj : TUser2)
+                                     begin
+                                       aTgtObj.Money := aSrcObj.Cash * 2;
+                                       aTgtObj.IdUser := aSrcObj.Id;
+                                     end
+      );
+
+      user3 := InterfacedAutoMapper.Map(User);
+
+      {$ENDIF}
+
+      cout('COMPARE Instanced Mapper USER VS USER2',etTrace);
       cout('User.Id = %d / User2.IdUser = %d',[User.Id,User2.IdUser],etInfo);
       cout('User.CreationDate = %s / User2.CreationDate = %s',[DateTimeToStr(User.CreationDate),DateTimetoStr(User2.CreationDate)],etInfo);
       cout('User.Name = %s / User2.Name = %s',[User.Name,User2.Name],etInfo);
@@ -232,12 +260,31 @@ begin
       cout('User.Job.DateFrom = %s / User2.Job.DateFrom = %s',[DateTimeToStr(User.Job.DateFrom),DateTimeToStr(User2.Job.DateFrom)],etInfo);
       cout('User.Car.Model = %s / User2.Car.Model = %s',[User.Car.Model,User2.Car.Model],etInfo);
 
+      {$IFNDEF FPC}
+      cout('COMPARE Interfaced Mapper USER VS USER3',etTrace);
+      cout('User.Id = %d / User3.IdUser = %d',[User.Id,User3.IdUser],etInfo);
+      cout('User.CreationDate = %s / User3.CreationDate = %s',[DateTimeToStr(User.CreationDate),DateTimetoStr(User3.CreationDate)],etInfo);
+      cout('User.Name = %s / User3.Name = %s',[User.Name,User3.Name],etInfo);
+      cout('User.Age = %d / User3.Age = %d',[User.Age,User3.Age],etInfo);
+      cout('User.Numbers = %d / User3.Numbers = %d',[User.Numbers[1],User3.Numbers[1]],etInfo);
+      cout('User.Cash = %d / User3.Money = %d',[User.Cash,User3.Money],etInfo);
+      cout('User.Job.Name = %s / User3.Job.Name = %s',[User.Job.Name,User3.Job.Name],etInfo);
+      cout('User.Job.DateFrom = %s / User3.Job.DateFrom = %s',[DateTimeToStr(User.Job.DateFrom),DateTimeToStr(User3.Job.DateFrom)],etInfo);
+      cout('User.Car.Model = %s / User3.Car.Model = %s',[User.Car.Model,User3.Car.Model],etInfo);
+
+      {$ENDIF}
+
       cout(' ',etInfo);
       cout('USER AS JSON RESULT',etTrace);
       cout('%s',[User.ToJson],etInfo);
       cout(' ',etInfo);
       cout('USER2 AS JSON RESULT',etTrace);
       cout('%s',[User2.ToJson],etInfo);
+      {$IFNDEF FPC}
+      cout(' ',etInfo);
+      cout('USER3 AS JSON RESULT',etTrace);
+      cout('%s',[User3.ToJson],etInfo);
+      {$ENDIF}
 
     finally
       AutoMapper.Free;
