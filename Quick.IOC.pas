@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 11/01/2020
+  Modified    : 08/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -104,12 +104,14 @@ type
     constructor Create;
     destructor Destroy; override;
     property Dependencies : TDictionary<string,TIocRegistration> read fDependencies write fDependencies;
-    function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName : string = '') : Boolean;
+    function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName : string = '') : Boolean; overload;
+    function IsRegistered<TInterface : IInterface>(const aName : string = '') : Boolean; overload;
     function GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
     function RegisterType<TInterface: IInterface; TImplementation: class>(const aName : string = '') : TIocRegistration<TImplementation>; overload;
     function RegisterType(aTypeInfo : PTypeInfo; aImplementation : TClass; const aName : string = '') : TIocRegistration; overload;
     function RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration; overload;
     function RegisterInstance<T : class>(const aName : string = '') : TIocRegistration<T>; overload;
+    function RegisterInstance<TInterface : IInterface>(aInstance : TInterface; const aName : string = '') : TIocRegistration; overload;
     function RegisterOptions<T : TOptions>(aOptions : T) : TIocRegistration<T>;
   end;
 
@@ -159,11 +161,13 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName: string): Boolean;
+    function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName: string): Boolean; overload;
+    function IsRegistered<TInterface : IInterface>(const aName: string): Boolean; overload;
     function RegisterType<TInterface: IInterface; TImplementation: class>(const aName : string = '') : TIocRegistration<TImplementation>; overload;
     function RegisterType(aInterface: PTypeInfo; aImplementation : TClass; const aName : string = '') : TIocRegistration; overload;
     function RegisterInstance<T : class>(const aName: string = ''): TIocRegistration<T>; overload;
     function RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration; overload;
+    function RegisterInstance<TInterface : IInterface>(aInstance : TInterface; const aName : string = '') : TIocRegistration; overload;
     function RegisterOptions<T : TOptions>(aOptions : TOptions) : TIocRegistration<T>;
     function Resolve<T>(const aName : string = ''): T; overload;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
@@ -254,6 +258,7 @@ begin
   fInjector.Free;
   fResolver.Free;
   fRegistrator.Free;
+  fLogger := nil;
   inherited;
 end;
 
@@ -284,6 +289,11 @@ begin
   Result := fRegistrator.IsRegistered<TInterface,TImplementation>(aName);
 end;
 
+function TIocContainer.IsRegistered<TInterface>(const aName: string): Boolean;
+begin
+  Result := fRegistrator.IsRegistered<TInterface>(aName);
+end;
+
 function TIocContainer.RegisterType<TInterface, TImplementation>(const aName: string): TIocRegistration<TImplementation>;
 begin
   Result := fRegistrator.RegisterType<TInterface, TImplementation>(aName);
@@ -302,6 +312,11 @@ end;
 function TIocContainer.RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;
 begin
   Result := fRegistrator.RegisterInstance(aTypeInfo,aName);
+end;
+
+function TIocContainer.RegisterInstance<TInterface>(aInstance: TInterface; const aName: string): TIocRegistration;
+begin
+  Result := fRegistrator.RegisterInstance<TInterface>(aInstance,aName);
 end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TOptions): TIocRegistration<T>;
@@ -366,12 +381,46 @@ begin
   end
 end;
 
+function TIocRegistrator.IsRegistered<TInterface>(const aName: string): Boolean;
+var
+  key : string;
+  reg : TIocRegistration;
+begin
+  Result := False;
+  key := GetKey(TypeInfo(TInterface),aName);
+  if fDependencies.TryGetValue(key,reg) then
+  begin
+    if (reg is TIocRegistrationInterface) and (TIocRegistrationInterface(reg).Instance <> nil) then Result := True;
+  end
+end;
+
 function TIocRegistrator.RegisterInstance<T>(const aName: string): TIocRegistration<T>;
 var
   reg : TIocRegistration;
 begin
   reg := RegisterInstance(TypeInfo(T),aName);
   Result := TIocRegistration<T>.Create(reg);
+end;
+
+function TIocRegistrator.RegisterInstance<TInterface>(aInstance: TInterface; const aName: string): TIocRegistration;
+var
+  key : string;
+  tpinfo : PTypeInfo;
+begin
+  tpinfo := TypeInfo(TInterface);
+  key := GetKey(tpinfo,aName);
+  if fDependencies.TryGetValue(key,Result) then
+  begin
+    if Result.&Implementation = tpinfo.TypeData.ClassType then raise EIocRegisterError.Create('Implementation is already registered!');
+  end
+  else
+  begin
+    Result := TIocRegistrationInterface.Create;
+    Result.IntfInfo := tpinfo;
+    TIocRegistrationInterface(Result).Instance := aInstance;
+    //reg.Instance := T.Create;
+    fDependencies.Add(key,Result);
+  end;
 end;
 
 function TIocRegistrator.RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;
