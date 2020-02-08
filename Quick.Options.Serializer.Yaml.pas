@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.Options.Serializer.Yaml
   Description : Configuration groups Yaml Serializer
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 28/11/2019
+  Modified    : 07/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -47,11 +47,13 @@ type
   TYamlOptionsSerializer = class(TOptionsSerializer)
   private
     fSerializer : TRTTIYaml;
+    function ParseFile(const aFilename : string; out aYamlObj : TYamlObject) : Boolean;
   public
     constructor Create;
     destructor Destroy; override;
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
     procedure Save(const aFilename : string; aSections : TSectionList); override;
+    function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; override;
   end;
 
 implementation
@@ -69,6 +71,41 @@ begin
   inherited;
 end;
 
+function TYamlOptionsSerializer.GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean;
+var
+  yaml : TYamlObject;
+  ypair : TYamlPair;
+  i : Integer;
+begin
+  Result := False;
+  yaml := nil;
+  if ParseFile(aFilename,yaml) then
+  begin
+    try
+      for i := 0 to yaml.Count - 1 do
+      begin
+        oSections := oSections + [yaml.Pairs[i].Name];
+      end;
+      Result := True;
+    finally
+      yaml.Free;
+    end;
+  end;
+end;
+
+function TYamlOptionsSerializer.ParseFile(const aFilename : string; out aYamlObj : TYamlObject) : Boolean;
+var
+  fileoptions : string;
+begin
+  aYamlObj := nil;
+  if FileExists(aFilename) then
+  begin
+    fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
+    aYamlObj := TYamlObject.ParseYAMLValue(fileoptions) as TYamlObject;
+  end;
+  Result := aYamlObj <> nil;
+end;
+
 function TYamlOptionsSerializer.Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
 var
   option : TOptions;
@@ -77,26 +114,28 @@ var
   ypair : TYamlPair;
 begin
   Result := False;
-  if FileExists(aFilename) then
+  //read option file
+  if ParseFile(aFilename,yaml) then
   begin
-    //read option file
-    fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
-    yaml := TYamlObject.ParseYAMLValue(fileoptions) as TYamlObject;
-    for option in aSections do
-    begin
-      ypair := fSerializer.GetYamlPairByName(yaml,option.Name);
-      if ypair = nil then
+    try
+      for option in aSections do
       begin
-        if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
-          else Continue;
+        ypair := fSerializer.GetYamlPairByName(yaml,option.Name);
+        if ypair = nil then
+        begin
+          if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
+            else Continue;
+        end;
+        if ypair.Value <> nil then
+        begin
+          //deserialize option
+          fSerializer.DeserializeObject(option,ypair.Value as TYamlObject);
+          //validate loaded configuration
+          option.ValidateOptions;
+        end;
       end;
-      if ypair.Value <> nil then
-      begin
-        //deserialize option
-        fSerializer.DeserializeObject(option,ypair.Value as TYamlObject);
-        //validate loaded configuration
-        option.ValidateOptions;
-      end;
+    finally
+      yaml.Free;
     end;
   end;
 end;
@@ -112,14 +151,17 @@ begin
   try
     for option in aSections do
     begin
-      //validate configuration before save
-      option.ValidateOptions;
-      //serialize option
-      jpair := fSerializer.Serialize(option.Name,option);
-      yaml.AddPair(jpair);
+      if not option.HideOptions then
+      begin
+        //validate configuration before save
+        option.ValidateOptions;
+        //serialize option
+        jpair := fSerializer.Serialize(option.Name,option);
+        yaml.AddPair(jpair);
+      end;
     end;
     fileoptions := yaml.ToYaml;
-    TFile.WriteAllText(aFilename,fileoptions);
+    if not fileoptions.IsEmpty then TFile.WriteAllText(aFilename,fileoptions);
   finally
     yaml.Free;
   end;

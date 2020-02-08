@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.Options
   Description : Configuration group settings
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 16/12/2019
+  Modified    : 07/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,11 +36,10 @@ interface
 uses
   Classes,
   RTTI,
-  Quick.RTTI.Utils,
   System.TypInfo,
   System.SysUtils,
   System.Generics.Collections,
-  System.Json,
+  Quick.RTTI.Utils,
   Quick.Commons,
   Quick.FileMonitor;
 
@@ -82,25 +81,30 @@ type
     procedure ValidateOptions;
   end;
 
-  IOptionsConfigure<T> = interface
-  ['{49258BEB-A21D-4C64-BA71-767B8DBD4D92}']
-    //function ConfigureOptions(aOptionsFunc : TConfigureOptionsProc<T>) : IOptionsValidator;
-  end;
-
   TOptions = class(TInterfacedObject,IOptionsValidator)
   private
     fName : string;
+    fHideOptions : Boolean;
+    procedure DoValidateOptions; virtual;
+  public
+    constructor Create; virtual;
+    property Name : string read fName write fName;
+    property HideOptions : Boolean read fHideOptions write fHideOptions;
+    procedure DefaultValues; virtual;
+    function ConfigureOptions<T : TOptions>(aOptionsFunc : TConfigureOptionsProc<T>) : IOptionsValidator;
+    procedure ValidateOptions;
+  end;
+
+  TOptionsValidator = class(TInterfacedObject,IOptionsValidator)
+  private
+    fOptions : TOptions;
+  public
+    constructor Create(aOptions : TOptions);
     procedure ValidateRequired(const aInstance : TObject; aProperty: TRttiProperty);
     procedure ValidateStringLength(const aInstance : TObject; aProperty: TRttiProperty; aValidation : StringLength);
     procedure ValidateRange(const aInstance : TObject; aProperty: TRttiProperty; aValidation : Range);
-    procedure DoValidateOptions; virtual;
     procedure ValidateObject(aObj : TObject);
     procedure ValidateArray(aValue : TValue);
-  public
-    constructor Create;
-    property Name : string read fName write fName;
-    procedure DefaultValues; virtual;
-    function ConfigureOptions<T : TOptions>(aOptionsFunc : TConfigureOptionsProc<T>) : IOptionsValidator;
     procedure ValidateOptions;
   end;
 
@@ -125,6 +129,7 @@ type
     function AddSection(aOption : TOptionsClass; const aOptionsName : string = '') : TOptions;
     function GetOptions(aOptionClass : TOptionsClass): TOptions;
     function GetSection(aOptionsSection : TOptionsClass; var vOptions : TOptions) : Boolean; overload;
+    procedure AddOption(aOption : TOptions);
   end;
 
   TSectionList = TObjectList<TOptions>;
@@ -133,12 +138,14 @@ type
   ['{7DECE203-4AAE-4C9D-86C8-B3D583DF7C8B}']
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
     procedure Save(const aFilename : string; aSections : TSectionList);
+    function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean;
   end;
 
   TOptionsSerializer = class(TInterfacedObject,IOptionsSerializer)
   public
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; virtual; abstract;
     procedure Save(const aFilename : string; aSections : TSectionList); virtual; abstract;
+    function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; virtual; abstract;
   end;
 
   TFileModifiedEvent = reference to procedure;
@@ -183,8 +190,10 @@ type
     property Items[aIndex : Integer] : TOptions read GetOptions; default;
     function AddSection(aOption : TOptionsClass; const aSectionName : string = '') : TOptions; overload;
     function AddSection<T : TOptions>(const aSectionName : string = '') : TOptions<T>; overload;
+    procedure AddOption(aOption : TOptions);
     function GetSectionInterface<T : TOptions> : IOptions<T>;
     function GetSection<T : TOptions>(const aSectionName : string = '') : T; overload;
+    function GetFileSectionNames(out oSections : TArray<string>) : Boolean;
     function Count : Integer;
     procedure Load(aFailOnSectionNotExists : Boolean = False);
     procedure Save;
@@ -215,7 +224,7 @@ implementation
 constructor TOptionsContainer.Create(const aFilename : string; aOptionsSerializer : IOptionsSerializer; aReloadIfFileChanged : Boolean = False);
 begin
   fSerializer := aOptionsSerializer;
-  fSections := TSectionList.Create(True);
+  fSections := TSectionList.Create(False);
   fFilename := aFilename;
   fLoaded := False;
   fReloadIfFileChanged := aReloadIfFileChanged;
@@ -233,9 +242,15 @@ begin
 end;
 
 destructor TOptionsContainer.Destroy;
+var
+  option : TOptions;
 begin
   if Assigned(fFileMonitor) then fFileMonitor.Free;
   fSerializer := nil;
+  for option in fSections do
+  begin
+    if option.RefCount = 0 then option.Free;
+  end;
   fSections.Free;
   inherited;
 end;
@@ -252,10 +267,19 @@ begin
   end;
 end;
 
+procedure TOptionsContainer.AddOption(aOption: TOptions);
+begin
+  if aOption.Name.IsEmpty then aOption.Name := Copy(aOption.ClassName,2,aOption.ClassName.Length);
+  fSections.Add(aOption);
+end;
+
 function TOptionsContainer.AddSection(aOption : TOptionsClass; const aSectionName : string = '') : TOptions;
 var
   option : TOptions;
 begin
+  //if section already exists, returns it
+  option := Self.GetOptions(aOption);
+  if option <> nil then Exit(option);
   option := aOption.Create;
   if aSectionName.IsEmpty then option.Name := Copy(aOption.ClassName,2,aOption.ClassName.Length)
     else option.Name := aSectionName;
@@ -267,6 +291,10 @@ function TOptionsContainer.AddSection<T>(const aSectionName: string): TOptions<T
 var
   option : TOptions;
 begin
+  //if section already exists, returns it
+  option := Self.GetSection<T>(aSectionName);
+  if option <> nil then Exit(TOptions<T>(option));
+  //new section
   option := TRTTI.CreateInstance<T>;
   if aSectionName.IsEmpty then option.Name := Copy(T.ClassName,2,T.ClassName.Length)
     else option.Name := aSectionName;
@@ -277,6 +305,11 @@ end;
 function TOptionsContainer.Count: Integer;
 begin
   Result := fSections.Count;
+end;
+
+function TOptionsContainer.GetFileSectionNames(out oSections : TArray<string>) : Boolean;
+begin
+  Result := fSerializer.GetFileSectionNames(fFilename,oSections);
 end;
 
 function TOptionsContainer.GetOptions(aIndex: Integer): TOptions;
@@ -306,7 +339,7 @@ begin
   Result := nil;
   for option in fSections do
   begin
-    if option is TOptionsClass then Result := option as TOptionsClass;
+    if option is aOptionClass then Result := option as TOptionsClass;
   end;
 end;
 
@@ -314,6 +347,7 @@ function TOptionsContainer.GetSection<T>(const aSectionName : string = '') : T;
 var
   option : TOptions;
 begin
+  Result := nil;
   for option in fSections do
   begin
     if option is T then
@@ -360,15 +394,19 @@ var
   laststate : Boolean;
 begin
   //disable filemonitor to avoid detect manual save as a external file change
-  laststate := fFileMonitor.Enabled;
-  fFileMonitor.Enabled := False;
-  try
-    //save config file
-    fSerializer.Save(fFilename,fSections);
-  finally
-    //set last state
-    fFileMonitor.Enabled := laststate;
-  end;
+  if fReloadIfFileChanged then
+  begin
+    laststate := fFileMonitor.Enabled;
+    fFileMonitor.Enabled := False;
+    try
+      //save config file
+      fSerializer.Save(fFilename,fSections);
+    finally
+      //set last state
+      fFileMonitor.Enabled := laststate;
+    end;
+  end
+  else fSerializer.Save(fFilename,fSections);
 end;
 
 procedure TOptionsContainer.SetReloadIfFileChanged(const Value: Boolean);
@@ -385,7 +423,7 @@ function TOptions.ConfigureOptions<T>(aOptionsFunc: TConfigureOptionsProc<T>): I
 var
   value : TValue;
 begin
-  Result := Self;
+  Result := TOptionsValidator.Create(Self);
   if Assigned(aOptionsFunc) then
   begin
     value := Self;
@@ -396,6 +434,7 @@ end;
 constructor TOptions.Create;
 begin
   fName := '';
+  fHideOptions := False;
 end;
 
 procedure TOptions.DefaultValues;
@@ -404,11 +443,28 @@ begin
 end;
 
 procedure TOptions.DoValidateOptions;
+var
+  ivalidator : IOptionsValidator;
 begin
-  ValidateObject(Self);
+  ivalidator := TOptionsValidator.Create(Self);
+  ivalidator.ValidateOptions;
 end;
 
-procedure TOptions.ValidateObject(aObj : TObject);
+procedure TOptions.ValidateOptions;
+begin
+  try
+    DoValidateOptions;
+  except
+    on E : Exception do
+    begin
+      raise EOptionConfigureError.CreateFmt('Validation Options Error : %s',[e.Message]);
+    end;
+  end;
+end;
+
+{ TOptionsValidator }
+
+procedure TOptionsValidator.ValidateObject(aObj : TObject);
 var
   ctx : TRttiContext;
   rtype : TRttiType;
@@ -446,7 +502,17 @@ begin
   end;
 end;
 
-procedure TOptions.ValidateArray(aValue : TValue);
+constructor TOptionsValidator.Create(aOptions: TOptions);
+begin
+  fOptions := aOptions;
+end;
+
+procedure TOptionsValidator.ValidateOptions;
+begin
+  ValidateObject(fOptions);
+end;
+
+procedure TOptionsValidator.ValidateArray(aValue : TValue);
 type
   PPByte = ^PByte;
 var
@@ -474,19 +540,7 @@ begin
   end;
 end;
 
-procedure TOptions.ValidateOptions;
-begin
-  try
-    DoValidateOptions;
-  except
-    on E : Exception do
-    begin
-      raise EOptionConfigureError.CreateFmt('Validation Options Error : %s',[e.Message]);
-    end;
-  end;
-end;
-
-procedure TOptions.ValidateRange(const aInstance : TObject; aProperty: TRttiProperty; aValidation : Range);
+procedure TOptionsValidator.ValidateRange(const aInstance : TObject; aProperty: TRttiProperty; aValidation : Range);
 var
   value : TValue;
   msg : string;
@@ -498,7 +552,7 @@ begin
     begin
       if (value.AsExtended < aValidation.Min) or (value.AsExtended > aValidation.Max) then
       begin
-        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds predefined range (%2f - %2f)',[Self.Name,aInstance.ClassName,aProperty.Name,aValidation.Min,aValidation.Max])
+        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds predefined range (%2f - %2f)',[fOptions.Name,aInstance.ClassName,aProperty.Name,aValidation.Min,aValidation.Max])
           else msg := aValidation.ErrorMsg;
         raise EOptionValidationError.Create(msg);
       end;
@@ -507,7 +561,7 @@ begin
     begin
       if (value.AsInt64 < aValidation.Min) or (value.AsInt64 > aValidation.Max) then
       begin
-        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds predefined range (%d - %d)',[Self.Name,aInstance.ClassName,aProperty.Name,Round(aValidation.Min),Round(aValidation.Max)])
+        if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds predefined range (%d - %d)',[fOptions.Name,aInstance.ClassName,aProperty.Name,Round(aValidation.Min),Round(aValidation.Max)])
           else msg := aValidation.ErrorMsg;
         raise EOptionValidationError.Create(msg);
       end;
@@ -515,12 +569,12 @@ begin
   end;
 end;
 
-procedure TOptions.ValidateRequired(const aInstance : TObject; aProperty: TRttiProperty);
+procedure TOptionsValidator.ValidateRequired(const aInstance : TObject; aProperty: TRttiProperty);
 begin
-  if aProperty.GetValue(aInstance).IsEmpty then raise EOptionValidationError.CreateFmt('Option %s "%s.%s" is required',[Self.Name,aInstance.ClassName,aProperty.Name]);
+  if aProperty.GetValue(aInstance).IsEmpty then raise EOptionValidationError.CreateFmt('Option %s "%s.%s" is required',[fOptions.Name,aInstance.ClassName,aProperty.Name]);
 end;
 
-procedure TOptions.ValidateStringLength(const aInstance : TObject; aProperty: TRttiProperty; aValidation : StringLength);
+procedure TOptionsValidator.ValidateStringLength(const aInstance : TObject; aProperty: TRttiProperty; aValidation : StringLength);
 var
   value : TValue;
   msg : string;
@@ -528,7 +582,7 @@ begin
   value := aProperty.GetValue(aInstance);
   if (not value.IsEmpty) and (value.AsString.Length > aValidation.MaxLength) then
   begin
-    if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds max length (%d)',[Self.Name,aInstance.ClassName,aProperty.Name,aValidation.MaxLength])
+    if aValidation.ErrorMsg.IsEmpty then msg := Format('Option %s "%s.%s" exceeds max length (%d)',[fOptions.Name,aInstance.ClassName,aProperty.Name,aValidation.MaxLength])
       else msg := aValidation.ErrorMsg;
 
     raise EOptionValidationError.Create(msg);
@@ -577,8 +631,7 @@ end;
 function TOptions<T>.ConfigureOptions(aOptionsFunc: TConfigureOptionsProc<T>): IOptionsValidator;
 begin
   if Assigned(aOptionsFunc) then Result := fOptions.ConfigureOptions<T>(aOptionsFunc)
-    else Result := fOptions;
-  fOptions._AddRef;
+    else Result := TOptionsValidator.Create(fOptions);
 end;
 
 constructor TOptions<T>.Create(aOptions: T);

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.Options.Serializer.Json
   Description : Configuration groups Json Serializer
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 28/11/2019
+  Modified    : 07/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -48,11 +48,13 @@ type
   TJsonOptionsSerializer = class(TOptionsSerializer)
   private
     fSerializer : TRTTIJson;
+    function ParseFile(const aFilename : string; out aJsonObj : TJsonObject) : Boolean;
   public
     constructor Create;
     destructor Destroy; override;
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
     procedure Save(const aFilename : string; aSections : TSectionList); override;
+    function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; override;
   end;
 
 implementation
@@ -70,6 +72,41 @@ begin
   inherited;
 end;
 
+function TJsonOptionsSerializer.GetFileSectionNames(const aFilename: string; out oSections: TArray<string>): Boolean;
+var
+  json : TJsonObject;
+  jpair : TJSONPair;
+  i : Integer;
+begin
+  Result := False;
+  json := nil;
+  if ParseFile(aFilename,json) then
+  begin
+    try
+      for i := 0 to json.Count - 1 do
+      begin
+        oSections := oSections + [json.Pairs[i].JsonString.Value];
+      end;
+      Result := True;
+    finally
+      json.Free;
+    end;
+  end;
+end;
+
+function TJsonOptionsSerializer.ParseFile(const aFilename : string; out aJsonObj : TJsonObject) : Boolean;
+var
+  fileoptions : string;
+begin
+  aJsonObj := nil;
+  if FileExists(aFilename) then
+  begin
+    fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
+    aJsonObj := TJsonObject.ParseJSONValue(fileoptions) as TJsonObject;
+  end;
+  Result := aJsonObj <> nil;
+end;
+
 function TJsonOptionsSerializer.Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
 var
   option : TOptions;
@@ -78,26 +115,28 @@ var
   jpair : TJSONPair;
 begin
   Result := False;
-  if FileExists(aFilename) then
+  if ParseFile(aFilename,json) then
   begin
-    //read option file
-    fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
-    json := TJSONObject.ParseJSONValue(fileoptions) as TJSONObject;
-    for option in aSections do
-    begin
-      jpair := fSerializer.GetJsonPairByName(json,option.Name);
-      if jpair = nil then
+    try
+      for option in aSections do
       begin
-        if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
-          else Continue;
+        jpair := fSerializer.GetJsonPairByName(json,option.Name);
+        if jpair = nil then
+        begin
+          if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
+            else Continue;
+        end;
+        if jpair.JsonValue <> nil then
+        begin
+          //deserialize option
+          fSerializer.DeserializeObject(option,jpair.JsonValue as TJSONObject);
+          //validate loaded configuration
+          option.ValidateOptions;
+        end;
       end;
-      if jpair.JsonValue <> nil then
-      begin
-        //deserialize option
-        fSerializer.DeserializeObject(option,jpair.JsonValue as TJSONObject);
-        //validate loaded configuration
-        option.ValidateOptions;
-      end;
+      Result := True;
+    finally
+      json.Free;
     end;
   end;
 end;
@@ -113,14 +152,17 @@ begin
   try
     for option in aSections do
     begin
-      //validate configuration before save
-      option.ValidateOptions;
-      //serialize option
-      jpair := fSerializer.Serialize(option.Name,option);
-      json.AddPair(jpair);
+      if not option.HideOptions then
+      begin
+        //validate configuration before save
+        option.ValidateOptions;
+        //serialize option
+        jpair := fSerializer.Serialize(option.Name,option);
+        json.AddPair(jpair);
+      end;
     end;
     fileoptions := TJsonUtils.JsonFormat(json.ToJSON);
-    TFile.WriteAllText(aFilename,fileoptions);
+    if not fileoptions.IsEmpty then TFile.WriteAllText(aFilename,fileoptions);
   finally
     json.Free;
   end;
