@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.YAML
   Description : YAML Object parser
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 17/04/2019
-  Modified    : 14/12/2019
+  Modified    : 05/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

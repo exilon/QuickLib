@@ -638,6 +638,10 @@ begin
             end;
           end;
         {$ENDIF}
+        tkSet :
+          begin
+            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToYaml)
+          end
       else
         begin
           {$IFNDEF FPC}
