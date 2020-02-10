@@ -83,6 +83,7 @@ end;
 
 begin
   try
+    ReportMemoryLeaksOnShutdown := True;
     Options := TOptionsContainer.Create('.\options.conf',TJsonOptionsSerializer.Create,True);
     Options.OnFileModified := procedure
                               begin
@@ -136,6 +137,7 @@ begin
     coutFmt('UIOptions.BackgroundColor = %d',[UIOptions.BackgroundColor],etInfo);
 
     Readln;
+    Options.Free;
   except
     on E: Exception do
       coutFmt('%s:%s',[E.ClassName,E.Message],etError);
