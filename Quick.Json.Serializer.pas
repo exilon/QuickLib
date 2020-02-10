@@ -5,9 +5,9 @@
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
-  Version     : 1.10
+  Version     : 1.11
   Created     : 21/05/2018
-  Modified    : 16/01/2020
+  Modified    : 10/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -50,7 +50,7 @@ uses
     {$IFDEF DELPHIXE7_UP}
     System.Json,
     {$ENDIF}
-    {$IFDEF DELPHIRX103_UP}
+    {$IFDEF DELPHIRX10_UP}
     System.Generics.Collections,
     {$ENDIF}
     Variants,
@@ -384,7 +384,7 @@ begin
           //rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJson);
           //avoid return unicode escaped chars if string
           if rField.FieldType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
-            {$IFDEF DELPHIRX103_UP}
+            {$IFDEF DELPHIRX10_UP}
             rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,TJsonValue(member).value)
             {$ELSE}
             rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString)
@@ -493,8 +493,9 @@ var
   member : TJsonValue;
   rvalue : TValue;
   i : Integer;
+  n : Integer;
   rProp : TRttiProperty;
-  {$IFNDEF DELPHIRX103_UP}
+  {$IFNDEF DELPHIRX10_UP}
   rfield : TRttiField;
   {$ENDIF}
 begin
@@ -520,16 +521,18 @@ begin
 
   if not rValue.IsEmpty then
   begin
-    {$IFDEF DELPHIRX103_UP}
+    {$IFDEF DELPHIRX10_UP}
     if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
     begin
       TObjectList<TObject>(aObject).Clear;
-      for i := 0 to rvalue.GetArrayLength - 1 do
+      n := rvalue.GetArrayLength - 1;
+      for i := 0 to n do
       begin
         TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
       end;
     end;
     {$ELSE}
+    n := 0;
     for rfield in rType.GetFields do
     begin
       if rfield.Name = 'FOwnsObjects' then rfield.SetValue(aObject,True);
@@ -543,7 +546,7 @@ begin
       end;
     end;
     rProp := rType.GetProperty('Count');
-    rProp.SetValue(aObject,i);
+    rProp.SetValue(aObject,n);
     {$ENDIF}
   end;
 end;
@@ -671,7 +674,7 @@ begin
           {$IFNDEF FPC}
           //avoid return unicode escaped chars if string
           if aProperty.PropertyType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
-            {$IFDEF DELPHIRX103_UP}
+            {$IFDEF DELPHIRX10_UP}
             rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,TJsonValue(member).value)
             {$ELSE}
             rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.JsonString.ToString)
@@ -1635,8 +1638,13 @@ var
 begin
   json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('value',aValue));
   try
+    {$IFDEF DELPHI103_UP}
     if aIndent then Result := TJsonUtils.JsonFormat(json.P['value'].ToJSON)
       else Result := json.P['value'].ToJSON;
+    {$ELSE}
+    if aIndent then Result := TJsonUtils.JsonFormat(json.GetValue('value').ToJSON)
+      else Result := json.GetValue('value').ToJSON;
+    {$ENDIF}
   finally
     json.Free;
   end;
@@ -1648,8 +1656,13 @@ var
 begin
   json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('value',aValue));
   try
-    if aIndent then Result := TJsonUtils.JsonFormat(json.P['value'].ToString)
-      else  Result := json.P['value'].ToString;
+    {$IFDEF DELPHI103_UP}
+    if aIndent then Result := TJsonUtils.JsonFormat(json.P['value'].ToJSON)
+      else Result := json.P['value'].ToJSON;
+    {$ELSE}
+    if aIndent then Result := TJsonUtils.JsonFormat(json.GetValue('value').ToJSON)
+      else Result := json.GetValue('value').ToJSON;
+    {$ENDIF}
   finally
     json.Free;
   end;
@@ -1661,8 +1674,13 @@ var
 begin
   json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('array',TValue.From<TArray<T>>(aArray)));
   try
+    {$IFDEF DELPHI103_UP}
     if aIndent then Result := TJsonUtils.JsonFormat(json.P['array'].ToJSON)
       else Result := json.P['array'].ToJSON;
+    {$ELSE}
+    if aIndent then Result := TJsonUtils.JsonFormat(json.GetValue('array').ToJSON)
+      else Result := json.GetValue('array').ToJSON;
+    {$ENDIF}
   finally
     json.Free;
   end;
@@ -1674,8 +1692,13 @@ var
 begin
   json := TJSONObject.Create.AddPair(fRTTIJson.Serialize('array',TValue.From<TArray<T>>(aArray)));
   try
-    if aIndent then Result := TJsonUtils.JsonFormat(json.P['array'].ToString)
-      else Result := json.P['array'].ToString;
+    {$IFDEF DELPHI103_UP}
+    if aIndent then Result := TJsonUtils.JsonFormat(json.P['array'].ToJSON)
+      else Result := json.P['array'].ToJSON;
+    {$ELSE}
+    if aIndent then Result := TJsonUtils.JsonFormat(json.GetValue('array').ToJSON)
+      else Result := json.GetValue('array').ToJSON;
+    {$ENDIF}
   finally
     json.Free;
   end;
