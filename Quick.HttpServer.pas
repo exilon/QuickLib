@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.HttpServer
   Description : Http Server
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 16/10/2019
+  Modified    : 14/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -118,6 +118,9 @@ constructor TCustomHttpServer.Create(const aHost : string; aPort : Integer; aSSL
 begin
   if aHost.IsEmpty then fHost := '127.0.0.1'
     else fHost := aHost;
+  {$IFDEF DELPHILINUX}
+  if fHost = '127.0.0.1' then fHost := '0.0.0.0';
+  {$ENDIF}
   fPort := aPort;
   if aLogger = nil then
   begin
