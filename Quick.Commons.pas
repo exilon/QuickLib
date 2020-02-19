@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 16/01/2020
+  Modified    : 12/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -93,9 +93,9 @@ const
 type
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
 
-  {$IFDEF MSWINDOWS}
   TEnvironmentPath = record
     EXEPATH : string;
+    {$IFDEF MSWINDOWS}
     WINDOWS : string;
     SYSTEM : string;
     PROGRAMFILES : string;
@@ -112,8 +112,8 @@ type
     APPDATA : String;
     PROGRAMDATA : string;
     ALLUSERSPROFILE : string;
+    {$ENDIF MSWINDOWS}
   end;
-  {$ENDIF MSWINDOWS}
 
   {$IFNDEF FPC}
   TFileHelper = record helper for TFile
@@ -230,9 +230,9 @@ type
   function WindowsToUnixPath(const WindowsPath: string): string;
   //corrects malformed urls
   function CorrectURLPath(cUrl : string) : string;
-  {$IFDEF MSWINDOWS}
   //get typical environment paths as temp, desktop, etc
   procedure GetEnvironmentPaths;
+  {$IFDEF MSWINDOWS}
   function GetSpecialFolderPath(folderID : Integer) : string;
   //checks if running on a 64bit OS
   function Is64bitOS : Boolean;
@@ -339,6 +339,8 @@ type
   function CommaText(aList : TStringList) : string; overload;
   //returns a real comma separated text from array of string
   function CommaText(aArray : TArray<string>) : string; overload;
+  //returns a string CRLF from array of string
+  function ArrayToString(aArray : TArray<string>) : string;
   //converts TStrings to array
   function StringsToArray(aStrings : TStrings) : TArray<string>;
   {$IFDEF MSWINDOWS}
@@ -360,11 +362,17 @@ type
   //get double quoted or dequoted string
   function DbQuotedStr(const str : string): string;
   function UnDbQuotedStr(const str: string) : string;
+  //get simple quoted or dequoted string
+  function SpQuotedStr(const str : string): string;
+  function UnSpQuotedStr(const str : string): string;
+  //ternary operator
+  function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : string) : string; overload;
+  function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Integer) : Integer; overload;
+  function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Extended) : Extended; overload;
+  function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : TObject) : TObject; overload;
 
-{$IFDEF MSWINDOWS}
 var
   path : TEnvironmentPath;
-{$ENDIF}
 
 implementation
 
@@ -529,11 +537,11 @@ begin
   //TNetEncoding.Url.Encode()
 end;
 
-{$IFDEF MSWINDOWS}
 procedure GetEnvironmentPaths;
 begin
   //gets path
   path.EXEPATH := TPath.GetDirectoryName(ParamStr(0));
+  {$IFDEF MSWINDOWS}
   path.WINDOWS := SysUtils.GetEnvironmentVariable('windir');
   path.PROGRAMFILES := SysUtils.GetEnvironmentVariable('ProgramFiles');
   path.COMMONFILES := SysUtils.GetEnvironmentVariable('CommonProgramFiles(x86)');
@@ -556,8 +564,10 @@ begin
   except
     //
   end;
+  {$ENDIF}
 end;
 
+{$IFDEF MSWINDOWS}
 function GetSpecialFolderPath(folderID : Integer) : string;
 var
   ppidl: PItemIdList;
@@ -1461,6 +1471,24 @@ begin
   end;
 end;
 
+function ArrayToString(aArray : TArray<string>) : string;
+var
+  value : string;
+  sb : TStringBuilder;
+begin
+  if High(aArray) < 0 then Exit;
+  sb := TStringBuilder.Create;
+  try
+    for value in aArray do
+    begin
+      sb.Append(value);
+      sb.Append(#10#13);
+    end;
+  finally
+    sb.Free;
+  end;
+end;
+
 function StringsToArray(aStrings : TStrings) : TArray<string>;
 var
   i : Integer;
@@ -1798,7 +1826,41 @@ begin
   end;
 end;
 
-{$IFDEF MSWINDOWS}
+function SpQuotedStr(const str : string): string;
+begin
+  Result := '''' + str + '''';
+end;
+
+function UnSpQuotedStr(const str: string) : string;
+begin
+  Result := Trim(str);
+  if not Result.IsEmpty then
+  begin
+    if Result.StartsWith('''') then Result := Copy(Result, 2, Result.Length - 2);
+  end;
+end;
+
+function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : string) : string;
+begin
+  if aCondition then Result := aIfIsTrue else Result := aIfIsFalse;
+end;
+
+function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Integer) : Integer;
+begin
+  if aCondition then Result := aIfIsTrue else Result := aIfIsFalse;
+end;
+
+function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Extended) : Extended;
+begin
+  if aCondition then Result := aIfIsTrue else Result := aIfIsFalse;
+end;
+
+function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : TObject) : TObject;
+begin
+  if aCondition then Result := aIfIsTrue else Result := aIfIsFalse;
+end;
+
+{$IFNDEF NEXTGEN}
 initialization
   try
     GetEnvironmentPaths;
