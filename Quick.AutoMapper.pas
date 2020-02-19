@@ -118,7 +118,8 @@ type
     {$ENDIF}
   end;
 
-  IAutoMapper<TClass1, TClass2 : class, constructor> = interface['{9F7B2DEA-76D8-4DD1-95D0-22C22AEB5DD0}']
+  IAutoMapper<TClass1, TClass2 : class, constructor> = interface
+  ['{9F7B2DEA-76D8-4DD1-95D0-22C22AEB5DD0}']
     function Map(aSrcObj : TClass1) : TClass2; overload;
     {$IFNDEF FPC}
     function Map(aSrcObj : TClass2) : TClass1; overload;
@@ -129,7 +130,6 @@ type
     function Map(aSrcObj : TClass2; dummy : Boolean = True) : TClass1; overload;
     {$ENDIF}
   end;
-
 
   TAutoMapper<TClass1, TClass2 : class, constructor> = class(TInterfacedObject, IAutoMapper<TClass1, TClass2>)
   private
