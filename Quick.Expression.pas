@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Expression
   Description : Expression parser & validator
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/05/2019
-  Modified    : 31/05/2019
+  Modified    : 08/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -43,7 +43,7 @@ uses
   Quick.Value.RTTI;
 
 type
-  TOperator = (opNone, opEqual, opNotEqual, opGreater, opEqualOrGreater, opLower, opEqualOrLower, opLike, opLikeR, opLikeL);
+  TOperator = (opNone, opEqual, opNotEqual, opGreater, opEqualOrGreater, opLower, opEqualOrLower, opContains, opLike, opLikeR, opLikeL);
 
   TCombine = (coNone, coAND, coOR, coXOR);
 
@@ -61,6 +61,9 @@ type
     fValue1 : string;
     fOperator : TOperator;
     fValue2 : string;
+    function ListContains(aArrayObj : TObject; const aValue : string): Boolean;
+    function IListContains(aArrayObj : TValue; const aValue : string): Boolean;
+    function ArrayContains(aArray : TValue; const aValue : string): Boolean;
   public
     property Value1 : string read fValue1 write fValue1;
     property &Operator : TOperator read fOperator write fOperator;
@@ -96,11 +99,12 @@ type
 
   ENotValidExpression = class(Exception);
   EExpressionValidateError = class(Exception);
+  EExpressionNotSupported = class(Exception);
 
 implementation
 
 const
-  OperatorStr : array[Low(TOperator)..TOperator.opLike] of string = ('none','=','<>','>','>=','<','<=','LIKE');
+  OperatorStr : array[Low(TOperator)..TOperator.opLike] of string = ('none','=','<>','>','>=','<','<=','CONTAINS','LIKE');
   {$IFDEF NEXTGEN}
   LOWSTR = 0;
   {$ELSE}
@@ -117,7 +121,9 @@ class function TExpressionParser.GetCombine(const aValue: string): TCombine;
 begin
   if CompareText(aValue,'AND') = 0 then Result := TCombine.coAND
     else if CompareText(aValue,'OR') = 0 then Result := TCombine.coOR
-    else if CompareText(aValue,'XOR') = 0 then Result := TCombine.coXOR;
+    else if CompareText(aValue,'XOR') = 0 then Result := TCombine.coXOR
+    else if aValue.IsEmpty then Result := TCombine.coNone
+      else raise EExpressionNotSupported.Create('Operator not supported!');
 end;
 
 class function TExpressionParser.GetMultiExpression(const aExpression : string) : TMultiExpression;
@@ -246,10 +252,12 @@ end;
 function TSingleExpression.Validate(aValue : TObject) : Boolean;
 var
   value1 : TFlexValue;
-  value2 : TFlexValue;
+  //rvalue : TValue;
 begin
+  Result := False;
   if aValue = nil then Exit;
   value1.AsTValue := TRTTI.GetPathValue(aValue,fValue1);
+  //rvalue := TRTTI.GetPathValue(aValue,fValue1);
   case fOperator of
     TOperator.opEqual :
       begin
@@ -264,7 +272,75 @@ begin
     TOperator.opLike : Result := {$IFNDEF FPC}ContainsText(value1,fValue2);{$ELSE}AnsiContainsText(value1.AsAnsiString,fValue2);{$ENDIF}
     TOperator.opLikeR : Result := EndsText(fValue2,value1);
     TOperator.opLikeL : Result := StartsText(fValue2,value1);
+    TOperator.opContains :
+      begin
+        if value1.IsObject then Result := ListContains(value1.AsObject,fValue2)
+        else if value1.IsInterface then Result := IListContains(value1.AsTValue,fValue2)
+          else if value1.IsArray then Result := ArrayContains(value1.AsTValue,fValue2);
+      end
     else raise ENotValidExpression.Create('Operator not defined');
+  end;
+end;
+
+function TSingleExpression.ListContains(aArrayObj : TObject; const aValue : string): Boolean;
+var
+  ctx : TRttiContext;
+  rType: TRttiType;
+  rMethod: TRttiMethod;
+  value: TValue;
+begin
+  Result := False;
+  rType := ctx.GetType(aArrayObj.ClassInfo);
+  rMethod := rType.GetMethod('ToArray');
+  if Assigned(rMethod) then
+  begin
+    value := rMethod.Invoke(aArrayObj, []);
+    Result := Self.ArrayContains(value,aValue);
+  end;
+end;
+
+function TSingleExpression.IListContains(aArrayObj : TValue; const aValue : string): Boolean;
+var
+  ctx : TRttiContext;
+  rType: TRttiType;
+  rMethod: TRttiMethod;
+  value: TValue;
+  obj : TObject;
+begin
+  Result := False;
+  try
+    obj := TObject(aArrayObj.AsInterface);
+    rType := ctx.GetType(obj.ClassInfo);
+    rMethod := rType.GetMethod('ToArray');
+    if Assigned(rMethod) then
+    begin
+      value := rMethod.Invoke(obj, []);
+      Result := Self.ArrayContains(value,aValue);
+    end;
+  except
+    raise EExpressionValidateError.Create('Interface property not supported');
+  end;
+end;
+
+function TSingleExpression.ArrayContains(aArray : TValue; const aValue : string): Boolean;
+var
+  count : Integer;
+  arrItem : TValue;
+begin
+  Result := False;
+  if not aArray.IsArray then Exit(False);
+  count := aArray.GetArrayLength;
+  while count > 0 do
+  begin
+    Dec(count);
+    arrItem := aArray.GetArrayElement(count);
+    case arrItem.Kind of
+      tkString, tkUnicodeString, tkWideString : Result := CompareText(arrItem.AsString,aValue) = 0;
+      tkInteger, tkInt64 : Result := arrItem.AsInt64 = aValue.ToInt64;
+      tkFloat : Result := arrItem.AsExtended = aValue.ToExtended;
+      else raise EExpressionNotSupported.CreateFmt('Type Array<%s> not supported',[arrItem.TypeInfo.Name]);
+    end;
+    if Result then Exit;
   end;
 end;
 

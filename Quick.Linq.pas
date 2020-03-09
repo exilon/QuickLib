@@ -51,10 +51,19 @@ type
 
   TOrderDirection = (odAscending, odDescending);
 
+  TLinqExpression<T : class> = class(TExpression)
+  private
+    fPredicate : TPredicate<T>;
+  public
+    constructor Create(aPredicate : TPredicate<T>);
+    function Validate(aValue : TObject) : Boolean; override;
+  end;
+
   ILinqQuery<T> = interface
   ['{16B68C0B-EA38-488A-99D9-BAD1E8560E8E}']
     function Where(const aWhereClause : string; aWhereValues : array of const) : ILinqQuery<T>; overload;
     function Where(const aWhereClause: string): ILinqQuery<T>; overload;
+    function Where(aPredicate : TPredicate<T>) : ILinqQuery<T>; overload;
     function OrderBy(const aFieldNames : string) : ILinqQuery<T>;
     function OrderByDescending(const aFieldNames : string) : ILinqQuery<T>;
     function SelectFirst : T;
@@ -90,6 +99,7 @@ type
     destructor Destroy; override;
     function Where(const aWhereClause : string; aWhereParams : array of const) : ILinqQuery<T>; overload;
     function Where(const aWhereClause: string): ILinqQuery<T>; overload;
+    function Where(aPredicate : TPredicate<T>) : ILinqQuery<T>; overload;
     function OrderBy(const aFieldNames : string) : ILinqQuery<T>;
     function OrderByDescending(const aFieldNames : string) : ILinqQuery<T>;
     function SelectFirst : T;
@@ -435,6 +445,12 @@ begin
   end;
 end;
 
+function TLinqQuery<T>.Where(aPredicate: TPredicate<T>): ILinqQuery<T>;
+begin
+  Result := Self;
+  fWhereClause := TLinqExpression<T>.Create(aPredicate);
+end;
+
 { TLinq }
 
 {$IFNDEF FPC}
@@ -454,5 +470,17 @@ begin
   Result := TLinqQuery<T>.Create(aXArray);
 end;
 
+
+{ TLinqExpression<T> }
+
+constructor TLinqExpression<T>.Create(aPredicate: TPredicate<T>);
+begin
+  fPredicate := aPredicate;
+end;
+
+function TLinqExpression<T>.Validate(aValue : TObject) : Boolean;
+begin
+  Result := fPredicate(aValue as T);
+end;
 
 end.
