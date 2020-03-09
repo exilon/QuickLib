@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 08/02/2020
+  Modified    : 03/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -171,7 +171,8 @@ type
     function RegisterOptions<T : TOptions>(aOptions : TOptions) : TIocRegistration<T>;
     function Resolve<T>(const aName : string = ''): T; overload;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
-    function AbstractFactory<T : class, constructor>(aClass : TClass) : T;
+    function AbstractFactory<T : class, constructor>(aClass : TClass) : T; overload;
+    function AbstractFactory<T : class, constructor> : T; overload;
   end;
 
   EIocRegisterError = class(Exception);
@@ -243,6 +244,11 @@ end;
 function TIocContainer.AbstractFactory<T>(aClass: TClass): T;
 begin
   Result := fResolver.CreateInstance(aClass).AsType<T>;
+end;
+
+function TIocContainer.AbstractFactory<T> : T;
+begin
+  Result := fResolver.CreateInstance(TClass(T)).AsType<T>;
 end;
 
 constructor TIocContainer.Create;
