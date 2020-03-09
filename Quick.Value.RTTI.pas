@@ -38,6 +38,26 @@ uses
   Quick.Value;
 
 type
+
+  IValueTValue = interface
+  ['{B109F5F2-32E5-4C4B-B83C-BF00BB69B2D0}']
+    function GetValue : TValue;
+    procedure SetValue(const Value : TValue);
+    property Value : TValue read GetValue write SetValue;
+  end;
+
+  TValueTValue = class(TValueData,IValueTValue)
+  strict private
+    fData : TValue;
+  private
+    function GetValue : TValue;
+    procedure SetValue(const Value : TValue);
+  public
+    constructor Create(const Value : TValue);
+    property Value : TValue read GetValue write SetValue;
+  end;
+
+
   TRTTIFlexValue = record helper for TFlexValue
   private
     function CastToTValue: TValue;
@@ -72,6 +92,9 @@ begin
       {$IFNDEF FPC}
       dtVariant : Result := TValue.FromVariant(AsVariant);
       {$ENDIF}
+      dtObject : Result := AsObject;
+      dtInterface : Result := TValue.FromVariant(AsInterface);
+      dtArray : Result := (Self.Data as IValueTValue).Value;
       else raise Exception.Create('DataType not supported');
     end;
   except
@@ -97,10 +120,31 @@ begin
     tkWideChar : AsString := Value.AsString;
     tkEnumeration,
     tkSet : AsInteger := Value.AsInteger;
+    tkClass : AsObject := Value.AsObject;
+    tkInterface : AsInterface := Value.AsInterface;
+    tkArray,
+    tkDynArray : Self.SetAsCustom(TValueTValue.Create(Value),TValueDataType.dtArray);
     {$IFNDEF FPC}
     else AsVariant := Value.AsVariant;
     {$ENDIF}
   end;
+end;
+
+{ TValueTValue }
+
+constructor TValueTValue.Create(const Value: TValue);
+begin
+  fData := Value;
+end;
+
+function TValueTValue.GetValue: TValue;
+begin
+  Result := fData;
+end;
+
+procedure TValueTValue.SetValue(const Value: TValue);
+begin
+  fData := Value;
 end;
 
 end.
