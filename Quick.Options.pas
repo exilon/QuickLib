@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 07/02/2020
+  Modified    : 27/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -130,6 +130,7 @@ type
     function GetOptions(aOptionClass : TOptionsClass): TOptions;
     function GetSection(aOptionsSection : TOptionsClass; var vOptions : TOptions) : Boolean; overload;
     procedure AddOption(aOption : TOptions);
+    function ExistsSection(aOption : TOptionsClass; const aSectionName : string = '') : Boolean;
   end;
 
   TSectionList = TObjectList<TOptions>;
@@ -183,6 +184,8 @@ type
     property FileName : string read fFilename write fFilename;
     property ReloadIfFileChanged : Boolean read fReloadIfFileChanged write SetReloadIfFileChanged;
     property IsLoaded : Boolean read fLoaded;
+    function ExistsSection(aOption : TOptionsClass; const aSectionName : string = '') : Boolean; overload;
+    function ExistsSection<T : TOptions>(const aSectionName : string = '') : Boolean; overload;
     property OnFileModified : TFileModifiedEvent read fOnFileModified write fOnFileModified;
     property OnConfigLoaded : TLoadConfigEvent read fOnConfigLoaded write fOnConfigLoaded;
     property OnConfigReloaded : TLoadConfigEvent read fOnConfigReloaded write fOnConfigReloaded;
@@ -253,6 +256,25 @@ begin
   end;
   fSections.Free;
   inherited;
+end;
+
+function TOptionsContainer.ExistsSection(aOption: TOptionsClass;const aSectionName: string): Boolean;
+var
+  option : TOptions;
+begin
+  Result := False;
+  for option in fSections do
+  begin
+    if CompareText(option.ClassName,aOption.ClassName) = 0 then
+    begin
+      if (not aSectionName.IsEmpty) and (CompareText(option.Name,aSectionName) = 0) then Exit(True);
+    end;
+  end;
+end;
+
+function TOptionsContainer.ExistsSection<T>(const aSectionName: string): Boolean;
+begin
+  Result := GetSection<T>(aSectionName) <> nil;
 end;
 
 procedure TOptionsContainer.FileModifiedNotify(MonitorNotify: TMonitorNotify);
