@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 12/02/2020
+  Modified    : 26/02/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -178,6 +178,7 @@ type
     function Exists(const aValue : string) : Boolean;
     function Count : Integer;
   end;
+  TDelegate<T> = reference to procedure(Value : T);
   {$ENDIF}
 
   TPairItem = record
@@ -605,9 +606,13 @@ function HasConsoleOutput : Boolean;
   var
     stout : THandle;
   begin
-    stout := GetStdHandle(Std_Output_Handle);
-    Win32Check(stout <> Invalid_Handle_Value);
-    Result := stout <> 0;
+    try
+      stout := GetStdHandle(Std_Output_Handle);
+      Win32Check(stout <> Invalid_Handle_Value);
+      Result := stout <> 0;
+    except
+      Result := False;
+    end;
   end;
 {$ELSE}
   begin
