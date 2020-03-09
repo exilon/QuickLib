@@ -294,7 +294,9 @@ begin
           etTrace : TextColor(ccLightMagenta);
           else TextColor(ccWhite);
         end;
+        {$I-}
         Writeln(cMsg{$IFDEF LINUX} +#13{$ENDIF});
+        {$I+}
         TextColor(LastMode);
       end;
     finally
@@ -313,7 +315,9 @@ begin
     {$ENDIF}
     begin
       TextColor(cColor);
+      {$I-}
       Writeln(cMsg{$IFDEF LINUX} +#13{$ENDIF});
+      {$I+}
       TextColor(LastMode);
     end;
   finally
@@ -903,7 +907,6 @@ end;
   //AssignCrt(stderr);
   //Rewrite(stderr);
 {$ENDIF}
-
 
 { TConsoleMenu }
 
