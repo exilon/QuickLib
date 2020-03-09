@@ -238,7 +238,13 @@ type
     procedure SetAsInterface(const Value: IInterface);
   public
     constructor Create(const Value: TVarRec);
+    {$IFNDEF FPC}
+    property Data : IInterface read fDataIntf;
+    {$ELSE}
+    property Data : TValueData read fDataIntf;
+    {$ENDIF}
     property DataType : TValueDataType read fDataType;
+    procedure SetAsCustom(aData : IInterface; aType : TValueDataType);
     property AsString : string read CastToString write SetAsString;
     {$IFDEF MSWINDOWS}
     property AsAnsiString : AnsiString read CastToAnsiString write SetAsAnsiString;
@@ -267,6 +273,7 @@ type
     function  IsObject : Boolean; inline;
     function  IsPointer : Boolean; inline;
     function  IsVariant : Boolean; inline;
+    function IsArray : Boolean; inline;
     function IsRealInteger : Boolean;
     function IsRealExtended : Boolean;
     procedure Clear; inline;
@@ -872,6 +879,11 @@ begin
   Result := a.AsExtended <= b;
 end;
 
+function TFlexValue.IsArray: Boolean;
+begin
+  Result := fDataType = dtArray;
+end;
+
 function TFlexValue.IsBoolean: Boolean;
 begin
   Result := fDataType = dtBoolean;
@@ -964,6 +976,12 @@ begin
   Clear;
   fDataIntf := TValuePointer.Create(Value);
   fDataType := TValueDataType.dtClass;
+end;
+
+procedure TFlexValue.SetAsCustom(aData: IInterface; aType: TValueDataType);
+begin
+  fDataIntf := aData;
+  fDataType := aType;
 end;
 
 procedure TFlexValue.SetAsDateTime(const Value: TDateTime);
