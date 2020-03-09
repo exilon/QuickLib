@@ -36,26 +36,6 @@ var
   arr : TArray<string>;
   value : TValue;
 
-function Test(aValue : variant) : string;
-var
-  i : Integer;
-  serializer : TJsonSerializer;
-  arr : array of variant;
-  parr : Pointer;
-begin
-
-  serializer := TJsonSerializer.Create(TSerializeLevel.slPublicProperty);
-  if VarIsArray(aValue) then
-  begin
-    parr := VarArrayLock(aValue);
-    var a := VarArrayGet(aValue,[1]);
-    var b := VarTypeAsText(VarType(a) and VarTypeMask);
-    SetLength(arr,VarArrayHighBound(aValue,1) + 1);
-    arr := [aValue];
-    Result := serializer.ArrayToJson(TValue.FromVariant(aValue));
-  end;
-end;
-
 function Test2(aValue : Pointer) : string;
 var
   arr : TMyArray;
@@ -93,8 +73,6 @@ begin
 
     arr := ['item1','item2','item3','item4'];
     flexvalue := arr;
-    var a := Test(arr);
-    SetLength(arr,0);
     arr := TArray<string>(flexvalue.AsPointer);
     coutFmt('arr[1]=%s',[arr[1]],etInfo);
     ConsoleWaitForEnterKey;
