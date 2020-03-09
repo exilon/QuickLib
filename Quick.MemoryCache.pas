@@ -76,6 +76,7 @@ type
     function GetValue(const aKey : string) : T;
     function TryGetValue(const aKey : string; out aValue : T) : Boolean;
     procedure RemoveValue(const aKey : string);
+    procedure Refresh(const aKey: string; aExpirationMilliseconds : Integer);
     procedure Flush;
   end;
 
@@ -111,6 +112,7 @@ type
     function TryGetValue(const aKey : string; out aValue : TArray<string>) : Boolean; overload;
     function TryGetValue(const aKey : string; out aValue : TArray<TObject>) : Boolean; overload;
     procedure RemoveValue(const aKey : string);
+    procedure Refresh(const aKey: string; aExpirationMilliseconds : Integer);
     procedure Flush;
   end;
 
@@ -182,6 +184,7 @@ type
     property OnEndPurgerJob : TEndPurgerJobEvent read fOnEndPurgerJob write SetOnEndPurgerJob;
     property OnPurgeJobError : TPurgerJobErrorEvent read fOnPurgerJobError write SetOnPurgerJobError;
     procedure RemoveValue(const aKey : string); virtual;
+    procedure Refresh(const aKey: string; aExpirationMilliseconds : Integer);
     procedure Flush; virtual;
   end;
 
@@ -278,6 +281,17 @@ begin
     fCacheSize := 0;
   finally
     fLock.EndWrite;
+  end;
+end;
+
+procedure TMemoryCacheBase.Refresh(const aKey: string; aExpirationMilliseconds : Integer);
+var
+  cacheitem : ICacheEntry;
+begin
+  if fItems.TryGetValue(aKey,cacheitem) then
+  begin
+    cacheitem.CreationDate := Now;
+    cacheitem.Expiration := aExpirationMilliseconds;
   end;
 end;
 
