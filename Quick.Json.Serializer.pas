@@ -51,7 +51,7 @@ uses
     System.Json,
     {$ENDIF}
     {$IFDEF DELPHIRX10_UP}
-    System.Generics.Collections,
+   
     {$ENDIF}
     Variants,
   {$ENDIF}
@@ -184,6 +184,9 @@ resourcestring
   cNotSerializable = 'Object is not serializable';
 
 implementation
+
+uses
+  System.Generics.Collections;
 
 { TRTTIJson }
 
@@ -649,7 +652,7 @@ begin
                   {$ENDIF}
                 end
                 else
-                begin
+                begin              
                   rValue := DeserializeObject(aProperty.GetValue(aObject).AsObject,json);
                   Exit;
                 end;
@@ -661,11 +664,18 @@ begin
         {$IFNDEF FPC}
         tkRecord :
           begin
-            json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
-            try
-              rValue := DeserializeRecord(aProperty.GetValue(aObject),aObject,json);
-            finally
-              json.Free;
+            if aProperty.GetValue(aObject).TypeInfo = System.TypeInfo(TGUID) then
+            begin
+              rValue:=TValue.From<TGUID>(StringToGUID(member.ToJSON.DeQuotedString('"')));
+            end
+            else
+            begin
+              json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
+              try
+                rValue := DeserializeRecord(aProperty.GetValue(aObject),aObject,json);
+              finally
+                json.Free;
+              end;
             end;
           end;
         {$ENDIF}
@@ -1206,7 +1216,7 @@ begin
           end;
         end;
       tkClass :
-        begin
+        begin         
            Result.JsonValue := TJSONValue(Serialize(aValue.AsObject));
         end;
       tkString, tkLString, tkWString, tkUString :
@@ -1269,15 +1279,22 @@ begin
       tkRecord :
         begin
           rRec := ctx.GetType(aValue.TypeInfo).AsRecord;
-          try
-            json := TJSONObject.Create;
-            for rField in rRec.GetFields do
-            begin
-              json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
+          if aValue.TypeInfo = System.TypeInfo(TGUID) then
+          begin
+            Result.JsonValue := TJSONString.Create(GUIDToString(aValue.AsType<TGUID>));
+          end
+          else
+          begin
+            try
+              json := TJSONObject.Create;
+              for rField in rRec.GetFields do
+              begin
+                json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
+              end;
+              Result.JsonValue := json;
+            finally
+              ctx.Free;
             end;
-            Result.JsonValue := json;
-          finally
-            ctx.Free;
           end;
         end;
       tkVariant :

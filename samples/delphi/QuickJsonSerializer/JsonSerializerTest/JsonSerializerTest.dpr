@@ -14,10 +14,12 @@ uses
 type
   THost = class
   private
+    fID: TGUID;
     fName : string;
     fIP : string;
     fPort : Integer;
   published
+    property ID: TGUID read fID write fID;
     property Name : string read fName write fName;
     property IP : string read fIP write fIP;
     property Port : Integer read fPort write fPort;
@@ -39,14 +41,25 @@ type
   end;
 
 const
-  jsonstring = '{"Hosts":[{"Name":"Host 1 año perfeción","IP":"127.0.0.1","Port":80},{"Name":"Host 2","IP":"192.168.1.1","Port":443}],"DebugMode":true,"Level":1}';
-  jsonstring2 = '{"Hosts":{"List":[{"Name":"Host 1","IP":"127.0.0.2","Port":80},{"Name":"Host 2","IP":"192.168.1.2","Port":443}]},"DebugMode":true,"Level":2}';
+  jsonstring = '{"Hosts":['+
+                  '{"Name":"Host 1 año perfeción","IP":"127.0.0.1","Port":80, "ID":"{00FB3A62-F77D-4E71-9613-79E2E49D4562}"},'+
+                  '{"Name":"Host 2","IP":"192.168.1.1","Port":443,"ID":"{EBEBBC33-71F2-404A-8C0E-903CFA268616}"}'+
+                        '],'+
+                '"DebugMode":true,"Level":1}';
+  jsonstring2 = '{"Hosts":'+
+                  '{"List":['+
+                      '{"Name":"Host 1","IP":"127.0.0.2","Port":80, "ID":"{D52917AE-0A21-4B5B-945A-0F17FD158332}"},'+
+                      '{"Name":"Host 2","IP":"192.168.1.2","Port":443, "ID":"{80E6467A-282C-437E-B66A-D704004A2C3F}"}'+
+                          ']},'+
+                   '"DebugMode":true,"Level":2'+
+                   '}';
 
 var
   config : TConfig;
   host : THost;
   serializer : TJsonSerializer;
   json : string;
+  guid: TGUID;
 
 { TConfig }
 
@@ -74,6 +87,8 @@ begin
         host.Name := 'Host 1';
         host.IP := '127.0.0.1';
         host.Port := 80;
+        CreateGUID(guid);
+        host.ID:=guid;
         config.DebugMode := True;
         config.Level := 1;
         config.Hosts.Add(host);
@@ -82,6 +97,8 @@ begin
         host.Name := 'Host 2';
         host.IP := '192.168.1.1';
         host.Port := 443;
+        CreateGUID(guid);
+        host.ID:=guid;
         config.Hosts.Add(host);
 
         json := serializer.ObjectToJson(config,True);
