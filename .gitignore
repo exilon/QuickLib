@@ -58,3 +58,4 @@ release/
 
 *.lps
 bin/
+*.res
