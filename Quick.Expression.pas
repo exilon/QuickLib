@@ -61,8 +61,10 @@ type
     fValue1 : string;
     fOperator : TOperator;
     fValue2 : string;
+    {$IFNDEF FPC}
     function ListContains(aArrayObj : TObject; const aValue : string): Boolean;
     function IListContains(aArrayObj : TValue; const aValue : string): Boolean;
+    {$ENDIF}
     function ArrayContains(aArray : TValue; const aValue : string): Boolean;
   public
     property Value1 : string read fValue1 write fValue1;
@@ -274,14 +276,19 @@ begin
     TOperator.opLikeL : Result := StartsText(fValue2,value1);
     TOperator.opContains :
       begin
+        {$IFNDEF FPC}
         if value1.IsObject then Result := ListContains(value1.AsObject,fValue2)
         else if value1.IsInterface then Result := IListContains(value1.AsTValue,fValue2)
           else if value1.IsArray then Result := ArrayContains(value1.AsTValue,fValue2);
+        {$ELSE}
+        if value1.IsArray then Result := ArrayContains(value1.AsTValue,fValue2);
+        {$ENDIF}
       end
     else raise ENotValidExpression.Create('Operator not defined');
   end;
 end;
 
+{$IFNDEF FPC}
 function TSingleExpression.ListContains(aArrayObj : TObject; const aValue : string): Boolean;
 var
   ctx : TRttiContext;
@@ -321,6 +328,7 @@ begin
     raise EExpressionValidateError.Create('Interface property not supported');
   end;
 end;
+{$ENDIF}
 
 function TSingleExpression.ArrayContains(aArray : TValue; const aValue : string): Boolean;
 var
@@ -335,7 +343,10 @@ begin
     Dec(count);
     arrItem := aArray.GetArrayElement(count);
     case arrItem.Kind of
-      tkString, tkUnicodeString, tkWideString : Result := CompareText(arrItem.AsString,aValue) = 0;
+      {$IFNDEF FPC}
+      tkString,
+      {$ENDIF}
+      tkUnicodeString, tkWideString : Result := CompareText(arrItem.AsString,aValue) = 0;
       tkInteger, tkInt64 : Result := arrItem.AsInt64 = aValue.ToInt64;
       tkFloat : Result := arrItem.AsExtended = aValue.ToExtended;
       else raise EExpressionNotSupported.CreateFmt('Type Array<%s> not supported',[arrItem.TypeInfo.Name]);
