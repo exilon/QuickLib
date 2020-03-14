@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 03/03/2020
+  Modified    : 10/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -168,7 +168,8 @@ type
     function RegisterInstance<T : class>(const aName: string = ''): TIocRegistration<T>; overload;
     function RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration; overload;
     function RegisterInstance<TInterface : IInterface>(aInstance : TInterface; const aName : string = '') : TIocRegistration; overload;
-    function RegisterOptions<T : TOptions>(aOptions : TOptions) : TIocRegistration<T>;
+    function RegisterOptions<T : TOptions>(aOptions : TOptions) : TIocRegistration<T>; overload;
+    function RegisterOptions<T : TOptions>(aOptions : TConfigureOptionsProc<T>) : TIocRegistration<T>; overload;
     function Resolve<T>(const aName : string = ''): T; overload;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
     function AbstractFactory<T : class, constructor>(aClass : TClass) : T; overload;
@@ -328,6 +329,15 @@ end;
 function TIocContainer.RegisterOptions<T>(aOptions: TOptions): TIocRegistration<T>;
 begin
   Result := fRegistrator.RegisterOptions<T>(aOptions).AsSingleton;
+end;
+
+function TIocContainer.RegisterOptions<T>(aOptions: TConfigureOptionsProc<T>): TIocRegistration<T>;
+var
+  options : T;
+begin
+  options := T.Create;
+  aOptions(options);
+  Result := Self.RegisterOptions<T>(options);
 end;
 
 function TIocContainer.Resolve(aServiceType: PTypeInfo; const aName: string): TValue;
