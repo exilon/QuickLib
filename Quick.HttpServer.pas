@@ -218,7 +218,7 @@ begin
   begin
     if not StrInArray(aRequestInfo.RawHeaders.Names[i],['Host','Accept-Encoding','Accept','User-Agent','Connection','Cache-Control']) then
     begin
-      Result.Headers.Add(aRequestInfo.RawHeaders.Names[i],aRequestInfo.RawHeaders.ValueFromIndex[i]);
+      Result.Headers.Add(aRequestInfo.RawHeaders.Names[i],aRequestInfo.RawHeaders.Values[aRequestInfo.RawHeaders.Names[i]]);
     end;
   end;
 end;
