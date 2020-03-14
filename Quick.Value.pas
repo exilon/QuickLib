@@ -244,7 +244,9 @@ type
     property Data : TValueData read fDataIntf;
     {$ENDIF}
     property DataType : TValueDataType read fDataType;
+    {$IFNDEF FPC}
     procedure SetAsCustom(aData : IInterface; aType : TValueDataType);
+    {$ENDIF}
     property AsString : string read CastToString write SetAsString;
     {$IFDEF MSWINDOWS}
     property AsAnsiString : AnsiString read CastToAnsiString write SetAsAnsiString;
@@ -978,11 +980,13 @@ begin
   fDataType := TValueDataType.dtClass;
 end;
 
+{$IFNDEF FPC}
 procedure TFlexValue.SetAsCustom(aData: IInterface; aType: TValueDataType);
 begin
   fDataIntf := aData;
   fDataType := aType;
 end;
+{$ENDIF}
 
 procedure TFlexValue.SetAsDateTime(const Value: TDateTime);
 begin
