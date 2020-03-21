@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 26/02/2020
+  Modified    : 14/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -172,6 +172,8 @@ type
   {$IFNDEF FPC}
   TArrayOfStringHelper = record helper for TArray<string>
   public
+    function Any : Boolean; overload;
+    function Any(const aValue : string) : Boolean; overload;
     function Add(const aValue : string) : Integer;
     function AddIfNotExists(const aValue : string; aCaseSense : Boolean = False) : Integer;
     function Remove(const aValue : string) : Boolean;
@@ -1568,6 +1570,16 @@ end;
 { TArrayOfStringHelper}
 
 {$IFNDEF FPC}
+function TArrayOfStringHelper.Any : Boolean;
+begin
+  Result := High(Self) >= 0;
+end;
+
+function TArrayOfStringHelper.Any(const aValue : string) : Boolean;
+begin
+  Result := Exists(aValue);
+end;
+
 function TArrayOfStringHelper.Add(const aValue : string) : Integer;
 begin
   SetLength(Self,Length(Self)+1);
@@ -1578,25 +1590,20 @@ end;
 function TArrayOfStringHelper.AddIfNotExists(const aValue : string; aCaseSense : Boolean = False) : Integer;
 var
   i : Integer;
-  found : Boolean;
 begin
-  found := False;
   for i := Low(Self) to High(Self) do
   begin
-    if aCaseSense then found := Self[i] = aValue
+    if aCaseSense then
+    begin
+      if Self[i] = aValue then Exit(i);
+    end
     else
     begin
-      found := CompareText(Self[i],aValue) = 0;
-      Exit(i)
+      if CompareText(Self[i],aValue) = 0 then Exit(i)
     end;
   end;
-  if not found then
-  begin
-    //if not exists add it
-    i := Self.Add(aValue);
-    Exit(i);
-  end;
-  Result := -1;
+  //if not exists add it
+  Result := Self.Add(aValue);
 end;
 
 function TArrayOfStringHelper.Remove(const aValue : string) : Boolean;
