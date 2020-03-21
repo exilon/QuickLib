@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/04/2019
-  Modified    : 01/12/2019
+  Modified    : 12/03/20120
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -44,6 +44,8 @@ uses
   Quick.Value,
   {$IFDEF FPC}
   Quick.Value.RTTI,
+  {$ELSE}
+  System.RegularExpressions,
   {$ENDIF}
   Quick.Arrays;
 
@@ -57,7 +59,58 @@ type
     fPredicate : TPredicate<T>;
   public
     constructor Create(aPredicate : TPredicate<T>);
-    function Validate(aValue : TObject) : Boolean; override;
+    function Validate(const aValue : TValue) : Boolean; override;
+    function IsNull : Boolean; override;
+  end;
+  {$ENDIF}
+
+  ILinqArray<T> = interface
+  ['{3133DCAB-06C5-434B-B169-B32DC8C6308B}']
+    function Any : Boolean; overload;
+    function Any(const aMatchString : string; aUseRegEx : Boolean) : Boolean; overload;
+    function Where(const aMatchString : string; aUseRegEx : Boolean) : ILinqArray<T>; overload;
+    function OrderAscending : ILinqArray<T>;
+    function OrderDescending : ILinqArray<T>;
+    function SelectFirst : T;
+    function SelectLast : T;
+    function SelectTop(aLimit : Integer) : TArray<T>;
+    function Select : TArray<T>; overload;
+    function Count : Integer;
+    function Update(const aNewValue : T) : Integer;
+    function Delete : Integer;
+  end;
+
+  TLinqArray<T> = class(TInterfacedObject,ILinqArray<T>)
+  private
+    fArray : TArray<T>;
+    fMatchString : string;
+    fUseRegEx : Boolean;
+    function Validate(aValue : T) : Boolean;
+  public
+    constructor Create(aArray : TArray<T>);
+    function Any : Boolean; overload;
+    function Any(const aMatchString : string; aUseRegEx : Boolean) : Boolean; overload;
+    function Where(const aMatchString : string; aUseRegEx : Boolean) : ILinqArray<T>; overload;
+    function OrderAscending : ILinqArray<T>;
+    function OrderDescending : ILinqArray<T>;
+    function SelectFirst : T;
+    function SelectLast : T;
+    function SelectTop(aLimit : Integer) : TArray<T>;
+    function Select : TArray<T>; overload;
+    function Count : Integer;
+    function Update(const aNewValue : T) : Integer;
+    function Delete : Integer;
+  end;
+
+  {$IFNDEF FPC}
+  TLinqArrayHelper = record helper for TArray<string>
+    function Add(const aValue : string) : Integer;
+    function AddIfNotExists(const aValue : string) : Integer;
+    function Remove(const aValue : string) : Boolean;
+    function Any : Boolean; overload;
+    function Any(const aValue : string) : Boolean; overload;
+    function Any(const aMatchString : string; aUseRegEx : Boolean) : Boolean; overload;
+    function Where(const aMatchString : string; aUseRegEx : Boolean) : ILinqArray<string>; overload;
   end;
   {$ENDIF}
 
@@ -206,7 +259,7 @@ begin
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for i := High(fList) downto Low(fList) do
   begin
-    if fWhereClause.Validate(fList[i]) then
+    if fWhereClause.Validate(fList[i].AsVariant) then
     begin
       Inc(Result);
     end;
@@ -478,7 +531,6 @@ begin
   Result := TLinqQuery<T>.Create(aXArray);
 end;
 
-
 { TLinqExpression<T> }
 
 {$IFNDEF FPC}
@@ -487,9 +539,214 @@ begin
   fPredicate := aPredicate;
 end;
 
-function TLinqExpression<T>.Validate(aValue : TObject) : Boolean;
+function TLinqExpression<T>.Validate(const aValue : TValue) : Boolean;
 begin
-  Result := fPredicate(aValue as T);
+  Result := fPredicate(aValue.AsType<T>);
+end;
+
+function TLinqExpression<T>.IsNull : Boolean;
+begin
+  Result := not Assigned(fPredicate);
+end;
+{$ENDIF}
+
+
+{ TLinqArray<T> }
+
+function TLinqArray<T>.Any : Boolean;
+begin
+  Result := High(fArray) >= 0;
+end;
+
+function TLinqArray<T>.Any(const aMatchString: string; aUseRegEx: Boolean): Boolean;
+begin
+  fMatchString := aMatchString;
+  fUseRegEx := aUseRegEx;
+end;
+
+function TLinqArray<T>.Count: Integer;
+begin
+  Result := High(fArray) + 1;
+end;
+
+constructor TLinqArray<T>.Create(aArray: TArray<T>);
+begin
+  fArray := aArray;
+end;
+
+function TLinqArray<T>.Delete: Integer;
+var
+  i : Integer;
+begin
+  Result := 0;
+  if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
+  for i := High(fArray) downto Low(fArray) do
+  begin
+    if Validate(fArray[i]) then
+    begin
+      //TObject(fArray[i]).Free;
+      System.Delete(fArray,i,1);
+      Inc(Result);
+    end;
+  end;
+end;
+
+function TLinqArray<T>.OrderAscending: ILinqArray<T>;
+begin
+
+end;
+
+function TLinqArray<T>.OrderDescending: ILinqArray<T>;
+begin
+
+end;
+
+function TLinqArray<T>.Select: TArray<T>;
+var
+  value : T;
+begin
+  //DoOrderBy(fList);
+  if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
+  for value in fArray do
+  begin
+    if Validate(value) then Result := Result + [value];
+  end;
+end;
+
+function TLinqArray<T>.SelectFirst: T;
+var
+  value : T;
+begin
+  //DoOrderBy(fList);
+  if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
+  for value in fArray do
+  begin
+    if Validate(value) then Exit(value);
+  end;
+end;
+
+function TLinqArray<T>.SelectLast: T;
+var
+  value : T;
+  found : T;
+begin
+  //DoOrderBy(fList);
+  if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
+  for value in fArray do
+  begin
+    if Validate(value) then found := value;
+  end;
+  Result := found;
+end;
+
+function TLinqArray<T>.SelectTop(aLimit: Integer): TArray<T>;
+var
+  i : Integer;
+  limit : Integer;
+begin
+  if aLimit > High(fArray) then limit := High(fArray)
+    else limit := aLimit;
+  SetLength(Result,limit);
+  for i := Low(fArray) to limit do
+  begin
+    Result[i] := fArray[i];
+  end;
+end;
+
+function TLinqArray<T>.Update(const aNewValue: T): Integer;
+begin
+
+end;
+
+function TLinqArray<T>.Validate(aValue: T): Boolean;
+var
+  regEx : TRegEx;
+  value : TValue;
+begin
+  value := TValue.From<T>(aValue);
+  if fUseRegEx then
+  begin
+    regEx := TRegEx.Create(fMatchString,[roIgnoreCase,roMultiline]);
+    try
+      Result := regEx.IsMatch(value.AsString);
+    except
+      raise Exception.Create('TLinqArray not valid RegEx!');
+    end;
+  end
+  else
+  begin
+    Result := CompareText(fMatchString,value.AsString) = 0;
+  end;
+end;
+
+function TLinqArray<T>.Where(const aMatchString: string; aUseRegEx: Boolean): ILinqArray<T>;
+begin
+  Result := Self;
+  fMatchString := aMatchString;
+  fUseRegEx := aUseRegEx;
+end;
+
+{ TLinqArrayHelper }
+
+{$IFNDEF FPC}
+function TLinqArrayHelper.Add(const aValue : string) : Integer;
+begin
+  SetLength(Self,Length(Self)+1);
+  Self[High(Self)] := aValue;
+  Result := High(Self);
+end;
+
+function TLinqArrayHelper.AddIfNotExists(const aValue : string) : Integer;
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i],aValue) = 0 then Exit(i);
+  end;
+  //if not exists add it
+  Result := Self.Add(aValue);
+end;
+
+function TLinqArrayHelper.Remove(const aValue : string) : Boolean;
+var
+  i : Integer;
+begin
+  for i := Low(Self) to High(Self) do
+  begin
+    if CompareText(Self[i],aValue) = 0 then
+    begin
+      System.Delete(Self,i,1);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+function TLinqArrayHelper.Any : Boolean;
+begin
+  Result := High(Self) >= 0;
+end;
+
+function TLinqArrayHelper.Any(const aValue : string) : Boolean;
+var
+  value : string;
+begin
+  Result := False;
+  for value in Self do
+  begin
+    if CompareText(value,aValue) = 0 then Exit(True)
+  end;
+end;
+
+function TLinqArrayHelper.Any(const aMatchString : string; aUseRegEx : Boolean) : Boolean;
+begin
+  Result := TLinqArray<string>.Create(Self).Any(aMatchString,aUseRegEx);
+end;
+
+function TLinqArrayHelper.Where(const aMatchString : string; aUseRegEx : Boolean) : ILinqArray<string>;
+begin
+  Result := TLinqArray<string>.Create(Self).Where(aMatchString,aUseRegEx);
 end;
 {$ENDIF}
 
