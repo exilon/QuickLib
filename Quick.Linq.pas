@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/04/2019
-  Modified    : 12/03/20120
+  Modified    : 22/03/20120
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -81,6 +81,15 @@ type
   end;
 
   TLinqArray<T> = class(TInterfacedObject,ILinqArray<T>)
+  type
+    TLinqComparer = class(TInterfacedObject,IComparer<T>)
+    private
+      fSortAscending : Boolean;
+    public
+      constructor Create(aSortAscending : Boolean);
+      property SortAscending : Boolean read fSortAscending;
+      function Compare(const L, R: T): Integer;
+    end;
   private
     fArray : TArray<T>;
     fMatchString : string;
@@ -259,7 +268,7 @@ begin
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for i := High(fList) downto Low(fList) do
   begin
-    if fWhereClause.Validate(fList[i].AsVariant) then
+    if fWhereClause.Validate(fList[i]) then
     begin
       Inc(Result);
     end;
@@ -550,7 +559,6 @@ begin
 end;
 {$ENDIF}
 
-
 { TLinqArray<T> }
 
 function TLinqArray<T>.Any : Boolean;
@@ -592,13 +600,19 @@ begin
 end;
 
 function TLinqArray<T>.OrderAscending: ILinqArray<T>;
+var
+  comparer : IComparer<T>;
 begin
-
+  comparer := TLinqComparer.Create(True);
+  TArray.Sort<T>(fArray,comparer);
 end;
 
 function TLinqArray<T>.OrderDescending: ILinqArray<T>;
+var
+  comparer : IComparer<T>;
 begin
-
+  comparer := TLinqComparer.Create(False);
+  TArray.Sort<T>(fArray,comparer);
 end;
 
 function TLinqArray<T>.Select: TArray<T>;
@@ -654,8 +668,13 @@ begin
 end;
 
 function TLinqArray<T>.Update(const aNewValue: T): Integer;
+var
+  i : Integer;
 begin
-
+  for i := Low(fArray) to High(fArray) do
+  begin
+    if Validate(fArray[i]) then fArray[i] := aNewValue;
+  end;
 end;
 
 function TLinqArray<T>.Validate(aValue: T): Boolean;
@@ -684,6 +703,54 @@ begin
   Result := Self;
   fMatchString := aMatchString;
   fUseRegEx := aUseRegEx;
+end;
+
+{ TLinqArray<T>.TLinqComparer }
+
+constructor TLinqArray<T>.TLinqComparer.Create(aSortAscending : Boolean);
+begin
+  fSortAscending := aSortAscending;
+end;
+
+function TLinqArray<T>.TLinqComparer.Compare(const L, R: T): Integer;
+var
+  valueL : TValue;
+  valueR : TValue;
+  hr : Integer;
+  lr : Integer;
+begin
+  Result := 0;
+  if fSortAscending then
+  begin
+    hr := 1;
+    lr := -1;
+  end
+  else
+  begin
+    hr := -1;
+    lr := 1;
+  end;
+  valueL := TValue.From<T>(L);
+  valueR := TValue.From<T>(R);
+  if (valueL.IsEmpty) and (not valueR.IsEmpty) then Exit(hr)
+    else if (not valueL.IsEmpty) and (valueR.IsEmpty) then Exit(lr);
+
+  case valueL.Kind of
+    {$IFNDEF FPC}
+    tkString,
+    {$ENDIF}
+    tkChar, tkWString, tkUString : Result := CompareText(valueL.AsString, valueR.AsString);
+    tkInteger, tkInt64 :
+      begin
+        if valueL.AsInteger > valueR.AsInteger then Result := hr
+          else if valueL.AsInteger < valueR.AsInteger then Result := lr;
+      end;
+    tkFloat :
+      begin
+        if valueL.AsExtended > valueR.AsExtended then Result := hr
+          else if valueL.AsExtended < valueR.AsExtended then Result := lr;
+      end;
+    end;
 end;
 
 { TLinqArrayHelper }
