@@ -230,10 +230,9 @@ begin
   fList.AddRange(Collection);
 end;
 
-function TXList<T>.Any(const aMatchString: string;
-  aUseRegEx: Boolean): Boolean;
+function TXList<T>.Any(const aMatchString: string; aUseRegEx: Boolean): Boolean;
 begin
-
+  Result := Where(aMatchString,aUseRegEx).Any;
 end;
 
 function TXList<T>.Any: Boolean;
