@@ -54,6 +54,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 
 **Updates:**
 
+* NEW: Collections: IList and IObjectList
 * NEW: Options file settings with sections.
 * NEW: MemoryCache with expiration & object compression.
 * NEW: Now included on RAD Studio GetIt package manager.
@@ -812,7 +813,8 @@ Serialize/Deserialize object from/to Yaml.
 
 **Quick.Linq:**
 --
-Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
+Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list. Where clauses uses namespaces to determine nested properties. LinQ can search for a element into a property array. 
+Now includes and TArray<string> helper to add, remove and search with regular expressions into array.
 - **From:** Array, XArray or TObjectList to use.
 - **Where:** Expression to search. You can use a dots to define property path.
 - **SelectAll:** Returns an array of objects matching where clause
@@ -1050,3 +1052,39 @@ Options.OnFileModified := procedure
     cout('Detected config file modification!',etWarning);
   end;
 ```
+
+**Quick.Collections:**
+ --
+Defines interfaced List and Objectlist with linQ support inherited.
+
+- TXList<T> / IList<T>: Interfaced List allowing LinQ regEx search/remove/update.
+
+```delphi
+myarray := ['Joe','Mat','Lee'];
+//search for regex match
+cout('Search for regex match',ccYellow);
+for name in myarray.Where('e$',True).Select do
+begin
+  cout('User %s ends with "e"',[name],etInfo);
+end;
+```
+
+- TXObjectList<T> / IObjectList<T>: Interfaced ObjectList allowing LinQ predicate or expression search/remove/update.
+Expression search:
+```delphi
+user := ListObj.Where('Profile.Name = ?',['Lee']).SelectFirst;
+```
+Expression search for item array:
+```delphi
+users := ListObj.Where('Roles CONTAINS ?',['SuperAdmin']).Select;
+```
+Predicate search:
+
+```delphi
+user := ListObj.Where(function(aUser : TUser) : Boolean
+      begin
+        Result := aUser.Name.StartsWith('J');
+      end).SelectFirst;
+    if user <> nil then cout('%s starts with J letter',[user.Name],etInfo);
+```
+See Quick.Linq section to view more functions allowed.
