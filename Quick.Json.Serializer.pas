@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.11
   Created     : 21/05/2018
-  Modified    : 12/03/2020
+  Modified    : 22/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -335,72 +335,68 @@ var
   propobj : TObject;
 begin
   rRec := ctx.GetType(aRecord.TypeInfo).AsRecord;
-  try
-    for rField in rRec.GetFields do
-    begin
-      rValue := nil;
-      //member := TJSONPair(aJson.GetValue(rField.Name));
-      member := GetJsonPairValueByName(aJson,rField.Name);
-      if member <> nil then
-      case rField.FieldType.TypeKind of
-        tkDynArray :
-          begin
-            jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
-            try
-              rValue := DeserializeDynArray(rField.FieldType.Handle,aObject,jArray);
-            finally
-              jArray.Free;
-            end;
+  for rField in rRec.GetFields do
+  begin
+    rValue := nil;
+    //member := TJSONPair(aJson.GetValue(rField.Name));
+    member := GetJsonPairValueByName(aJson,rField.Name);
+    if member <> nil then
+    case rField.FieldType.TypeKind of
+      tkDynArray :
+        begin
+          jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+          try
+            rValue := DeserializeDynArray(rField.FieldType.Handle,aObject,jArray);
+          finally
+            jArray.Free;
           end;
-        tkClass :
+        end;
+      tkClass :
+        begin
+          //if (member.JsonValue is TJSONObject) then
           begin
-            //if (member.JsonValue is TJSONObject) then
-            begin
-              propobj := rField.GetValue(@aRecord).AsObject;
-              json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
-              try
-                if propobj = nil then
-                begin
-                  objClass := rField.FieldType.Handle^.TypeData.ClassType;// aProperty.PropertyType.Handle^.TypeData.ClassType;
-                  rValue := DeserializeClass(objClass,json);
-                end
-                else
-                begin
-                  DeserializeObject(propobj,json);
-                end;
-              finally
-                json.Free;
-              end;
-            end
-          end;
-        tkRecord :
-          begin
+            propobj := rField.GetValue(@aRecord).AsObject;
             json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
             try
-              rValue := DeserializeRecord(rField.GetValue(aRecord.GetReferenceToRawData),aObject,json);
+              if propobj = nil then
+              begin
+                objClass := rField.FieldType.Handle^.TypeData.ClassType;// aProperty.PropertyType.Handle^.TypeData.ClassType;
+                rValue := DeserializeClass(objClass,json);
+              end
+              else
+              begin
+                DeserializeObject(propobj,json);
+              end;
             finally
               json.Free;
             end;
           end
-      else
-        begin
-          //rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJson);
-          //avoid return unicode escaped chars if string
-          if rField.FieldType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
-            {$IFDEF DELPHIRX10_UP}
-            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,TJsonValue(member).value)
-            {$ELSE}
-            rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString)
-            {$ENDIF}
-            else rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJSON);
         end;
+      tkRecord :
+        begin
+          json := TJSONObject.ParseJSONValue(member.ToJson) as TJSONObject;
+          try
+            rValue := DeserializeRecord(rField.GetValue(aRecord.GetReferenceToRawData),aObject,json);
+          finally
+            json.Free;
+          end;
+        end
+    else
+      begin
+        //rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJson);
+        //avoid return unicode escaped chars if string
+        if rField.FieldType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
+          {$IFDEF DELPHIRX10_UP}
+          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,TJsonValue(member).value)
+          {$ELSE}
+          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString)
+          {$ENDIF}
+          else rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJSON);
       end;
-      if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
     end;
-    Result := aRecord;
-  finally
-    ctx.Free;
+    if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
   end;
+  Result := aRecord;
 end;
 {$ENDIF}
 
@@ -444,39 +440,35 @@ begin
 
   try
     rType := ctx.GetType(aObject.ClassInfo);
-    try
-      for rProp in rType.GetProperties do
+    for rProp in rType.GetProperties do
+    begin
+      {$IFNDEF FPC}
+      if ((fSerializeLevel = slPublicProperty) and (rProp.PropertyType.IsPublicType))
+          or ((fSerializeLevel = slPublishedProperty) and ((IsPublishedProp(aObject,rProp.Name)) or (rProp.Name = 'List'))) then
+      {$ENDIF}
       begin
-        {$IFNDEF FPC}
-        if ((fSerializeLevel = slPublicProperty) and (rProp.PropertyType.IsPublicType))
-            or ((fSerializeLevel = slPublishedProperty) and ((IsPublishedProp(aObject,rProp.Name)) or (rProp.Name = 'List'))) then
-        {$ENDIF}
+        if ((rProp.IsWritable) or (rProp.Name = 'List')) and (IsAllowedProperty(aObject,rProp.Name)) then
         begin
-          if ((rProp.IsWritable) or (rProp.Name = 'List')) and (IsAllowedProperty(aObject,rProp.Name)) then
+          propertyname := rProp.Name;
+          {$IFNDEF FPC}
+          for attr in rProp.GetAttributes do if attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
+          if rProp.Name = 'List' then
           begin
-            propertyname := rProp.Name;
-            {$IFNDEF FPC}
-            for attr in rProp.GetAttributes do if attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
-            if rProp.Name = 'List' then
-            begin
-              Result := DeserializeList(Result,propertyname,aJson);
-            end
-            else if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
-            begin
-              DeserializeList(rProp.GetValue(aObject).AsObject,'List',TJSONObject(aJson.GetValue(propertyname)));
-            end
-            else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
-            begin
-              DeserializeXArray(Result,rProp.GetValue(aObject),rProp,propertyname,aJson);
-            end
-            else
-            {$ENDIF}
-            Result := DeserializeProperty(Result,propertyname,rProp,aJson);
-          end;
+            Result := DeserializeList(Result,propertyname,aJson);
+          end
+          else if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
+          begin
+            DeserializeList(rProp.GetValue(aObject).AsObject,'List',TJSONObject(aJson.GetValue(propertyname)));
+          end
+          else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+          begin
+            DeserializeXArray(Result,rProp.GetValue(aObject),rProp,propertyname,aJson);
+          end
+          else
+          {$ENDIF}
+          Result := DeserializeProperty(Result,propertyname,rProp,aJson);
         end;
       end;
-    finally
-      ctx.Free;
     end;
   except
     on E : Exception do
@@ -505,12 +497,9 @@ begin
   Result := aObject;
 
   rType := ctx.GetType(aObject.ClassInfo);
-  try
-    rProp := rType.GetProperty('List');
-    if rProp = nil then Exit;
-  finally
-    ctx.Free;
-  end;
+  rProp := rType.GetProperty('List');
+  if rProp = nil then Exit;
+
 
   member := GetJsonPairValueByName(aJson,aName);
   if member = nil then jArray := TJSONObject.ParseJSONValue(aJson.ToJSON) as TJSONArray
@@ -566,28 +555,24 @@ var
   jArray : TJSONArray;
 begin
   rRec := ctx.GetType(aRecord.TypeInfo).AsRecord;
-  try
-    rfield := rRec.GetField('fArray');
-    if rfield <> nil then
+  rfield := rRec.GetField('fArray');
+  if rfield <> nil then
+  begin
+    rValue := nil;
+    //member := TJSONPair(aJson.GetValue(rField.Name));
+    member := GetJsonPairValueByName(aJson,aPropertyName);
+    if (member <> nil) and (rField.FieldType.TypeKind = tkDynArray) then
     begin
-      rValue := nil;
-      //member := TJSONPair(aJson.GetValue(rField.Name));
-      member := GetJsonPairValueByName(aJson,aPropertyName);
-      if (member <> nil) and (rField.FieldType.TypeKind = tkDynArray) then
-      begin
-        jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
-        try
-          rValue := DeserializeDynArray(rField.FieldType.Handle,nil,jArray);
-        finally
-          jArray.Free;
-        end;
+      jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+      try
+        rValue := DeserializeDynArray(rField.FieldType.Handle,nil,jArray);
+      finally
+        jArray.Free;
       end;
     end;
-    if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
-    aProperty.SetValue(Instance,aRecord);
-  finally
-    ctx.Free;
   end;
+  if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
+  aProperty.SetValue(Instance,aRecord);
 end;
 {$ENDIF}
 
@@ -1091,64 +1076,60 @@ begin
   Result := TJSONObject.Create;
   try
     rType := ctx.GetType(aObject.ClassInfo);
-    try
-      //s := rType.ToString;
-      for rProp in rType.GetProperties do
+    //s := rType.ToString;
+    for rProp in rType.GetProperties do
+    begin
+      ExcludeSerialize := False;
+      propertyname := rProp.Name;
+      {$IFNDEF FPC}
+      comment := '';
+      for attr in rProp.GetAttributes do
       begin
-        ExcludeSerialize := False;
-        propertyname := rProp.Name;
-        {$IFNDEF FPC}
-        comment := '';
-        for attr in rProp.GetAttributes do
+        if attr is TNotSerializableProperty then ExcludeSerialize := True
+        else if attr is TCommentProperty then comment := TCommentProperty(attr).Comment
+        else if  attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
+      end;
+      if ((fSerializeLevel = slPublicProperty) and (rProp.PropertyType.IsPublicType))
+          or ((fSerializeLevel = slPublishedProperty) and ((IsPublishedProp(aObject,rProp.Name)) or (rProp.Name = 'List'))) then
+      {$ENDIF}
+      begin
+        if (IsAllowedProperty(aObject,propertyname)) and (not ExcludeSerialize) then
         begin
-          if attr is TNotSerializableProperty then ExcludeSerialize := True
-          else if attr is TCommentProperty then comment := TCommentProperty(attr).Comment
-          else if  attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
-        end;
-        if ((fSerializeLevel = slPublicProperty) and (rProp.PropertyType.IsPublicType))
-            or ((fSerializeLevel = slPublishedProperty) and ((IsPublishedProp(aObject,rProp.Name)) or (rProp.Name = 'List'))) then
-        {$ENDIF}
-        begin
-          if (IsAllowedProperty(aObject,propertyname)) and (not ExcludeSerialize) then
+          //add comment as pair
+          {$IFNDEF FPC}
+          if comment <> '' then Result.AddPair(TJSONPair.Create('#Comment#->'+propertyname,Comment));
+          {$ENDIF}
           begin
-            //add comment as pair
-            {$IFNDEF FPC}
-            if comment <> '' then Result.AddPair(TJSONPair.Create('#Comment#->'+propertyname,Comment));
-            {$ENDIF}
+            propvalue := rProp.GetValue(aObject);
+            if (propvalue.IsObject) and (IsGenericList(propvalue.AsObject)) then
             begin
-              propvalue := rProp.GetValue(aObject);
-              if (propvalue.IsObject) and (IsGenericList(propvalue.AsObject)) then
-              begin
-                jpair := Serialize(propertyname,GetPropertyValueFromObject(propvalue.AsObject,'List'));
-              end
+              jpair := Serialize(propertyname,GetPropertyValueFromObject(propvalue.AsObject,'List'));
+            end
+            {$IFNDEF FPC}
+            else if (not propvalue.IsObject) and (IsGenericXArray(propvalue{$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+            begin
+              jpair := Serialize(propertyname,GetFieldValueFromRecord(propvalue,'fArray'));
+            end
+            {$ENDIF}
+            else
+            begin
               {$IFNDEF FPC}
-              else if (not propvalue.IsObject) and (IsGenericXArray(propvalue{$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
-              begin
-                jpair := Serialize(propertyname,GetFieldValueFromRecord(propvalue,'fArray'));
-              end
+              jpair := Serialize(propertyname,propvalue);
+              {$ELSE}
+              jpair := Serialize(aObject,rProp.PropertyType.TypeKind,propertyname);
               {$ENDIF}
-              else
-              begin
-                {$IFNDEF FPC}
-                jpair := Serialize(propertyname,propvalue);
-                {$ELSE}
-                jpair := Serialize(aObject,rProp.PropertyType.TypeKind,propertyname);
-                {$ENDIF}
-              end;
-              //s := jpair.JsonValue.ToString;
-              if jpair <> nil then
-              begin
-                Result.AddPair(jpair);
-              end
-              else jpair.Free;
             end;
-            //Result.AddPair(Serialize(rProp.Name,rProp.GetValue(aObject)));
-            //s := Result.ToJSON;
+            //s := jpair.JsonValue.ToString;
+            if jpair <> nil then
+            begin
+              Result.AddPair(jpair);
+            end
+            else jpair.Free;
           end;
+          //Result.AddPair(Serialize(rProp.Name,rProp.GetValue(aObject)));
+          //s := Result.ToJSON;
         end;
       end;
-    finally
-      ctx.Free;
     end;
   except
     on E : Exception do
@@ -1190,31 +1171,27 @@ begin
         begin
           jArray := TJSONArray.Create;
           rDynArray := ctx.GetType(aValue.TypeInfo) as TRTTIDynamicArrayType;
-          try
-            for i := 0 to aValue.GetArrayLength - 1 do
+          for i := 0 to aValue.GetArrayLength - 1 do
+          begin
+            if not GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).IsEmpty then
             begin
-              if not GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).IsEmpty then
-              begin
-                jValue := nil;
-                jPair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
-                try
-                  //jValue := TJsonValue(jPair.JsonValue.Clone);
-                  jValue := jPair.JsonValue;
-                  if jValue <> nil then
-                  begin
-                    jArray.AddElement(jValue);
-                    jPair.JsonValue.Owned := False;
-                  end;
-                finally
-                  jPair.Free;
-                  if jValue <> nil then jValue.Owned := True;
+              jValue := nil;
+              jPair := Serialize(aName,GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType));
+              try
+                //jValue := TJsonValue(jPair.JsonValue.Clone);
+                jValue := jPair.JsonValue;
+                if jValue <> nil then
+                begin
+                  jArray.AddElement(jValue);
+                  jPair.JsonValue.Owned := False;
                 end;
+              finally
+                jPair.Free;
+                if jValue <> nil then jValue.Owned := True;
               end;
             end;
-            Result.JsonValue := jArray;
-          finally
-            ctx.Free;
           end;
+          Result.JsonValue := jArray;
         end;
       tkClass :
         begin         
@@ -1286,16 +1263,12 @@ begin
           end
           else
           begin
-            try
-              json := TJSONObject.Create;
-              for rField in rRec.GetFields do
-              begin
-                json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
-              end;
-              Result.JsonValue := json;
-            finally
-              ctx.Free;
+            json := TJSONObject.Create;
+            for rField in rRec.GetFields do
+            begin
+              json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
             end;
+            Result.JsonValue := json;
           end;
         end;
       tkVariant :
@@ -1526,16 +1499,12 @@ begin
       tkRecord :
         begin
           rRec := ctx.GetType(aValue.TypeInfo).AsRecord;
-          try
-            json := TJSONObject.Create;
-            for rField in rRec.GetFields do
-            begin
-              json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
-            end;
-            Result.JsonValue := json;
-          finally
-            ctx.Free;
+          json := TJSONObject.Create;
+          for rField in rRec.GetFields do
+          begin
+            json.AddPair(Serialize(rField.name,rField.GetValue(aValue.GetReferenceToRawData)));
           end;
+          Result.JsonValue := json;
         end;
       {$ENDIF}
       tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
