@@ -585,6 +585,10 @@ end;
 function TLinqArray<T>.Delete: Integer;
 var
   i : Integer;
+  {$IFNDEF DELPHIXE7_UP}
+  n : Integer;
+  len : Integer;
+  {$ENDIF}
 begin
   Result := 0;
   if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
@@ -593,7 +597,16 @@ begin
     if Validate(fArray[i]) then
     begin
       //TObject(fArray[i]).Free;
+      {$IFDEF DELPHIXE7_UP}
       System.Delete(fArray,i,1);
+      {$ELSE}
+      len := Length(fArray);
+      if (len > 0) and (i < len) then
+      begin
+        for n := i + 1 to len - 1 do fArray[n - 1] := fArray[n];
+        SetLength(fArray, len - 1);
+      end;
+      {$ENDIF}
       Inc(Result);
     end;
   end;
