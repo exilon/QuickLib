@@ -58,8 +58,7 @@ release/
 
 *.lps
 bin/
+*.res
 *.tmp
 bin
 *.xml
-*.res
-samples/fpc/QuickConfig/ConfigToJSON/lib/i386-win32
