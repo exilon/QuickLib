@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 14/03/2020
+  Modified    : 22/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1609,12 +1609,25 @@ end;
 function TArrayOfStringHelper.Remove(const aValue : string) : Boolean;
 var
   i : Integer;
+  {$IFNDEF DELPHIXE7_UP}
+  n : Integer;
+  len : Integer;
+  {$ENDIF}
 begin
   for i := Low(Self) to High(Self) do
   begin
     if CompareText(Self[i],aValue) = 0 then
     begin
+      {$IFDEF DELPHIXE7_UP}
       System.Delete(Self,i,1);
+      {$ELSE}
+      len := Length(Self);
+      if (len > 0) and (i < len) then
+      begin
+        for n := i + 1 to len - 1 do Self[n - 1] := Self[n];
+        SetLength(Self, len - 1);
+      end;
+      {$ENDIF}
       Exit(True);
     end;
   end;
