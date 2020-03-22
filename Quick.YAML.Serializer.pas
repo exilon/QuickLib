@@ -637,11 +637,11 @@ begin
               Yaml.Free;
             end;
           end;
-        {$ENDIF}
         tkSet :
           begin
             rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToYaml)
           end
+        {$ENDIF}
       else
         begin
           {$IFNDEF FPC}

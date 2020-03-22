@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.11
   Created     : 21/05/2018
-  Modified    : 10/02/2020
+  Modified    : 12/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -942,6 +942,7 @@ var
 begin
   Result := nil;
   pinfo := GetPropInfo(Instance,PropertyName);
+  if pinfo = nil then raise EJsonSerializeError.CreateFmt('Property "%s" not found!',[PropertyName]);
   case pinfo.PropType^.Kind of
     tkInteger : Result := GetOrdProp(Instance,pinfo);
     tkInt64 : Result := GetInt64Prop(Instance,PropertyName);

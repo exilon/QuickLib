@@ -6,6 +6,7 @@ program LinqList;
 
 uses
   System.SysUtils,
+  System.Generics.Collections,
   Quick.Commons,
   Quick.Console,
   Quick.Chrono,
@@ -46,6 +47,7 @@ const
 var
   users : TIndexedObjectList<TUser>;
   users2 : TSearchObjectList<TUser>;
+  users3 : TObjectList<TUser>;
   user : TUser;
   i : Integer;
   n : Integer;
@@ -62,6 +64,7 @@ begin
     users.Indexes.Add('id','Id');
 
     users2 := TSearchObjectList<TUser>.Create(False);
+    users3 := TObjectList<TUser>.Create(True);
 
     cout('Generating list...',etInfo);
     //generate first dummy entries
@@ -74,6 +77,7 @@ begin
       user.Age := 18 + Random(20);
       users.Add(user);
       users2.Add(user);
+      users3.Add(user);
     end;
 
     //generate real entries to search
@@ -91,6 +95,7 @@ begin
 
       users.Add(user);
       users2.Add(user);
+      users3.Add(user);
     end;
 
     crono := TChronometer.Create;
@@ -110,8 +115,8 @@ begin
       //if (users[i].Name = 'Anus') or (users[i].SurName = 'Smith') then
       if users[i].Name = 'Peter' then
       begin
-        crono.Stop;
         user := users[i];
+        crono.Stop;
         Break;
       end;
     end;
@@ -122,9 +127,20 @@ begin
     //test search by Linq iteration
     crono.Start;
     //user := TLinq.From<TUser>(users2).Where('(Name = ?) OR (SurName = ?)',['Anus','Smith']).OrderBy('Name').SelectFirst;
-    user := TLinq<TUser>.From(users2).Where('Name = ?',['Peter']).SelectFirst;
+    user := TLinq<TUser>.From(users3).Where('Name = ?',['Peter']).SelectFirst;
     crono.Stop;
     if user <> nil then cout('Found by Linq: %s %s in %s',[user.Name,user.SurName,crono.ElapsedTime],etSuccess)
+      else cout('Not found by Linq! (%s)',[crono.ElapsedTime],etError);
+
+    //test search by Linq iteration (predicate)
+    crono.Start;
+    //user := TLinq.From<TUser>(users2).Where('(Name = ?) OR (SurName = ?)',['Anus','Smith']).OrderBy('Name').SelectFirst;
+    user := TLinq<TUser>.From(users3).Where(function(aUser : TUser) : Boolean
+      begin
+        Result := aUser.Name = 'Peter';
+      end).SelectFirst;
+    crono.Stop;
+    if user <> nil then cout('Found by Linq (predicate): %s %s in %s',[user.Name,user.SurName,crono.ElapsedTime],etSuccess)
       else cout('Not found by Linq! (%s)',[crono.ElapsedTime],etError);
 
     //test search by embeded iteration
@@ -158,7 +174,7 @@ begin
     user := nil;
     n := 0;
     cout('Found by Linq:',etInfo);
-    //TLinq<TUser>.From(users2).Where('SurName Like ?',['p%']).Delete;
+    //TLinq<TUser>.From(users2).Where('Name Like ?',['p%']).Delete;
 
     TLinq<TUser>.From(users2).Where('Name = ?',['Peter']).Update(['Name'],['Poter']);
 
@@ -173,7 +189,7 @@ begin
                                          .Select do
     begin
       Inc(n);
-      cout('%d. %s %s',[n,user.Name,user.SurName],etSuccess);
+      cout('Login.Username: %d. %s %s',[n,user.Name,user.SurName],etSuccess);
     end;
     if user = nil then cout('Not found by Linq!',etError);
 

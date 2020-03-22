@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/05/2019
-  Modified    : 08/03/2020
+  Modified    : 12/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,6 +36,7 @@ interface
 uses
   SysUtils,
   StrUtils,
+  TypInfo,
   RTTI,
   Quick.Commons,
   Quick.RTTI.Utils,
@@ -52,7 +53,7 @@ type
     fCombine : TCombine;
   public
     property Combine : TCombine read fCombine write fCombine;
-    function Validate(aValue : TObject) : Boolean; virtual; abstract;
+    function Validate(const aValue : TValue) : Boolean; virtual; abstract;
     function IsNull : Boolean; virtual; abstract;
   end;
 
@@ -60,15 +61,22 @@ type
   private
     fValue1 : string;
     fOperator : TOperator;
-    fValue2 : string;
+    fValue2 : TFlexValue;
+    {$IFNDEF FPC}
     function ListContains(aArrayObj : TObject; const aValue : string): Boolean;
     function IListContains(aArrayObj : TValue; const aValue : string): Boolean;
+    {$ENDIF}
     function ArrayContains(aArray : TValue; const aValue : string): Boolean;
+    class function IsEqual(aValue1, aValue2 : TFlexValue) : Boolean;
+    class function IsEqualOrLower(aValue1, aValue2 : TFlexValue) : Boolean;
+    class function IsEqualOrGreater(aValue1, aValue2 : TFlexValue) : Boolean;
+    class function IsGreater(aValue1, aValue2 : TFlexValue) : Boolean;
+    class function IsLower(aValue1, aValue2 : TFlexValue) : Boolean;
   public
     property Value1 : string read fValue1 write fValue1;
     property &Operator : TOperator read fOperator write fOperator;
-    property Value2 : string read fValue2 write fValue2;
-    function Validate(aValue : TObject) : Boolean; override;
+    property Value2 : TFlexValue read fValue2 write fValue2;
+    function Validate(const aValue : TValue) : Boolean; override;
     function IsNull : Boolean; override;
   end;
 
@@ -80,7 +88,7 @@ type
   public
     destructor Destroy; override;
     property Items : TExpressionArray read fArray write fArray;
-    function Validate(aValue : TObject) : Boolean; override;
+    function Validate(const aValue : TValue) : Boolean; override;
     function IsNull : Boolean; override;
     procedure Add(aExpression : TExpression);
   end;
@@ -94,7 +102,7 @@ type
     class function GetCombine(const aValue : string) : TCombine;
   public
     class function Parse(const aExpression : string) : TExpression;
-    class function Validate(const obj : TObject; const aExpression : string) : Boolean;
+    class function Validate(const aValue : TValue; const aExpression : string) : Boolean;
   end;
 
   ENotValidExpression = class(Exception);
@@ -199,16 +207,16 @@ begin
   //determine like
   if Result.&Operator = opLike then
   begin
-    if Result.Value2.CountChar('%') = 2 then Result.Value2 := Copy(Result.Value2, 2, Result.Value2.Length - 2)
-    else if Result.Value2.StartsWith('%') then
+    if Result.Value2.AsString.CountChar('%') = 2 then Result.Value2 := Copy(Result.Value2.AsString, 2, Result.Value2.AsString.Length - 2)
+    else if Result.Value2.AsString.StartsWith('%') then
     begin
       Result.&Operator := TOperator.opLikeR;
-      Result.Value2 := Copy(Result.Value2, 2, Result.Value2.Length);
+      Result.Value2 := Copy(Result.Value2.AsString, 2, Result.Value2.AsString.Length);
     end
-    else if Result.Value2.EndsWith('%') then
+    else if Result.Value2.AsString.EndsWith('%') then
     begin
       Result.&Operator := TOperator.opLikeL;
-      Result.Value2 := Copy(Result.Value2,LOWSTR,Result.Value2.Length - 1);
+      Result.Value2 := Copy(Result.Value2.AsString,LOWSTR,Result.Value2.AsString.Length - 1);
     end
     else raise ENotValidExpression.Create('Not valid Like specified!');
   end;
@@ -230,13 +238,13 @@ begin
     else Result := GetMultiExpression(exp);
 end;
 
-class function TExpressionParser.Validate(const obj: TObject; const aExpression: string): Boolean;
+class function TExpressionParser.Validate(const aValue: TValue; const aExpression: string): Boolean;
 var
   exp : TExpression;
 begin
   exp := TExpressionParser.Parse(aExpression);
   try
-    Result := exp.Validate(obj);
+    Result := exp.Validate(aValue);
   finally
     exp.Free;
   end;
@@ -244,44 +252,168 @@ end;
 
 { TSingleExpression }
 
-function TSingleExpression.IsNull: Boolean;
+class function TSingleExpression.IsEqual(aValue1, aValue2: TFlexValue): Boolean;
 begin
-  Result := (fValue1.IsEmpty) or (fValue2.IsEmpty);
+  case aValue1.DataType of
+    TValueDataType.dtNull : Exit(False);
+    TValueDataType.dtString,
+    TValueDataType.dtWideString,
+    TValueDataType.dtAnsiString : Result := CompareText(aValue1,aValue2) = 0;
+    TValueDataType.dtInteger,
+    TValueDataType.dtInt64 : Result := aValue1.AsInt64 = aValue2.AsInt64;
+    TValueDataType.dtExtended,
+    TValueDataType.dtDouble : Result := aValue1.AsExtended = aValue2.AsExtended;
+    TValueDataType.dtBoolean : Result := aValue1.AsBoolean = aValue2.AsBoolean;
+    else raise EExpressionNotSupported.Create('Expression type not supported!');
+  end;
 end;
 
-function TSingleExpression.Validate(aValue : TObject) : Boolean;
+class function TSingleExpression.IsEqualOrGreater(aValue1, aValue2: TFlexValue): Boolean;
+begin
+  case aValue1.DataType of
+    TValueDataType.dtNull : Exit(False);
+    TValueDataType.dtString,
+    TValueDataType.dtWideString,
+    TValueDataType.dtAnsiString : Result := CompareText(aValue1,aValue2) >= 0;
+    TValueDataType.dtInteger,
+    TValueDataType.dtInt64 : Result := aValue1.AsInt64 >= aValue2.AsInt64;
+    TValueDataType.dtExtended,
+    TValueDataType.dtDouble : Result := aValue1.AsExtended >= aValue2.AsExtended;
+    TValueDataType.dtBoolean : Result := aValue1.AsBoolean >= aValue2.AsBoolean;
+    else raise EExpressionNotSupported.Create('Expression type not supported!');
+  end;
+end;
+
+class function TSingleExpression.IsEqualOrLower(aValue1, aValue2: TFlexValue): Boolean;
+begin
+  case aValue1.DataType of
+    TValueDataType.dtNull : Exit(False);
+    TValueDataType.dtString,
+    TValueDataType.dtWideString,
+    TValueDataType.dtAnsiString : Result := CompareText(aValue1,aValue2) <= 0;
+    TValueDataType.dtInteger,
+    TValueDataType.dtInt64 : Result := aValue1.AsInt64 <= aValue2.AsInt64;
+    TValueDataType.dtExtended,
+    TValueDataType.dtDouble,
+    TValueDataType.dtDateTime : Result := aValue1.AsExtended <= aValue2.AsExtended;
+    TValueDataType.dtBoolean : Result := aValue1.AsBoolean <= aValue2.AsBoolean;
+    else raise EExpressionNotSupported.Create('Expression type not supported!');
+  end;
+end;
+
+class function TSingleExpression.IsGreater(aValue1, aValue2: TFlexValue): Boolean;
+begin
+  case aValue1.DataType of
+    TValueDataType.dtNull : Exit(False);
+    TValueDataType.dtString,
+    TValueDataType.dtWideString,
+    TValueDataType.dtAnsiString : Result := CompareText(aValue1,aValue2) > 0;
+    TValueDataType.dtInteger,
+    TValueDataType.dtInt64 : Result := aValue1.AsInt64 > aValue2.AsInt64;
+    TValueDataType.dtExtended,
+    TValueDataType.dtDouble,
+    TValueDataType.dtDateTime : Result := aValue1.AsExtended > aValue2.AsExtended;
+    TValueDataType.dtBoolean : Result := aValue1.AsBoolean > aValue2.AsBoolean;
+    else raise EExpressionNotSupported.Create('Expression type not supported!');
+  end;
+end;
+
+class function TSingleExpression.IsLower(aValue1, aValue2: TFlexValue): Boolean;
+begin
+  case aValue1.DataType of
+    TValueDataType.dtNull : Exit(False);
+    TValueDataType.dtString,
+    TValueDataType.dtWideString,
+    TValueDataType.dtAnsiString : Result := CompareText(aValue1,aValue2) < 0;
+    TValueDataType.dtInteger,
+    TValueDataType.dtInt64 : Result := aValue1.AsInt64 < aValue2.AsInt64;
+    TValueDataType.dtExtended,
+    TValueDataType.dtDouble,
+    TValueDataType.dtDateTime : Result := aValue1.AsExtended < aValue2.AsExtended;
+    TValueDataType.dtBoolean : Result := aValue1.AsBoolean < aValue2.AsBoolean;
+    else raise EExpressionNotSupported.Create('Expression type not supported!');
+  end;
+end;
+
+function TSingleExpression.IsNull: Boolean;
+begin
+  Result := (fValue1.IsEmpty) or (fValue2.IsNullOrEmpty);
+end;
+
+function TSingleExpression.Validate(const aValue : TValue) : Boolean;
 var
   value1 : TFlexValue;
-  //rvalue : TValue;
 begin
   Result := False;
-  if aValue = nil then Exit;
-  value1.AsTValue := TRTTI.GetPathValue(aValue,fValue1);
-  //rvalue := TRTTI.GetPathValue(aValue,fValue1);
+  if aValue.IsEmpty then Exit;
+  if aValue.IsObject then
+  begin
+    if fValue1.Contains('.') then value1.AsTValue := TRTTI.GetPathValue(aValue.AsObject,fValue1)
+      else value1.AsTValue := TRTTI.GetPropertyValueEx(aValue.AsObject,fValue1);
+  end
+  else value1.AsTValue := aValue;
   case fOperator of
-    TOperator.opEqual :
-      begin
-        if value1.IsString then Result := CompareText(value1,fValue2) = 0
-          else Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF} = fValue2;
-      end;
-    TOperator.opNotEqual : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF}  <> fValue2;
-    TOperator.opGreater : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF}  > fValue2;
-    TOperator.opEqualOrGreater : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF}  >= fValue2;
-    TOperator.opLower : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF}  < fValue2;
-    TOperator.opEqualOrLower : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF}  <= fValue2;
+    TOperator.opEqual : Result := IsEqual(value1,fValue2);
+    TOperator.opNotEqual : Result := not IsEqual(value1,fValue2);
+    TOperator.opGreater : Result := IsGreater(value1,fValue2);
+    TOperator.opEqualOrGreater : Result := IsEqualOrGreater(value1,fValue2);
+    TOperator.opLower : Result := IsLower(value1,fValue2);
+    TOperator.opEqualOrLower : Result := IsEqualOrLower(value1,fValue2);
     TOperator.opLike : Result := {$IFNDEF FPC}ContainsText(value1,fValue2);{$ELSE}AnsiContainsText(value1.AsAnsiString,fValue2);{$ENDIF}
     TOperator.opLikeR : Result := EndsText(fValue2,value1);
     TOperator.opLikeL : Result := StartsText(fValue2,value1);
     TOperator.opContains :
       begin
+        {$IFNDEF FPC}
         if value1.IsObject then Result := ListContains(value1.AsObject,fValue2)
         else if value1.IsInterface then Result := IListContains(value1.AsTValue,fValue2)
           else if value1.IsArray then Result := ArrayContains(value1.AsTValue,fValue2);
+        {$ELSE}
+        if value1.IsArray then Result := ArrayContains(value1.AsTValue,fValue2);
+        {$ENDIF}
       end
     else raise ENotValidExpression.Create('Operator not defined');
   end;
 end;
 
+//function TSingleExpression.Validate(aValue : TObject) : Boolean;
+//var
+//  value1 : TFlexValue;
+//  //rvalue : TValue;
+//begin
+//  Result := False;
+//  if aValue = nil then Exit;
+//  value1.AsTValue := TRTTI.GetPathValue(aValue,fValue1);
+//  //rvalue := TRTTI.GetPathValue(aValue,fValue1);
+//  case fOperator of
+//    TOperator.opEqual :
+//      begin
+//        if value1.IsString then Result := CompareText(value1,fValue2) = 0
+//          else Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF} = fValue2;
+//      end;
+//    TOperator.opNotEqual : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF} <> fValue2;
+//    TOperator.opGreater : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF} > fValue2;
+//    TOperator.opEqualOrGreater : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF} >= fValue2;
+//    TOperator.opLower : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF} < fValue2;
+//    TOperator.opEqualOrLower : Result := value1{$IFDEF FPC}.AsAnsiString{$ENDIF} <= fValue2;
+//    TOperator.opLike : Result := {$IFNDEF FPC}ContainsText(value1,fValue2);{$ELSE}AnsiContainsText(value1.AsAnsiString,fValue2);{$ENDIF}
+//    TOperator.opLikeR : Result := EndsText(fValue2,value1);
+//    TOperator.opLikeL : Result := StartsText(fValue2,value1);
+//    TOperator.opContains :
+//      begin
+//        {$IFNDEF FPC}
+//        if value1.IsObject then Result := ListContains(value1.AsObject,fValue2)
+//        else if value1.IsInterface then Result := IListContains(value1.AsTValue,fValue2)
+//          else if value1.IsArray then Result := ArrayContains(value1.AsTValue,fValue2);
+//        {$ELSE}
+//        if value1.IsArray then Result := ArrayContains(value1.AsTValue,fValue2);
+//        {$ENDIF}
+//      end
+//    else raise ENotValidExpression.Create('Operator not defined');
+//  end;
+//end;
+
+{$IFNDEF FPC}
 function TSingleExpression.ListContains(aArrayObj : TObject; const aValue : string): Boolean;
 var
   ctx : TRttiContext;
@@ -321,6 +453,7 @@ begin
     raise EExpressionValidateError.Create('Interface property not supported');
   end;
 end;
+{$ENDIF}
 
 function TSingleExpression.ArrayContains(aArray : TValue; const aValue : string): Boolean;
 var
@@ -335,8 +468,12 @@ begin
     Dec(count);
     arrItem := aArray.GetArrayElement(count);
     case arrItem.Kind of
-      tkString, tkUnicodeString, tkWideString : Result := CompareText(arrItem.AsString,aValue) = 0;
-      tkInteger, tkInt64 : Result := arrItem.AsInt64 = aValue.ToInt64;
+      {$IFNDEF FPC}
+      tkString,
+      {$ENDIF}
+      tkUnicodeString, tkWideString : Result := CompareText(arrItem.AsString,aValue) = 0;
+      tkInteger,
+      tkInt64 : Result := arrItem.AsInt64 = aValue.ToInt64;
       tkFloat : Result := arrItem.AsExtended = aValue.ToExtended;
       else raise EExpressionNotSupported.CreateFmt('Type Array<%s> not supported',[arrItem.TypeInfo.Name]);
     end;
@@ -364,7 +501,7 @@ begin
   Result := High(fArray) < 0;
 end;
 
-function TMultiExpression.Validate(aValue : TObject) : Boolean;
+function TMultiExpression.Validate(const aValue : TValue) : Boolean;
 var
   i : Integer;
 begin

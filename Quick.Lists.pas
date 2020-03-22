@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Lists
   Description : Generic Lists functions
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 04/11/2018
-  Modified    : 11/05/2019
+  Modified    : 12/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -257,11 +257,11 @@ begin
   begin
     if aClassField = TClassField.cfField then
     begin
-      if TRTTI.GetFieldValue(TObject(val),aFieldName).AsString = aValue then Exit(val);
+      if (val <> nil) and (TRTTI.GetFieldValue(TObject(val),aFieldName).AsString = aValue) then Exit(val);
     end
     else
     begin
-      if GetStrProp(TObject(val),aFieldName) = aValue then Exit(val);
+      if (val <> nil) and (GetStrProp(TObject(val),aFieldName) = aValue) then Exit(val);
     end;
   end;
 end;

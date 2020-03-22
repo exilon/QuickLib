@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.AutoMapper
   Description : Auto Mapper object properties
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 25/08/2018
-  Modified    : 16/10/2019
+  Modified    : 02/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -71,6 +71,7 @@ type
     destructor Destroy; override;
     procedure AddMap(const aName, aMapName : string);
     function GetMap(const aName : string; out vMapName : string) : Boolean;
+    function Count : Integer;
   end;
 
   TObjMapper = class
@@ -209,11 +210,17 @@ begin
           begin
             {$IFNDEF PROPERTYPATH_MODE}
               if rType.GetProperty(mapname) = nil then raise EAutoMapperError.CreateFmt('No valid custom mapping (Source: %s - Target: %s)',[mapname,tgtprop.Name]);
-              {$IFNDEF FPC}
-              tgtprop.SetValue(aTgtObj,rType.GetProperty(mapname).GetValue(aSrcObj))
-              {$ELSE}
-              SetPropValue(aTgtObj,tgtprop.Name,GetPropValue(aSrcObj,mapname));
-              {$ENDIF}
+              begin
+                try
+                  {$IFNDEF FPC}
+                  tgtprop.SetValue(aTgtObj,rType.GetProperty(mapname).GetValue(aSrcObj));
+                  {$ELSE}
+                  SetPropValue(aTgtObj,tgtprop.Name,GetPropValue(aSrcObj,mapname));
+                  {$ENDIF}
+                except
+                  on E : Exception do raise EAutoMapperError.CreateFmt('Error mapping property "%s" : %s',[tgtprop.Name,e.message]);
+                end;
+              end;
             {$ELSE}
               if not TRTTI.PathExists(aSrcObj,mapname) then raise EAutoMapperError.CreateFmt('No valid custom mapping (Source: %s - Target: %s)',[mapname,tgtprop.Name]);
               TRTTI.SetPathValue(aTgtObj,tgtprop.Name,TRTTI.GetPathValue(aSrcObj,mapname));
@@ -229,7 +236,7 @@ begin
               SetPropValue(aTgtObj,tgtprop.Name,GetPropValue(aSrcObj,tgtprop.Name));
               {$ENDIF}
             except
-              on E : Exception do raise EAUtoMapperError.CreateFmt('Error mapping property "%s" : %s',[tgtprop.Name,e.message]);
+              on E : Exception do raise EAutoMapperError.CreateFmt('Error mapping property "%s" : %s',[tgtprop.Name,e.message]);
             end;
           end;
         end
@@ -273,7 +280,7 @@ begin
       begin
         obj := tgtprop.GetValue(aTgtObj).AsObject;
         {$IFNDEF FPC}
-        if obj = nil then obj := TObject.Create;
+        if obj = nil then obj := GetObjectProp(aSrcObj,tgtprop.Name).ClassType.Create;// TObject.Create;
         {$ELSE}
         if obj = nil then obj := GetObjectProp(aSrcObj,tgtprop.Name).ClassType.Create;
         {$ENDIF}
@@ -282,7 +289,9 @@ begin
         begin
           {$IFNDEF FPC}
           try
-            clname := rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject.ClassName;
+            if (rType.GetProperty(tgtprop.Name) <> nil)
+              and (not rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).IsEmpty) then clname := rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject.ClassName
+            else Continue;
           except
             on E : Exception do raise EAUtoMapperError.CreateFmt('Error mapping property "%s" : %s',[tgtprop.Name,e.message]);
           end;
@@ -398,14 +407,19 @@ begin
 end;
 {$ENDIF}
 
-{ TCustomMappingFields }
+{ TCustomMapping }
 
 procedure TCustomMapping.AddMap(const aName, aMapName: string);
 begin
   //add map fields
   fMapDictionary.Add(aName,aMapName);
-  //add reverse lookup
-  fMapDictionary.Add(aMapName,aName);
+  //add reverse lookup if not same name
+  if aName <> aMapName then fMapDictionary.Add(aMapName,aName);
+end;
+
+function TCustomMapping.Count: Integer;
+begin
+  Result := fMapDictionary.Count;
 end;
 
 constructor TCustomMapping.Create;

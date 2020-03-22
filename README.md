@@ -50,10 +50,14 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Quick.Expression:** Evaluate object properties using expressions.
 * **Quick.Linq:** Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
 * **Quick.MemoryCache:** Caches objects/info with an expiration time, to avoid generate this info everytime is needed (database queries, hard to calculate info, etc).
+* **Quick.Collections:** Collections improvements like IList and IObjectList with Linq inherited.
+* **Quick.Pooling:** Creation of object pool to avoid external resource consum exhausts and overheads.
 
 
 **Updates:**
 
+* NEW: Collections: IList and IObjectList with linQ support.
+* NEW: Pooling: ObjectPool.
 * NEW: Options file settings with sections.
 * NEW: MemoryCache with expiration & object compression.
 * NEW: Now included on RAD Studio GetIt package manager.
@@ -812,7 +816,8 @@ Serialize/Deserialize object from/to Yaml.
 
 **Quick.Linq:**
 --
-Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list.
+Makes Linq queries to any TObjectList<T>, TList<T>, TArray<T> and TXArray<T>, performing Select by complex Where like SQL syntax, update and order over your list. Where clauses uses namespaces to determine nested properties. LinQ can search for a element into a property array. 
+Now includes and TArray<string> helper to add, remove and search with regular expressions into array.
 - **From:** Array, XArray or TObjectList to use.
 - **Where:** Expression to search. You can use a dots to define property path.
 - **SelectAll:** Returns an array of objects matching where clause
@@ -1050,3 +1055,58 @@ Options.OnFileModified := procedure
     cout('Detected config file modification!',etWarning);
   end;
 ```
+
+**Quick.Collections:**
+ --
+ Define pool of connection, threads or any object you want to control to avoid resource consum like database connections, http clients, etc...
+
+Create http client pool:
+```delphi
+ pool := TObjectPool<THTTPClient>.Create(5,5000,procedure(var aInstance : THTTPClient)
+        begin
+          aInstance := THTTPClient.Create;
+          aInstante.UserAgent := 'MyAgent';
+        end);
+```
+Get object from pool:
+
+```delphi
+httpcli := pool.Get.Item;
+statuscode := httpcli.Get('https://www.mydomain.com').StatusCode;
+```
+
+**Quick.Collections:**
+ --
+Defines interfaced List and Objectlist with linQ support inherited.
+
+- TXList<T> / IList<T>: Interfaced List allowing LinQ regEx search/remove/update.
+
+```delphi
+myarray := ['Joe','Mat','Lee'];
+//search for regex match
+cout('Search for regex match',ccYellow);
+for name in myarray.Where('e$',True).Select do
+begin
+  cout('User %s ends with "e"',[name],etInfo);
+end;
+```
+
+- TXObjectList<T> / IObjectList<T>: Interfaced ObjectList allowing LinQ predicate or expression search/remove/update.
+Expression search:
+```delphi
+user := ListObj.Where('Profile.Name = ?',['Lee']).SelectFirst;
+```
+Expression search for item array:
+```delphi
+users := ListObj.Where('Roles CONTAINS ?',['SuperAdmin']).Select;
+```
+Predicate search:
+
+```delphi
+user := ListObj.Where(function(aUser : TUser) : Boolean
+      begin
+        Result := aUser.Name.StartsWith('J');
+      end).SelectFirst;
+    if user <> nil then cout('%s starts with J letter',[user.Name],etInfo);
+```
+See Quick.Linq section to view more functions allowed.

@@ -425,6 +425,7 @@ begin
       fSerializer.Save(fFilename,fSections);
     finally
       //set last state
+      Sleep(0);
       fFileMonitor.Enabled := laststate;
     end;
   end
@@ -494,33 +495,28 @@ var
   attrib : TCustomAttribute;
   rvalue : TValue;
 begin
-  ctx := TRttiContext.Create;
-  try
-    rtype := ctx.GetType(aObj.ClassInfo);
-    for rprop in rtype.GetProperties do
+  rtype := ctx.GetType(aObj.ClassInfo);
+  for rprop in rtype.GetProperties do
+  begin
+    //check only published properties
+    if rprop.Visibility = TMemberVisibility.mvPublished then
     begin
-      //check only published properties
-      if rprop.Visibility = TMemberVisibility.mvPublished then
+      //check validation option attributes
+      for attrib in rprop.GetAttributes do
       begin
-        //check validation option attributes
-        for attrib in rprop.GetAttributes do
-        begin
-          if attrib is Required  then ValidateRequired(aObj,rprop)
-          else if attrib is StringLength then ValidateStringLength(aObj,rprop,StringLength(attrib))
-          else if attrib is Range then ValidateRange(aObj,rprop,Range(attrib));
-        end;
-        rvalue := rprop.GetValue(aObj);
-        if not rvalue.IsEmpty then
-        begin
-          case rvalue.Kind of
-            tkClass : ValidateObject(rvalue.AsObject);
-            tkDynArray : ValidateArray(rvalue);
-          end;
+        if attrib is Required  then ValidateRequired(aObj,rprop)
+        else if attrib is StringLength then ValidateStringLength(aObj,rprop,StringLength(attrib))
+        else if attrib is Range then ValidateRange(aObj,rprop,Range(attrib));
+      end;
+      rvalue := rprop.GetValue(aObj);
+      if not rvalue.IsEmpty then
+      begin
+        case rvalue.Kind of
+          tkClass : ValidateObject(rvalue.AsObject);
+          tkDynArray : ValidateArray(rvalue);
         end;
       end;
     end;
-  finally
-    ctx.Free;
   end;
 end;
 
@@ -543,22 +539,17 @@ var
   itvalue : TValue;
   i : Integer;
 begin
-  ctx := TRttiContext.Create;
-  try
-    rDynArray := ctx.GetType(aValue.TypeInfo) as TRTTIDynamicArrayType;
-    for i := 0 to aValue.GetArrayLength - 1 do
+  rDynArray := ctx.GetType(aValue.TypeInfo) as TRTTIDynamicArrayType;
+  for i := 0 to aValue.GetArrayLength - 1 do
+  begin
+    TValue.Make(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType.Handle,itvalue);
+    if not itvalue.IsEmpty then
     begin
-      TValue.Make(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType.Handle,itvalue);
-      if not itvalue.IsEmpty then
-      begin
-        case itvalue.Kind of
-          tkClass : ValidateObject(itvalue.AsObject);
-          tkDynArray : ValidateArray(itvalue);
-        end;
+      case itvalue.Kind of
+        tkClass : ValidateObject(itvalue.AsObject);
+        tkDynArray : ValidateArray(itvalue);
       end;
     end;
-  finally
-    ctx.Free;
   end;
 end;
 

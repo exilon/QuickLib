@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.Azure
   Description : Azure blobs operations
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 08/10/2019
+  Modified    : 02/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -91,6 +91,7 @@ type
       function PutBlob(const azContainer : string; cStream : TStream; const azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
       function GetBlob(const azContainer, azBlobName, cFilenameTo : string; out azResponseInfo : TAzureResponseInfo) : Boolean; overload;
       function GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo; out Stream : TMemoryStream) : Boolean; overload;
+      function GetBlob(const azContainer, azBlobName: string; out azResponseInfo: TAzureResponseInfo; var Stream: TStream): Boolean; overload;
       function GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : TMemoryStream; overload;
       function CopyBlob(const azSourceContainer, azSourceBlobName : string; azTargetContainer, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
       function RenameBlob(const azContainer, azSourceBlobName, azTargetBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
@@ -100,7 +101,7 @@ type
       function ListBlobs(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TBlobList;
       function ListBlobsNames(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
       function ExistsContainer(const azContainer : string) : Boolean;
-      function ListContainers(const azContainersStartWith : string; azResponseInfo : TAzureResponseInfo) : TStrings;
+      function ListContainers(const azContainersStartWith : string; out azResponseInfo : TAzureResponseInfo) : TStrings;
       function CreateContainer(const azContainer : string; azPublicAccess : TBlobPublicAccess; out azResponseInfo : TAzureResponseInfo) : Boolean;
       function DeleteContainer(const azContainer : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
   end;
@@ -376,6 +377,21 @@ begin
 end;
 
 function TQuickAzure.GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo; out Stream : TMemoryStream) : Boolean;
+begin
+  Stream := TMemoryStream.Create;
+  try
+    GetBlob(azContainer,azBlobName,azResponseInfo,TStream(Stream));
+  except
+    Stream.Free;
+  end;
+end;
+
+function TQuickAzure.GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : TMemoryStream;
+begin
+  GetBlob(azContainer,azBlobName,azResponseInfo,Result);
+end;
+
+function TQuickAzure.GetBlob(const azContainer, azBlobName: string; out azResponseInfo: TAzureResponseInfo; var Stream: TStream): Boolean;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
@@ -383,31 +399,21 @@ var
   blobname : string;
 begin
   Result := False;
-  Stream := TMemoryStream.Create;
   container := CheckContainer(azContainer);
   blobname := RemoveFirstSlash(azBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     BlobService.Timeout := fTimeout;
+    CloudResponseInfo := TCloudResponseInfo.Create;
     try
-      CloudResponseInfo := TCloudResponseInfo.Create;
-      try
-        Result := BlobService.GetBlob(container,blobname,Stream,EmptyStr,CloudResponseInfo);
-        azResponseInfo := GetResponseInfo(CloudResponseInfo);
-      finally
-        CloudResponseInfo.Free;
-      end;
-    except
-      Stream := nil;
+      Result := BlobService.GetBlob(container,blobname,Stream,EmptyStr,CloudResponseInfo);
+      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
     end;
   finally
     BlobService.Free;
   end;
-end;
-
-function TQuickAzure.GetBlob(const azContainer, azBlobName : string; out azResponseInfo : TAzureResponseInfo) : TMemoryStream;
-begin
-  GetBlob(azContainer,azBlobName,azResponseInfo,Result);
 end;
 
 function TQuickAzure.CheckContainer(const aContainer: string): string;
@@ -763,7 +769,7 @@ begin
   end;
 end;
 
-function TQuickAzure.ListContainers(const azContainersStartWith : string; azResponseInfo : TAzureResponseInfo) : TStrings;
+function TQuickAzure.ListContainers(const azContainersStartWith : string; out azResponseInfo : TAzureResponseInfo) : TStrings;
 var
   BlobService : TAzureBlobService;
   CloudResponseInfo : TCloudResponseInfo;
@@ -794,7 +800,7 @@ begin
             end;
           end;
         finally
-          if Assigned(AzContainer) then
+          if Assigned(AzContainers) then
           begin
             //frees ContainerList objects
             for AzContainer in AzContainers do AzContainer.Free;

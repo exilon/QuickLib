@@ -550,7 +550,7 @@ end;
 constructor EControlledException.Create(aCaller: TObject; aMessage: string);
 begin
   inherited Create(aMessage);
-  fCallerClass := aCaller.ClassType;
+  if aCaller <> nil then fCallerClass := aCaller.ClassType;
 end;
 
 initialization

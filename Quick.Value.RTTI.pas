@@ -91,9 +91,9 @@ begin
       dtInt64 : Result := AsInt64;
       {$IFNDEF FPC}
       dtVariant : Result := TValue.FromVariant(AsVariant);
+      dtInterface : Result := TValue.FromVariant(AsInterface);
       {$ENDIF}
       dtObject : Result := AsObject;
-      dtInterface : Result := TValue.FromVariant(AsInterface);
       dtArray : Result := (Self.Data as IValueTValue).Value;
       else raise Exception.Create('DataType not supported');
     end;
@@ -122,9 +122,9 @@ begin
     tkSet : AsInteger := Value.AsInteger;
     tkClass : AsObject := Value.AsObject;
     tkInterface : AsInterface := Value.AsInterface;
+    {$IFNDEF FPC}
     tkArray,
     tkDynArray : Self.SetAsCustom(TValueTValue.Create(Value),TValueDataType.dtArray);
-    {$IFNDEF FPC}
     else AsVariant := Value.AsVariant;
     {$ENDIF}
   end;
