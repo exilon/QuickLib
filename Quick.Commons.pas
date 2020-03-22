@@ -170,6 +170,13 @@ type
   end;
 
   {$IFNDEF FPC}
+
+  {$IFNDEF DELPHIXE7_UP}
+  TArrayUtil<T> = class
+    class procedure Delete(var aArray : TArray<T>; aIndex : Integer);
+  end;
+  {$ENDIF}
+
   TArrayOfStringHelper = record helper for TArray<string>
   public
     function Any : Boolean; overload;
@@ -1609,10 +1616,6 @@ end;
 function TArrayOfStringHelper.Remove(const aValue : string) : Boolean;
 var
   i : Integer;
-  {$IFNDEF DELPHIXE7_UP}
-  n : Integer;
-  len : Integer;
-  {$ENDIF}
 begin
   for i := Low(Self) to High(Self) do
   begin
@@ -1621,12 +1624,7 @@ begin
       {$IFDEF DELPHIXE7_UP}
       System.Delete(Self,i,1);
       {$ELSE}
-      len := Length(Self);
-      if (len > 0) and (i < len) then
-      begin
-        for n := i + 1 to len - 1 do Self[n - 1] := Self[n];
-        SetLength(Self, len - 1);
-      end;
+      TArrayUtil<string>.Delete(Self,i);
       {$ENDIF}
       Exit(True);
     end;
@@ -1742,7 +1740,11 @@ begin
   begin
     if CompareText(fItems[i].Name,aName) = 0 then
     begin
+      {$IFDEF DELPHIXE7_UP}
       System.Delete(fItems,i,1);
+      {$ELSE}
+      TArrayUtil<TPairItem>.Delete(fItems,i);
+      {$ENDIF}
       Exit(True);
     end;
   end;
@@ -1884,6 +1886,23 @@ function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : TObject) : TObj
 begin
   if aCondition then Result := aIfIsTrue else Result := aIfIsFalse;
 end;
+
+{$IFNDEF FPC}
+  {$IFNDEF DELPHIXE7_UP}
+  class procedure TArrayUtil<T>.Delete(var aArray : TArray<T>; aIndex : Integer);
+  var
+    n : Integer;
+    len : Integer;
+  begin
+    len := Length(aArray);
+    if (len > 0) and (aIndex < len) then
+    begin
+      for n := aIndex + 1 to len - 1 do aArray[n - 1] := aArray[n];
+      SetLength(aArray, len - 1);
+    end;
+  end;
+  {$ENDIF}
+{$ENDIF}
 
 {$IFNDEF NEXTGEN}
 initialization

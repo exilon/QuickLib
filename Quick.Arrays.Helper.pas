@@ -93,7 +93,11 @@ end;
 
 class procedure TArrayHelper<T>.Remove(var aArray : TArray<T>; aIndex : Integer);
 begin
+  {$IFDEF DELPHIXE7_UP}
   System.Delete(aArray,aIndex,1);
+  {$ELSE}
+  TArrayUtil<T>.Delete(aArray,aIndex);
+  {$ENDIF}
 end;
 
 class procedure TArrayHelper<T>.Insert(var aArray : TArray<T>; aItem : T; aIndex : Integer);
