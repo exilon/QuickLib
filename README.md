@@ -1056,7 +1056,7 @@ Options.OnFileModified := procedure
   end;
 ```
 
-**Quick.Collections:**
+**Quick.Pooling:**
  --
  Define pool of connection, threads or any object you want to control to avoid resource consum like database connections, http clients, etc...
 
