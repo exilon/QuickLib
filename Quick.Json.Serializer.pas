@@ -187,7 +187,7 @@ resourcestring
 implementation
 
 uses
-  System.Generics.Collections;
+  Generics.Collections;
 
 { TRTTIJson }
 
