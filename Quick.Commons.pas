@@ -1740,7 +1740,7 @@ begin
   begin
     if CompareText(fItems[i].Name,aName) = 0 then
     begin
-      {$IFDEF DELPHIXE7_UP}
+      {$IF Defined(DELPHIXE7_UP) OR Defined(FPC)}
       System.Delete(fItems,i,1);
       {$ELSE}
       TArrayUtil<TPairItem>.Delete(fItems,i);
