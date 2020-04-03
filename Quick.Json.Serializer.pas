@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.11
   Created     : 21/05/2018
-  Modified    : 22/03/2020
+  Modified    : 31/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -55,6 +55,7 @@ uses
     {$ENDIF}
     Variants,
   {$ENDIF}
+  Quick.RTTI.Utils,
   DateUtils,
   Quick.Commons,
   Quick.JSON.Utils;
@@ -1077,7 +1078,7 @@ begin
   try
     rType := ctx.GetType(aObject.ClassInfo);
     //s := rType.ToString;
-    for rProp in rType.GetProperties do
+    for rProp in TRTTI.GetProperties(rType,roFirstBase) do
     begin
       ExcludeSerialize := False;
       propertyname := rProp.Name;
