@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 31/03/2020
+  Modified    : 03/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -50,13 +50,13 @@ type
     {$IFNDEF FPC}
     class constructor Create;
     class destructor Destroy;
-    class function GetProperties(aType : TRttiType; aOrder : TRttiPropertyOrder = roFirstBase) : TArray<TRttiProperty>;
     class function GetField(aInstance : TObject; const aFieldName : string) : TRttiField; overload;
     class function GetField(aTypeInfo : Pointer; const aFieldName : string) : TRttiField; overload;
     class function FieldExists(aTypeInfo : Pointer; const aFieldName : string) : Boolean;
     class function GetFieldValue(aInstance : TObject; const aFieldName : string) : TValue; overload;
     class function GetFieldValue(aTypeInfo : Pointer; const aFieldName: string) : TValue; overload;
     {$ENDIF}
+    class function GetProperties(aType : TRttiType; aOrder : TRttiPropertyOrder = roFirstBase) : TArray<TRttiProperty>;
     class function GetType(aTypeInfo : Pointer) : TRttiType;
     class function GetProperty(aInstance : TObject; const aPropertyName : string) : TRttiProperty; overload;
     class function GetProperty(aTypeInfo : Pointer; const aPropertyName : string) : TRttiProperty; overload;
@@ -80,9 +80,9 @@ type
 
   ERTTIError = class(Exception);
 
-  TArrayHelper = class
+  TArrayHelper<T> = class
   public
-    class function Concat<T>(const Args: array of TArray<T>): TArray<T>; static;
+    class function Concat(const Args: array of TArray<T>): TArray<T>; static;
   end;
 
 implementation
@@ -178,7 +178,7 @@ begin
   if rtype <> nil then Result := rtype.GetProperty(aPropertyName);
 end;
 
-class function TArrayHelper.Concat<T>(const Args: array of TArray<T>): TArray<T>;
+class function TArrayHelper<T>.Concat(const Args: array of TArray<T>): TArray<T>;
 var
   i, j, out, len: Integer;
 begin
@@ -216,7 +216,11 @@ begin
     while t <> nil do
     begin
       Dec(depth);
+      {$IFNDEF FPC}
       flat[depth] := t.GetDeclaredProperties;
+      {$ELSE}
+      flat[depth] := t.GetProperties;
+      {$ENDIF}
       t := t.BaseType;
     end;
   end
@@ -235,13 +239,17 @@ begin
     depth := 0;
     while t <> nil do
     begin
+      {$IFNDEF FPC}
       flat[depth] := t.GetDeclaredProperties;
+      {$ELSE}
+      flat[depth] := t.GetProperties;
+      {$ENDIF}
       Inc(depth);
       t := t.BaseType;
     end;
   end;
 
-  Result := TArrayHelper.Concat<TRttiProperty>(flat);
+  Result := TArrayHelper<TRttiProperty>.Concat(flat);
 end;
 
 class function TRTTI.GetProperty(aTypeInfo: Pointer; const aPropertyName: string): TRttiProperty;
