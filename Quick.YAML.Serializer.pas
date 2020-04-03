@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.YAML.Serializer
   Description : YAML Serializer
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 12/04/2019
-  Modified    : 10/12/2019
+  Modified    : 31/03/20120
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -49,6 +49,7 @@ uses
   {$ENDIF}
   DateUtils,
   Quick.Commons,
+  Quick.RTTI.Utils,
   Quick.YAML,
   Quick.Value,
   Quick.Arrays;
@@ -1033,7 +1034,7 @@ begin
     rType := ctx.GetType(aObject.ClassInfo);
     try
       //s := rType.ToString;
-      for rProp in rType.GetProperties do
+      for rProp in TRTTI.GetProperties(rType,roFirstBase) do
       begin
         ExcludeSerialize := False;
         propertyname := rProp.Name;
