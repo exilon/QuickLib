@@ -62,3 +62,4 @@ bin/
 *.tmp
 bin
 *.xml
+*.or
