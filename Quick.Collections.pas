@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 07/03/2020
-  Modified    : 20/03/2020
+  Modified    : 31/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -86,6 +86,7 @@ type
     procedure TrimExcess;
     function ToArray: TArray<T>;
     procedure FromList(const aList : TList<T>);
+    procedure FromArray(const aArray: TArray<T>);
     function ToList : TList<T>;
     property Capacity: Integer read GetCapacity write SetCapacity;
     property Count: Integer read GetCount write SetCount;
@@ -113,7 +114,7 @@ type
     function Where(aPredicate : TPredicate<T>): ILinqQuery<T>; overload;
   end;
 
-  TXList<T> = class(TInterfacedObject,IList<T>)
+  TxList<T> = class(TInterfacedObject,IList<T>)
   private type
     arrayofT = array of T;
   private
@@ -166,6 +167,7 @@ type
     property Items[Index: Integer]: T read GetItem write SetItem; default;
     property List: arrayofT read GetList;
     procedure FromList(const aList : TList<T>);
+    procedure FromArray(const aArray: TArray<T>);
     function ToList : TList<T>;
     function Any : Boolean; overload; virtual;
     function Where(const aWhereClause : string; aWhereValues : array of const) : ILinqQuery<T>; overload;
@@ -177,7 +179,7 @@ type
     {$ENDIF}
   end;
 
-  TXObjectList<T : class> = class(TXList<T>,IObjectList<T>)
+  TxObjectList<T : class> = class(TxList<T>,IObjectList<T>)
   private
     fOwnsObjects : Boolean;
     procedure InternalOnNotify(Sender: TObject; const Item: T; Action: TCollectionNotification);
@@ -199,261 +201,268 @@ implementation
 
 { TXList<T> }
 
-constructor TXList<T>.Create;
+constructor TxList<T>.Create;
 begin
   fList := TList<T>.Create;
 end;
 
-destructor TXList<T>.Destroy;
+destructor TxList<T>.Destroy;
 begin
   fList.Free;
   inherited;
 end;
 
-function TXList<T>.Add(const Value: T): Integer;
+function TxList<T>.Add(const Value: T): Integer;
 begin
   Result := fList.Add(Value);
 end;
 
-procedure TXList<T>.AddRange(const Values: array of T);
+procedure TxList<T>.AddRange(const Values: array of T);
 begin
   fList.AddRange(Values);
 end;
 
-procedure TXList<T>.AddRange(const Collection: IEnumerable<T>);
+procedure TxList<T>.AddRange(const Collection: IEnumerable<T>);
 begin
   fList.AddRange(Collection);
 end;
 
-procedure TXList<T>.AddRange(const Collection: TEnumerable<T>);
+procedure TxList<T>.AddRange(const Collection: TEnumerable<T>);
 begin
   fList.AddRange(Collection);
 end;
 
-function TXList<T>.Any(const aMatchString: string; aUseRegEx: Boolean): Boolean;
+function TxList<T>.Any(const aMatchString: string; aUseRegEx: Boolean): Boolean;
 begin
   Result := Where(aMatchString,aUseRegEx).Any;
 end;
 
-function TXList<T>.Any: Boolean;
+function TxList<T>.Any: Boolean;
 begin
   Result := fList.Count > 0;
 end;
 
-function TXList<T>.BinarySearch(const Item: T; out Index: Integer): Boolean;
+function TxList<T>.BinarySearch(const Item: T; out Index: Integer): Boolean;
 begin
   Result := fList.BinarySearch(Item,Index);
 end;
 
-function TXList<T>.BinarySearch(const Item: T; out Index: Integer; const AComparer: IComparer<T>): Boolean;
+function TxList<T>.BinarySearch(const Item: T; out Index: Integer; const AComparer: IComparer<T>): Boolean;
 begin
   Result := fList.BinarySearch(Item,Index,AComparer);
 end;
 
-procedure TXList<T>.Clear;
+procedure TxList<T>.Clear;
 begin
   fList.Clear;
 end;
 
-function TXList<T>.Contains(const Value: T): Boolean;
+function TxList<T>.Contains(const Value: T): Boolean;
 begin
   Result := fList.Contains(Value);
 end;
 
-procedure TXList<T>.Delete(Index: Integer);
+procedure TxList<T>.Delete(Index: Integer);
 begin
   fList.Delete(Index);
 end;
 
-procedure TXList<T>.DeleteRange(AIndex, ACount: Integer);
+procedure TxList<T>.DeleteRange(AIndex, ACount: Integer);
 begin
   fList.DeleteRange(aIndex,aCount);
 end;
 
-procedure TXList<T>.Exchange(Index1, Index2: Integer);
+procedure TxList<T>.Exchange(Index1, Index2: Integer);
 begin
   fList.Exchange(Index1,Index2);
 end;
 
-function TXList<T>.Extract(const Value: T): T;
+function TxList<T>.Extract(const Value: T): T;
 begin
   Result := fList.Extract(Value);
 end;
 
-function TXList<T>.ExtractAt(Index: Integer): T;
+function TxList<T>.ExtractAt(Index: Integer): T;
 begin
   Result := fList.ExtractAt(Index);
 end;
 
-function TXList<T>.ExtractItem(const Value: T; Direction: TDirection): T;
+function TxList<T>.ExtractItem(const Value: T; Direction: TDirection): T;
 begin
   Result := fList.ExtractItem(Value,Direction);
 end;
 
-function TXList<T>.First: T;
+function TxList<T>.First: T;
 begin
   Result := fList.First;
 end;
 
-procedure TXList<T>.FromList(const aList: TList<T>);
+procedure TxList<T>.FromList(const aList: TList<T>);
 var
   value : T;
 begin
   for value in aList do fList.Add(value);
 end;
 
-function TXList<T>.GetCapacity: Integer;
+procedure TxList<T>.FromArray(const aArray: TArray<T>);
+var
+  value : T;
+begin
+  for value in aArray do fList.Add(value);
+end;
+
+function TxList<T>.GetCapacity: Integer;
 begin
   Result := fList.Capacity;
 end;
 
-function TXList<T>.GetCount: Integer;
+function TxList<T>.GetCount: Integer;
 begin
   Result := fList.Count;
 end;
 
-function TXList<T>.GetEnumerator: TEnumerator<T>;
+function TxList<T>.GetEnumerator: TEnumerator<T>;
 begin
   Result := fList.GetEnumerator;
 end;
 
-function TXList<T>.GetItem(Index: Integer): T;
+function TxList<T>.GetItem(Index: Integer): T;
 begin
   Result := fList.Items[Index];
 end;
 
-function TXList<T>.GetList: TArray<T>;
+function TxList<T>.GetList: TArray<T>;
 begin
   Result := fList.ToArray;
 end;
 
-function TXList<T>.IndexOf(const Value: T): Integer;
+function TxList<T>.IndexOf(const Value: T): Integer;
 begin
   Result := fList.IndexOf(Value);
 end;
 
-function TXList<T>.IndexOfItem(const Value: T; Direction: TDirection): Integer;
+function TxList<T>.IndexOfItem(const Value: T; Direction: TDirection): Integer;
 begin
   Result := fList.IndexOfItem(Value,Direction);
 end;
 
-procedure TXList<T>.Insert(Index: Integer; const Value: T);
+procedure TxList<T>.Insert(Index: Integer; const Value: T);
 begin
   fList.Insert(Index,Value);
 end;
 
-procedure TXList<T>.InsertRange(Index: Integer; const Collection: IEnumerable<T>);
+procedure TxList<T>.InsertRange(Index: Integer; const Collection: IEnumerable<T>);
 begin
   fList.InsertRange(Index,Collection);
 end;
 
-procedure TXList<T>.InsertRange(Index: Integer; const Collection: TEnumerable<T>);
+procedure TxList<T>.InsertRange(Index: Integer; const Collection: TEnumerable<T>);
 begin
   fList.InsertRange(index,Collection);
 end;
 
-procedure TXList<T>.InsertRange(Index: Integer; const Values: array of T; Count: Integer);
+procedure TxList<T>.InsertRange(Index: Integer; const Values: array of T; Count: Integer);
 begin
   fList.InsertRange(Index,Values,Count);
 end;
 
-procedure TXList<T>.InsertRange(Index: Integer; const Values: array of T);
+procedure TxList<T>.InsertRange(Index: Integer; const Values: array of T);
 begin
   fList.InsertRange(index,Values);
 end;
 
-function TXList<T>.Last: T;
+function TxList<T>.Last: T;
 begin
   Result := fList.Last;
 end;
 
-function TXList<T>.LastIndexOf(const Value: T): Integer;
+function TxList<T>.LastIndexOf(const Value: T): Integer;
 begin
   Result := fList.LastIndexOf(Value);
 end;
 
-procedure TXList<T>.Move(CurIndex, NewIndex: Integer);
+procedure TxList<T>.Move(CurIndex, NewIndex: Integer);
 begin
   fList.Move(CurIndex,NewIndex);
 end;
 
-function TXList<T>.Remove(const Value: T): Integer;
+function TxList<T>.Remove(const Value: T): Integer;
 begin
   Result := fList.Remove(Value);
 end;
 
-function TXList<T>.RemoveItem(const Value: T; Direction: TDirection): Integer;
+function TxList<T>.RemoveItem(const Value: T; Direction: TDirection): Integer;
 begin
   Result := fList.RemoveItem(Value,Direction);
 end;
 
-procedure TXList<T>.Reverse;
+procedure TxList<T>.Reverse;
 begin
   fList.Reverse;
 end;
 
-procedure TXList<T>.SetCapacity(Value: Integer);
+procedure TxList<T>.SetCapacity(Value: Integer);
 begin
   fList.Capacity := Value;
 end;
 
-procedure TXList<T>.SetCount(Value: Integer);
+procedure TxList<T>.SetCount(Value: Integer);
 begin
   fList.Count := Value;
 end;
 
-procedure TXList<T>.SetItem(Index: Integer; const Value: T);
+procedure TxList<T>.SetItem(Index: Integer; const Value: T);
 begin
   fList.Items[Index] := Value;
 end;
 
-procedure TXList<T>.Sort(const AComparer: IComparer<T>);
+procedure TxList<T>.Sort(const AComparer: IComparer<T>);
 begin
   fList.Sort(AComparer);
 end;
 
-procedure TXList<T>.Sort;
+procedure TxList<T>.Sort;
 begin
   fList.Sort;
 end;
 
-function TXList<T>.ToArray: TArray<T>;
+function TxList<T>.ToArray: TArray<T>;
 begin
   Result := fList.ToArray;
 end;
 
-function TXList<T>.ToList: TList<T>;
+function TxList<T>.ToList: TList<T>;
 var
   value : T;
 begin
   Result := TList<T>.Create;
-  for value in fList do Result.Add(value);    
+  for value in fList do Result.Add(value);
 end;
 
-procedure TXList<T>.TrimExcess;
+procedure TxList<T>.TrimExcess;
 begin
   fList.TrimExcess;
 end;
 
-function TXList<T>.Where(const aMatchString: string; aUseRegEx: Boolean): ILinqArray<T>;
+function TxList<T>.Where(const aMatchString: string; aUseRegEx: Boolean): ILinqArray<T>;
 begin
   Result := TLinqArray<T>.Create(fList.ToArray);
   Result.Where(aMatchString, aUseRegEx);
 end;
 
-function TXList<T>.Where(const aWhereClause: string; aWhereValues: array of const): ILinqQuery<T>;
+function TxList<T>.Where(const aWhereClause: string; aWhereValues: array of const): ILinqQuery<T>;
 begin
   if PTypeInfo(typeInfo(T)).Kind <> tkClass then raise ECollectionNotSupported.Create('TXList<T>.Where only supports classes. Use MatchString overload method instead!');
   Result := TLinqQuery<TObject>.Create(TObjectList<TObject>(Self.fList)).Where(aWhereClause,aWhereValues) as ILinqQuery<T>;
 end;
 
-function TXList<T>.Where(const aWhereClause: string): ILinqQuery<T>;
+function TxList<T>.Where(const aWhereClause: string): ILinqQuery<T>;
 begin
   if PTypeInfo(typeInfo(T)).Kind <> tkClass then raise ECollectionNotSupported.Create('TXList<T>.Where only supports classes. Use MatchString overload method instead!');
   Result := TLinqQuery<TObject>.Create(TObjectList<TObject>(Self.fList)).Where(aWhereClause) as ILinqQuery<T>;
 end;
 
-function TXList<T>.Where(aPredicate: TPredicate<T>): ILinqQuery<T>;
+function TxList<T>.Where(aPredicate: TPredicate<T>): ILinqQuery<T>;
 begin
   if PTypeInfo(typeInfo(T)).Kind <> tkClass then raise ECollectionNotSupported.Create('TXList<T>.Where only supports classes. Use MatchString overload method instead!');
   Result := TLinqQuery<TObject>.Create(TObjectList<TObject>(Self.fList)).Where(TPredicate<TObject>(aPredicate)) as ILinqQuery<T>;
@@ -461,7 +470,7 @@ end;
 
 { TXObjectList<T> }
 
-function TXObjectList<T>.Any(const aWhereClause: string; aValues: array of const): Boolean;
+function TxObjectList<T>.Any(const aWhereClause: string; aValues: array of const): Boolean;
 var
   query : ILinqQuery<T>;
 begin
@@ -469,20 +478,20 @@ begin
   Result := query.Where(aWhereClause,aValues).Count > 0;
 end;
 
-constructor TXObjectList<T>.Create(aOwnedObjects: Boolean);
+constructor TxObjectList<T>.Create(aOwnedObjects: Boolean = True);
 begin
   inherited Create;
   fOwnsObjects := aOwnedObjects;
   fList.OnNotify := InternalOnNotify;
 end;
 
-destructor TXObjectList<T>.Destroy;
+destructor TxObjectList<T>.Destroy;
 begin
 
   inherited;
 end;
 
-procedure TXObjectList<T>.InternalOnNotify(Sender: TObject; const Item: T; Action: TCollectionNotification);
+procedure TxObjectList<T>.InternalOnNotify(Sender: TObject; const Item: T; Action: TCollectionNotification);
 begin
   if (fOwnsObjects) and (Action = TCollectionNotification.cnRemoved) then
   begin
@@ -492,17 +501,17 @@ begin
   end;
 end;
 
-function TXObjectList<T>.Where(const aWhereClause: string): ILinqQuery<T>;
+function TxObjectList<T>.Where(const aWhereClause: string): ILinqQuery<T>;
 begin
     Result := TLinqQuery<T>.Create(Self.fList).Where(aWhereClause);
 end;
 
-function TXObjectList<T>.Where(const aWhereClause: string; aWhereValues: array of const): ILinqQuery<T>;
+function TxObjectList<T>.Where(const aWhereClause: string; aWhereValues: array of const): ILinqQuery<T>;
 begin
   Result := TLinqQuery<T>.Create(Self.fList).Where(aWhereClause,aWhereValues);
 end;
 
-function TXObjectList<T>.Where(aPredicate: TPredicate<T>): ILinqQuery<T>;
+function TxObjectList<T>.Where(aPredicate: TPredicate<T>): ILinqQuery<T>;
 begin
   Result := TLinqQuery<T>.Create(Self.fList).Where(aPredicate);
 end;
