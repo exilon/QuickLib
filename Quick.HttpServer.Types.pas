@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.HttpServer.Types
   Description : Http Server Types
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 17/10/2019
+  Modified    : 26/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -541,8 +541,13 @@ begin
 end;
 
 function TMIMETypes.GetFileMIMEType(const aFilename: string): string;
+var
+  fname : string;
 begin
-  if not fMIMEList.TryGetValue(ExtractFileExt(aFilename),Result) then Result := 'text/html';
+  fname := ExtractFileExt(aFilename);
+  //remove queries
+  if fname.Contains('?') then fname := Copy(fname,1,fname.IndexOf('?'));
+  if not fMIMEList.TryGetValue(fname,Result) then Result := 'text/html';
 end;
 
 { EControlledException }
