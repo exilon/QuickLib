@@ -80,6 +80,7 @@ type
     function Delete : Integer;
   end;
 
+  {$IFNDEF FPC}
   TLinqArray<T> = class(TInterfacedObject,ILinqArray<T>)
   type
     TLinqComparer = class(TInterfacedObject,IComparer<T>)
@@ -111,7 +112,6 @@ type
     function Delete : Integer;
   end;
 
-  {$IFNDEF FPC}
   TLinqArrayHelper = record helper for TArray<string>
     function Add(const aValue : string) : Integer;
     function AddIfNotExists(const aValue : string) : Integer;
@@ -557,7 +557,6 @@ function TLinqExpression<T>.IsNull : Boolean;
 begin
   Result := not Assigned(fPredicate);
 end;
-{$ENDIF}
 
 { TLinqArray<T> }
 
@@ -768,7 +767,6 @@ end;
 
 { TLinqArrayHelper }
 
-{$IFNDEF FPC}
 function TLinqArrayHelper.Add(const aValue : string) : Integer;
 begin
   SetLength(Self,Length(Self)+1);
