@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 12/03/2020
+  Modified    : 31/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -41,6 +41,8 @@ uses
 
 type
 
+  TRttiPropertyOrder = (roFirstBase, roFirstInherited);
+
   TRTTI = class
   private class var
     fCtx : TRttiContext;
@@ -48,6 +50,7 @@ type
     {$IFNDEF FPC}
     class constructor Create;
     class destructor Destroy;
+    class function GetProperties(aType : TRttiType; aOrder : TRttiPropertyOrder = roFirstBase) : TArray<TRttiProperty>;
     class function GetField(aInstance : TObject; const aFieldName : string) : TRttiField; overload;
     class function GetField(aTypeInfo : Pointer; const aFieldName : string) : TRttiField; overload;
     class function FieldExists(aTypeInfo : Pointer; const aFieldName : string) : Boolean;
@@ -76,6 +79,11 @@ type
   end;
 
   ERTTIError = class(Exception);
+
+  TArrayHelper = class
+  public
+    class function Concat<T>(const Args: array of TArray<T>): TArray<T>; static;
+  end;
 
 implementation
 
@@ -168,6 +176,72 @@ begin
   Result := nil;
   rtype := fCtx.GetType(aInstance.ClassInfo);
   if rtype <> nil then Result := rtype.GetProperty(aPropertyName);
+end;
+
+class function TArrayHelper.Concat<T>(const Args: array of TArray<T>): TArray<T>;
+var
+  i, j, out, len: Integer;
+begin
+  len := 0;
+  for i := 0 to High(Args) do
+    len := len + Length(Args[i]);
+  SetLength(Result, len);
+  out := 0;
+  for i := 0 to High(Args) do
+    for j := 0 to High(Args[i]) do
+    begin
+      Result[out] := Args[i][j];
+      Inc(out);
+    end;
+end;
+
+class function TRTTI.GetProperties(aType: TRttiType; aOrder: TRttiPropertyOrder = roFirstBase): TArray<TRttiProperty>;
+var
+  flat: TArray<TArray<TRttiProperty>>;
+  t: TRttiType;
+  depth: Integer;
+begin
+  if aOrder = TRttiPropertyOrder.roFirstBase then
+  begin
+    t := aType;
+    depth := 0;
+    while t <> nil do
+    begin
+      Inc(depth);
+      t := t.BaseType;
+    end;
+
+    SetLength(flat, depth);
+    t := aType;
+    while t <> nil do
+    begin
+      Dec(depth);
+      flat[depth] := t.GetDeclaredProperties;
+      t := t.BaseType;
+    end;
+  end
+  else
+  begin
+    t := aType;
+    depth := 0;
+    while t <> nil do
+    begin
+      Inc(depth);
+      t := t.BaseType;
+    end;
+
+    SetLength(flat, depth);
+    t := aType;
+    depth := 0;
+    while t <> nil do
+    begin
+      flat[depth] := t.GetDeclaredProperties;
+      Inc(depth);
+      t := t.BaseType;
+    end;
+  end;
+
+  Result := TArrayHelper.Concat<TRttiProperty>(flat);
 end;
 
 class function TRTTI.GetProperty(aTypeInfo: Pointer; const aPropertyName: string): TRttiProperty;
