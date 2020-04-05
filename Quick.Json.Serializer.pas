@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.11
   Created     : 21/05/2018
-  Modified    : 31/03/2020
+  Modified    : 05/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -718,11 +718,11 @@ begin
         begin
           if aTypeInfo = TypeInfo(TDateTime) then
           begin
-            Result := JsonDateToDateTime(value);
+            if CompareText(value,'null') <> 0 then Result := JsonDateToDateTime(value);
           end
           else if aTypeInfo = TypeInfo(TDate) then
           begin
-            Result := StrToDate(value);
+            if CompareText(value,'null') <> 0 then Result := StrToDate(value);
           end
           else if aTypeInfo = TypeInfo(TTime) then
           begin
@@ -804,11 +804,11 @@ begin
         begin
           if propinfo.PropType = TypeInfo(TDateTime) then
           begin
-            Result := JsonDateToDateTime(value);
+            if CompareText(value,'null') <> 0 then Result := JsonDateToDateTime(value);
           end
           else if propinfo.PropType = TypeInfo(TDate) then
           begin
-            Result := StrToDate(value);
+            if CompareText(value,'null') <> 0 then Result := StrToDate(value);
           end
           else if propinfo.PropType = TypeInfo(TTime) then
           begin
@@ -1218,11 +1218,11 @@ begin
         begin
           if aValue.TypeInfo = TypeInfo(TDateTime) then
           begin
-            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
+            if aValue.AsExtended <> 0.0 then Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TDate) then
           begin
-            Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
+            if aValue.AsExtended <> 0.0 then Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TTime) then
           begin
@@ -1347,11 +1347,11 @@ begin
         begin
           if aValue.TypeInfo = TypeInfo(TDateTime) then
           begin
-            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
+            if aValue.AsExtended <> 0.0 then Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TDate) then
           begin
-            Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
+            if aValue.AsExtended <> 0.0 then Result.JsonValue := TJSONString.Create(DateToStr(aValue.AsExtended));
           end
           else if aValue.TypeInfo = TypeInfo(TTime) then
           begin
@@ -1463,11 +1463,11 @@ begin
         begin
           if propinfo.PropType = TypeInfo(TDateTime) then
           begin
-            Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(GetFloatProp(aObject,aPropertyName)));
+            if aValue.AsExtended <> 0.0 then Result.JsonValue := TJSONString.Create(DateTimeToJsonDate(GetFloatProp(aObject,aPropertyName)));
           end
           else if propinfo.PropType = TypeInfo(TDate) then
           begin
-            Result.JsonValue := TJSONString.Create(DateToStr(GetFloatProp(aObject,aPropertyName)));
+            if aValue.AsExtended <> 0.0 then Result.JsonValue := TJSONString.Create(DateToStr(GetFloatProp(aObject,aPropertyName)));
           end
           else if propinfo.PropType = TypeInfo(TTime) then
           begin
