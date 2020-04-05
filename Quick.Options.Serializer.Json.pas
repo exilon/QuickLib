@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 07/02/2020
+  Modified    : 05/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -103,6 +103,7 @@ begin
   begin
     fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
     aJsonObj := TJsonObject.ParseJSONValue(fileoptions) as TJsonObject;
+    if aJsonObj = nil then raise EOptionLoadError.CreateFmt('Config file "%s" is damaged or not well-formed Json format!',[ExtractFileName(aFilename)]);
   end;
   Result := aJsonObj <> nil;
 end;
@@ -113,10 +114,12 @@ var
   fileoptions : string;
   json : TJsonObject;
   jpair : TJSONPair;
+  found : Integer;
 begin
   Result := False;
   if ParseFile(aFilename,json) then
   begin
+    found := 0;
     try
       for option in aSections do
       begin
@@ -124,7 +127,12 @@ begin
         if jpair = nil then
         begin
           if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
-            else Continue;
+          else
+          begin
+            //count as found if hidden
+            if option.HideOptions then Inc(found);
+            Continue;
+          end;
         end;
         if jpair.JsonValue <> nil then
         begin
@@ -132,12 +140,14 @@ begin
           fSerializer.DeserializeObject(option,jpair.JsonValue as TJSONObject);
           //validate loaded configuration
           option.ValidateOptions;
+          Inc(found);
         end;
       end;
-      Result := True;
     finally
       json.Free;
     end;
+    //returns true if all sections located into file
+    Result := found = aSections.Count;
   end;
 end;
 
