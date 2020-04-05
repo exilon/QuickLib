@@ -47,7 +47,6 @@ const
 var
   users : TIndexedObjectList<TUser>;
   users2 : TSearchObjectList<TUser>;
-  users3 : TObjectList<TUser>;
   user : TUser;
   i : Integer;
   n : Integer;
@@ -64,7 +63,6 @@ begin
     users.Indexes.Add('id','Id');
 
     users2 := TSearchObjectList<TUser>.Create(False);
-    users3 := TObjectList<TUser>.Create(True);
 
     cout('Generating list...',etInfo);
     //generate first dummy entries
@@ -77,7 +75,6 @@ begin
       user.Age := 18 + Random(20);
       users.Add(user);
       users2.Add(user);
-      users3.Add(user);
     end;
 
     //generate real entries to search
@@ -95,7 +92,6 @@ begin
 
       users.Add(user);
       users2.Add(user);
-      users3.Add(user);
     end;
 
     crono := TChronometer.Create;
@@ -127,7 +123,7 @@ begin
     //test search by Linq iteration
     crono.Start;
     //user := TLinq.From<TUser>(users2).Where('(Name = ?) OR (SurName = ?)',['Anus','Smith']).OrderBy('Name').SelectFirst;
-    user := TLinq<TUser>.From(users3).Where('Name = ?',['Peter']).SelectFirst;
+    user := TLinq<TUser>.From(users2).Where('Name = ?',['Peter']).SelectFirst;
     crono.Stop;
     if user <> nil then cout('Found by Linq: %s %s in %s',[user.Name,user.SurName,crono.ElapsedTime],etSuccess)
       else cout('Not found by Linq! (%s)',[crono.ElapsedTime],etError);
@@ -135,7 +131,7 @@ begin
     //test search by Linq iteration (predicate)
     crono.Start;
     //user := TLinq.From<TUser>(users2).Where('(Name = ?) OR (SurName = ?)',['Anus','Smith']).OrderBy('Name').SelectFirst;
-    user := TLinq<TUser>.From(users3).Where(function(aUser : TUser) : Boolean
+    user := TLinq<TUser>.From(users2).Where(function(aUser : TUser) : Boolean
       begin
         Result := aUser.Name = 'Peter';
       end).SelectFirst;
