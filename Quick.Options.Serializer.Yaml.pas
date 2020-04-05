@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 07/02/2020
+  Modified    : 05/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -102,6 +102,7 @@ begin
   begin
     fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
     aYamlObj := TYamlObject.ParseYAMLValue(fileoptions) as TYamlObject;
+    if aYamlObj = nil then raise EOptionLoadError.CreateFmt('Config file "%s" is damaged or not well-formed Yaml format!',[ExtractFileName(aFilename)]);
   end;
   Result := aYamlObj <> nil;
 end;
@@ -112,11 +113,13 @@ var
   fileoptions : string;
   yaml : TYamlObject;
   ypair : TYamlPair;
+  found : Integer;
 begin
   Result := False;
   //read option file
   if ParseFile(aFilename,yaml) then
   begin
+    found := 0;
     try
       for option in aSections do
       begin
@@ -124,7 +127,12 @@ begin
         if ypair = nil then
         begin
           if aFailOnSectionNotExists then raise Exception.CreateFmt('Config section "%s" not found',[option.Name])
-            else Continue;
+          else
+          begin
+            //count as found if hidden
+            if option.HideOptions then Inc(found);
+            Continue;
+          end;
         end;
         if ypair.Value <> nil then
         begin
@@ -132,11 +140,14 @@ begin
           fSerializer.DeserializeObject(option,ypair.Value as TYamlObject);
           //validate loaded configuration
           option.ValidateOptions;
+          Inc(found);
         end;
       end;
     finally
       yaml.Free;
     end;
+    //returns true if all sections located into file
+    Result := found = aSections.Count;
   end;
 end;
 
