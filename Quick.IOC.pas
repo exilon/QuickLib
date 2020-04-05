@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 12/03/2020
+  Modified    : 05/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -147,6 +147,14 @@ type
     function ResolveAll<T>(const aName : string = '') : TList<T>;
   end;
 
+  TTypedFactory<T : class, constructor> = class(TVirtualInterface)
+  private
+    fResolver : TIocResolver;
+  public
+    constructor Create(PIID: PTypeInfo; aResolver : TIocResolver);
+    procedure DoInvoke(Method: TRttiMethod;  const Args: TArray<TValue>; out Result: TValue);
+  end;
+
   TIocContainer = class(TInterfacedObject,IIocContainer)
   private
     fRegistrator : TIocRegistrator;
@@ -176,6 +184,7 @@ type
     function ResolveAll<T>(const aName : string = '') : TList<T>;
     function AbstractFactory<T : class, constructor>(aClass : TClass) : T; overload;
     function AbstractFactory<T : class, constructor> : T; overload;
+    function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
   end;
 
   EIocRegisterError = class(Exception);
@@ -311,6 +320,14 @@ end;
 function TIocContainer.RegisterInstance<T>(const aName: string): TIocRegistration<T>;
 begin
   Result := fRegistrator.RegisterInstance<T>(aName);
+end;
+
+function TIocContainer.RegisterTypedFactory<TFactoryInterface,TFactoryType>(const aName: string): TIocRegistration<TTypedFactory<TFactoryType>>;
+begin
+  Result := fRegistrator.RegisterType<TFactoryInterface,TTypedFactory<TFactoryType>>(aName).DelegateTo(function : TTypedFactory<TFactoryType>
+                                                    begin
+                                                      Result := TTypedFactory<TFactoryType>.Create(TypeInfo(TFactoryInterface),fResolver);
+                                                    end);
 end;
 
 function TIocContainer.RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;
@@ -629,7 +646,6 @@ begin
     //var a := pair.Key;
     if reg.IntfInfo = pInfo then Self.Resolve(pInfo,aName);
   end;
-
 end;
 
 { TIocRegistration<T> }
@@ -664,6 +680,20 @@ begin
                                      begin
                                        Result := TValue.From<T>(aDelegate);
                                      end;
+end;
+
+{ TTypedFactory<T> }
+
+constructor TTypedFactory<T>.Create(PIID: PTypeInfo; aResolver : TIocResolver);
+begin
+  inherited Create(PIID, DoInvoke);
+  fResolver := aResolver;
+end;
+
+procedure TTypedFactory<T>.DoInvoke(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue);
+begin
+  if CompareText(Method.Name,'New') <> 0 then raise Exception.Create('TTypedFactory needs a method "New"');
+  Result := fResolver.CreateInstance(TClass(T)).AsType<T>;
 end;
 
 end.
