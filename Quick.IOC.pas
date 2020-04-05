@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 10/03/2020
+  Modified    : 12/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -144,6 +144,7 @@ type
     constructor Create(aRegistrator : TIocRegistrator; aInjector : TIocInjector);
     function Resolve<T>(const aName : string = ''): T; overload;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
+    function ResolveAll<T>(const aName : string = '') : TList<T>;
   end;
 
   TIocContainer = class(TInterfacedObject,IIocContainer)
@@ -172,6 +173,7 @@ type
     function RegisterOptions<T : TOptions>(aOptions : TConfigureOptionsProc<T>) : TIocRegistration<T>; overload;
     function Resolve<T>(const aName : string = ''): T; overload;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
+    function ResolveAll<T>(const aName : string = '') : TList<T>;
     function AbstractFactory<T : class, constructor>(aClass : TClass) : T; overload;
     function AbstractFactory<T : class, constructor> : T; overload;
   end;
@@ -275,18 +277,13 @@ var
   rtype : TRttiType;
   rtypei : TRttiInterfaceType;
 begin
-  ctx := TRttiContext.Create;
-  try
-    for rtype in ctx.GetTypes do
-      begin
-        if rtype.TypeKind = TTypeKind.tkInterface then
-        begin
-          rtypei := (rtype as TRttiInterfaceType);
-          if IsEqualGUID(rtypei.GUID,AGUID) then Exit(rtypei.Handle);
-        end;
-      end;
-  finally
-    ctx.Free;
+  for rtype in ctx.GetTypes do
+  begin
+    if rtype.TypeKind = TTypeKind.tkInterface then
+    begin
+      rtypei := (rtype as TRttiInterfaceType);
+      if IsEqualGUID(rtypei.GUID,AGUID) then Exit(rtypei.Handle);
+    end;
   end;
   Result := nil;
 end;
@@ -350,6 +347,11 @@ begin
   Result := fResolver.Resolve<T>(aName);
 end;
 
+function TIocContainer.ResolveAll<T>(const aName : string = ''): TList<T>;
+begin
+  Result := fResolver.ResolveAll<T>(aName);
+end;
+
 { TIocRegistrator }
 
 constructor TIocRegistrator.Create;
@@ -406,7 +408,8 @@ begin
   key := GetKey(TypeInfo(TInterface),aName);
   if fDependencies.TryGetValue(key,reg) then
   begin
-    if (reg is TIocRegistrationInterface) and (TIocRegistrationInterface(reg).Instance <> nil) then Result := True;
+    //if (reg is TIocRegistrationInterface) and (TIocRegistrationInterface(reg).Instance <> nil) then Result := True;
+    if reg is TIocRegistrationInterface then Result := True;
   end
 end;
 
@@ -496,15 +499,13 @@ begin
   key := GetKey(aTypeInfo,aName);
   if fDependencies.TryGetValue(key,Result) then
   begin
-    if Result.&Implementation = aImplementation then raise EIocRegisterError.Create('Implementation for this interface is already registered!');
-  end
-  else
-  begin
-    Result := TIocRegistrationInterface.Create;
-    Result.IntfInfo := aTypeInfo;
-    Result.&Implementation := aImplementation;
-    fDependencies.Add(key,Result);
+    if Result.&Implementation = aImplementation then raise EIocRegisterError.Create('Implementation for this interface is already registered!')
+      else Key := key + '#' + TGUID.NewGuid.ToString;
   end;
+  Result := TIocRegistrationInterface.Create;
+  Result.IntfInfo := aTypeInfo;
+  Result.&Implementation := aImplementation;
+  fDependencies.Add(key,Result);
 end;
 
 { TIocResolver }
@@ -525,34 +526,29 @@ var
   values : TArray<TValue>;
 begin
   Result := nil;
-  ctx := TRttiContext.Create;
-  try
-    rtype := ctx.GetType(aClass);
-    if rtype = nil then Exit;
-    for rmethod in TRttiInstanceType(rtype).GetMethods do
+  rtype := ctx.GetType(aClass);
+  if rtype = nil then Exit;
+  for rmethod in TRttiInstanceType(rtype).GetMethods do
+  begin
+    if rmethod.IsConstructor then
     begin
-      if rmethod.IsConstructor then
+      //if create don't have parameters
+      if Length(rmethod.GetParameters) = 0 then
       begin
-        //if create don't have parameters
-        if Length(rmethod.GetParameters) = 0 then
+        Result := rmethod.Invoke(TRttiInstanceType(rtype).MetaclassType,[]);
+        Break;
+      end
+      else
+      begin
+        for rParam in rmethod.GetParameters do
         begin
-          Result := rmethod.Invoke(TRttiInstanceType(rtype).MetaclassType,[]);
-          Break;
-        end
-        else
-        begin
-          for rParam in rmethod.GetParameters do
-          begin
-            value := Resolve(rParam.ParamType.Handle);
-            values := values + [value];
-          end;
-          Result := rmethod.Invoke(TRttiInstanceType(rtype).MetaclassType,values);
-          Break;
+          value := Resolve(rParam.ParamType.Handle);
+          values := values + [value];
         end;
+        Result := rmethod.Invoke(TRttiInstanceType(rtype).MetaclassType,values);
+        Break;
       end;
     end;
-  finally
-    ctx.Free;
   end;
 end;
 
@@ -565,7 +561,7 @@ begin
   Result := nil;
   reg := nil;
   key := fRegistrator.GetKey(aServiceType,aName);
-  if not fRegistrator.Dependencies.TryGetValue(key,reg) then raise EIocResolverError.CreateFmt('Type "%s" not register for IOC!',[aServiceType.Name]);
+  if not fRegistrator.Dependencies.TryGetValue(key,reg) then raise EIocResolverError.CreateFmt('Type "%s" not registered for IOC!',[aServiceType.Name]);
   //if is singleton return already instance if exists
   if reg.IsSingleton then
   begin
@@ -616,6 +612,24 @@ begin
   pInfo := TypeInfo(T);
 
   Result := Resolve(pInfo,aName).AsType<T>;
+end;
+
+function TIocResolver.ResolveAll<T>(const aName : string = '') : TList<T>;
+var
+  pInfo : PTypeInfo;
+  reg : TIocRegistration;
+  pair : TPair<string,TIocRegistration>;
+begin
+  Result := TList<T>.Create;
+  pInfo := TypeInfo(T);
+
+  for pair in fRegistrator.Dependencies.ToArray do
+  begin
+    reg := pair.Value;
+    //var a := pair.Key;
+    if reg.IntfInfo = pInfo then Self.Resolve(pInfo,aName);
+  end;
+
 end;
 
 { TIocRegistration<T> }
