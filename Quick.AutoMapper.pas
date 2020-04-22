@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 25/08/2018
-  Modified    : 02/03/2020
+  Modified    : 07/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -465,6 +465,13 @@ begin
     rProp := rtype2.GetProperty('List');
     typinfo := GetTypeData(rProp.PropertyType.Handle).DynArrElType^;
 
+    case typinfo.Kind of
+      tkChar, tkString, tkWChar, tkWString : TList<string>(aTgtList).Capacity := value.GetArrayLength;
+      tkInteger, tkInt64 : TList<Integer>(aTgtList).Capacity := value.GetArrayLength;
+      tkFloat : TList<Extended>(aTgtList).Capacity := value.GetArrayLength;
+      else TList<TObject>(aTgtList).Capacity := value.GetArrayLength;
+    end;
+
     for i := 0 to value.GetArrayLength - 1 do
     begin
       if typinfo.Kind = tkClass then
@@ -526,6 +533,8 @@ begin
     rtype2 := ctx.GetType(aTgtObjList.ClassInfo);
     rProp := rtype2.GetProperty('List');
     typinfo := GetTypeData(rProp.PropertyType.Handle).DynArrElType^;
+
+    TObjectList<TObject>(aTgtObjList).Capacity := value.GetArrayLength;
 
     for i := 0 to value.GetArrayLength - 1 do
     begin
