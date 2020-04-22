@@ -66,7 +66,7 @@ type
     fValue : string;
     fIsNull : Boolean;
   protected
-    function IsNull : Boolean; virtual;
+    function IsNull : Boolean; override;
   public
     constructor Create; overload;
     constructor Create(const aValue : string); overload;
@@ -80,7 +80,7 @@ type
     fValue : Integer;
     fIsNull : Boolean;
   protected
-    function IsNull : Boolean; virtual;
+    function IsNull : Boolean; override;
   public
     constructor Create; overload;
     constructor Create(const aValue : Integer); overload;
@@ -94,7 +94,7 @@ type
     fValue : Double;
     fIsNull : Boolean;
   protected
-    function IsNull : Boolean; virtual;
+    function IsNull : Boolean; override;
   public
     constructor Create; overload;
     constructor Create(const aValue : Double); overload;
@@ -108,7 +108,7 @@ type
     fValue : Boolean;
     fIsNull : Boolean;
   protected
-    function IsNull : Boolean; virtual;
+    function IsNull : Boolean; override;
   public
     constructor Create; overload;
     constructor Create(const aValue : Boolean); overload;

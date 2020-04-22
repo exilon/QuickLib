@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 12/04/2019
-  Modified    : 05/04/20120
+  Modified    : 07/04/20120
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -513,6 +513,7 @@ begin
     if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
     begin
       TObjectList<TObject>(aObject).Clear;
+      TObjectList<TObject>(aObject).Capacity := rvalue.GetArrayLength;
       for i := 0 to rvalue.GetArrayLength - 1 do
       begin
         TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
@@ -1501,9 +1502,10 @@ function TYamlSerializer.YamlToObject(aType: TClass; const aYaml: string): TObje
 var
   Yaml: TYamlObject;
 begin
+  Result := nil;
   Yaml := TYamlObject.ParseYamlValue(aYaml) as TYamlObject;
   try
-    fRTTIYaml.DeserializeClass(aType,Yaml);
+    Result := fRTTIYaml.DeserializeClass(aType,Yaml);
   finally
     Yaml.Free;
   end;
@@ -1519,6 +1521,7 @@ function TYamlSerializer.YamlToObject(aObject: TObject; const aYaml: string): TO
 var
   Yaml: TYamlObject;
 begin
+  Result := aObject;
   Yaml := TYamlObject(TYamlObject.ParseYamlValue(aYaml));
   try
     fRTTIYaml.DeserializeObject(aObject,Yaml);
