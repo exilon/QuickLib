@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 05/04/2020
+  Modified    : 15/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -53,6 +53,7 @@ type
     constructor Create;
     destructor Destroy; override;
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
+    function LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean; override;
     procedure Save(const aFilename : string; aSections : TSectionList); override;
     function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; override;
   end;
@@ -75,7 +76,6 @@ end;
 function TJsonOptionsSerializer.GetFileSectionNames(const aFilename: string; out oSections: TArray<string>): Boolean;
 var
   json : TJsonObject;
-  jpair : TJSONPair;
   i : Integer;
 begin
   Result := False;
@@ -111,7 +111,6 @@ end;
 function TJsonOptionsSerializer.Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
 var
   option : TOptions;
-  fileoptions : string;
   json : TJsonObject;
   jpair : TJSONPair;
   found : Integer;
@@ -151,6 +150,31 @@ begin
   end;
 end;
 
+function TJsonOptionsSerializer.LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean;
+var
+  json : TJsonObject;
+  jpair : TJSONPair;
+begin
+  Result := False;
+  //read option file
+  if ParseFile(aFilename,json) then
+  begin
+    try
+      jpair := fSerializer.GetJsonPairByName(json,aOptions.Name);
+      if (jpair <> nil) and (jpair.JsonValue <> nil) then
+      begin
+        //deserialize option
+        fSerializer.DeserializeObject(aOptions,jpair.JsonValue as TJSONObject);
+        //validate loaded configuration
+        aOptions.ValidateOptions;
+        Result := True;
+      end;
+    finally
+      json.Free;
+    end;
+  end;
+end;
+
 procedure TJsonOptionsSerializer.Save(const aFilename : string; aSections : TSectionList);
 var
   option : TOptions;
@@ -167,7 +191,7 @@ begin
         //validate configuration before save
         option.ValidateOptions;
         //serialize option
-        jpair := fSerializer.Serialize(option.Name,option);
+        jpair := TJSONPair.Create(option.Name,fSerializer.SerializeObject(option));
         json.AddPair(jpair);
       end;
     end;
