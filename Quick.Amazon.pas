@@ -404,6 +404,7 @@ begin
         if Assigned(amBucketResult) then
         begin
           try
+            Result.Capacity := amBucketResult.Objects.Count;
             for i := 0 to amBucketResult.Objects.Count-1 do
             begin
               amObject := TAmazonObject.Create;
@@ -455,6 +456,7 @@ begin
         if Assigned(amBucketResult) then
         begin
           try
+            Result.Capacity := amBucketResult.Objects.Count;
             for i := 0 to amBucketResult.Objects.Count-1 do Result.Add(amBucketResult.Objects[i].Name);
           finally
             amBucketResult.Free;
@@ -510,6 +512,7 @@ begin
     CloudResponseInfo := TCloudResponseInfo.Create;
     Buckets := AmazonS3.ListBuckets(CloudResponseInfo);
     try
+      Result.Capacity := Buckets.Count;
       for i := 0 to Buckets.Count -1 do
       begin
         Result.Add(Buckets.Names[i]);
