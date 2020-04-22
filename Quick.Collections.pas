@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 07/03/2020
-  Modified    : 31/03/2020
+  Modified    : 07/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -98,6 +98,7 @@ type
   IList<T> = interface(IListBase<T>)
   ['{78952BD5-7D15-42BB-ADCB-2F835DF879A0}']
     function Any(const aMatchString : string; aUseRegEx : Boolean) : Boolean; overload;
+    function Any(const aWhereClause : string; aValues : array of const) : Boolean; overload;
     function Where(const aMatchString : string; aUseRegEx : Boolean) : ILinqArray<T>; overload;
     function Where(const aWhereClause : string; aWhereValues : array of const) : ILinqQuery<T>; overload;
     function Where(const aWhereClause: string): ILinqQuery<T>; overload;
@@ -173,6 +174,7 @@ type
     function Where(const aWhereClause : string; aWhereValues : array of const) : ILinqQuery<T>; overload;
     function Where(const aWhereClause: string): ILinqQuery<T>; overload;
     function Any(const aMatchString : string; aUseRegEx : Boolean) : Boolean; overload;
+    function Any(const aWhereClause : string; aValues : array of const) : Boolean; overload; virtual;
     function Where(const aMatchString : string; aUseRegEx : Boolean) : ILinqArray<T>; overload;
     {$IFNDEF FPC}
     function Where(aPredicate : TPredicate<T>) : ILinqQuery<T>; overload;
@@ -186,7 +188,7 @@ type
   public
     constructor Create(aOwnedObjects : Boolean = True);
     destructor Destroy; override;
-    function Any(const aWhereClause : string; aValues : array of const) : Boolean; overload;
+    function Any(const aWhereClause : string; aValues : array of const) : Boolean; overload; override;
     function Where(const aWhereClause : string; aWhereValues : array of const) : ILinqQuery<T>; overload;
     function Where(const aWhereClause: string): ILinqQuery<T>; overload;
     function Where(aPredicate : TPredicate<T>): ILinqQuery<T>; overload;
@@ -301,6 +303,7 @@ procedure TxList<T>.FromList(const aList: TList<T>);
 var
   value : T;
 begin
+  fList.Capacity := aList.Count;
   for value in aList do fList.Add(value);
 end;
 
@@ -308,6 +311,7 @@ procedure TxList<T>.FromArray(const aArray: TArray<T>);
 var
   value : T;
 begin
+  fList.Capacity := High(aArray);
   for value in aArray do fList.Add(value);
 end;
 
@@ -436,6 +440,7 @@ var
   value : T;
 begin
   Result := TList<T>.Create;
+  Result.Capacity := fList.Count;
   for value in fList do Result.Add(value);
 end;
 
@@ -466,6 +471,11 @@ function TxList<T>.Where(aPredicate: TPredicate<T>): ILinqQuery<T>;
 begin
   if PTypeInfo(typeInfo(T)).Kind <> tkClass then raise ECollectionNotSupported.Create('TXList<T>.Where only supports classes. Use MatchString overload method instead!');
   Result := TLinqQuery<TObject>.Create(TObjectList<TObject>(Self.fList)).Where(TPredicate<TObject>(aPredicate)) as ILinqQuery<T>;
+end;
+
+function TxList<T>.Any(const aWhereClause: string; aValues: array of const): Boolean;
+begin
+  Result := Where(aWhereClause,aValues).Count > 0;
 end;
 
 { TXObjectList<T> }
