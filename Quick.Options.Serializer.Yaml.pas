@@ -52,6 +52,7 @@ type
     constructor Create;
     destructor Destroy; override;
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
+    function LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean; override;
     procedure Save(const aFilename : string; aSections : TSectionList); override;
     function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; override;
   end;
@@ -74,7 +75,6 @@ end;
 function TYamlOptionsSerializer.GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean;
 var
   yaml : TYamlObject;
-  ypair : TYamlPair;
   i : Integer;
 begin
   Result := False;
@@ -110,7 +110,6 @@ end;
 function TYamlOptionsSerializer.Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
 var
   option : TOptions;
-  fileoptions : string;
   yaml : TYamlObject;
   ypair : TYamlPair;
   found : Integer;
@@ -148,6 +147,31 @@ begin
     end;
     //returns true if all sections located into file
     Result := found = aSections.Count;
+  end;
+end;
+
+function TYamlOptionsSerializer.LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean;
+var
+  yaml : TYamlObject;
+  ypair : TYamlPair;
+begin
+  Result := False;
+  //read option file
+  if ParseFile(aFilename,yaml) then
+  begin
+    try
+      ypair := fSerializer.GetYamlPairByName(yaml,aOptions.Name);
+      if (ypair <> nil) and (ypair.Value <> nil) then
+      begin
+        //deserialize option
+        fSerializer.DeserializeObject(aOptions,ypair.Value as TYamlObject);
+        //validate loaded configuration
+        aOptions.ValidateOptions;
+        Result := True;
+      end
+    finally
+      yaml.Free;
+    end;
   end;
 end;
 
