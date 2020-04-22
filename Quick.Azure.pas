@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 02/03/2020
+  Modified    : 07/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -604,6 +604,7 @@ begin
       try
         azBlobList := BlobService.ListBlobs(azContainer,azBlobsStartWith,'/',cNextMarker,100,[],cNextMarker,blobprefix,xmlresp,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
+        if Assigned(azBlobList) then Result.Capacity := High(azBlobList);
         //get folders (prefix)
         for folder in blobprefix do
         begin
@@ -668,6 +669,7 @@ begin
           azResponseInfo := GetResponseInfo(CloudResponseInfo);
           if Assigned(azBlobList) then
           begin
+            Result.Capacity := High(azBlobList);
             try
               for azBlob in azBlobList do
               begin
@@ -724,6 +726,7 @@ begin
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
         if Assigned(azBlobList) then
         begin
+          Result.Capacity := azBlobList.Count;
           Result.BeginUpdate;
           try
             for azBlob in azBlobList do Result.Add(azBlob.Name);
@@ -794,6 +797,7 @@ begin
           azResponseInfo := GetResponseInfo(CloudResponseInfo);
           if (azResponseInfo.StatusCode = 200) and (Assigned(AzContainers)) then
           begin
+            Result.Capacity := AzContainers.Count;
             for AzContainer in AzContainers do
             begin
               Result.Add(AzContainer.Name);
