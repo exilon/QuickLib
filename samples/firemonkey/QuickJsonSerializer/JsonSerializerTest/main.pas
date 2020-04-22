@@ -181,8 +181,6 @@ implementation
 {$R *.fmx}
 
 procedure TForm1.btnFromJsonClick(Sender: TObject);
-var
-  s : string;
 begin
   if User2 <> nil then User2.Free;
   User2 := TUser.Create;
