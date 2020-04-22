@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Value.RTTI
   Description : FlexValue Helper for RTTI
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 06/05/2019
-  Modified    : 30/08/2019
+  Modified    : 09/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -64,12 +64,28 @@ type
     procedure SetAsTValue(const Value: TValue);
   public
     property AsTValue : TValue read CastToTValue write SetAsTValue;
+    procedure FromRecord<T : record>(aRecord : T);
+    procedure FromArray<T>(aArray: TArray<T>);
     function AsType<T : class> : T;
+    function AsRecord<T : record> : T;
+    function AsArray<T> : TArray<T>;
   end;
 
 implementation
 
 { TRTTIFlexValue }
+
+function TRTTIFlexValue.AsArray<T>: TArray<T>;
+begin
+  if DataType <> dtArray then raise Exception.Create('DataType not supported');
+  Result := (Self.Data as IValueTValue).Value.AsType<TArray<T>>;
+end;
+
+function TRTTIFlexValue.AsRecord<T>: T;
+begin
+  if DataType <> dtRecord then raise Exception.Create('DataType not supported');
+  Result := (Self.Data as IValueTValue).Value.AsType<T>;
+end;
 
 function TRTTIFlexValue.AsType<T>: T;
 begin
@@ -102,6 +118,22 @@ begin
   end;
 end;
 
+procedure TRTTIFlexValue.FromArray<T>(aArray: TArray<T>);
+var
+  value : TValue;
+begin
+  TValue.Make(@aArray,TypeInfo(T),value);
+  Self.SetAsCustom(TValueTValue.Create(value),TValueDataType.dtArray);
+end;
+
+procedure TRTTIFlexValue.FromRecord<T>(aRecord : T);
+var
+  value : TValue;
+begin
+  TValue.Make(@aRecord,TypeInfo(T),value);
+  Self.SetAsCustom(TValueTValue.Create(value),TValueDataType.dtRecord);
+end;
+
 procedure TRTTIFlexValue.SetAsTValue(const Value: TValue);
 begin
   Clear;
@@ -125,6 +157,7 @@ begin
     {$IFNDEF FPC}
     tkArray,
     tkDynArray : Self.SetAsCustom(TValueTValue.Create(Value),TValueDataType.dtArray);
+    tkRecord : Self.SetAsCustom(TValueTValue.Create(Value),TValueDataType.dtRecord);
     else AsVariant := Value.AsVariant;
     {$ENDIF}
   end;
