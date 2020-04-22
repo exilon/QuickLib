@@ -138,6 +138,7 @@ type
   IOptionsSerializer = interface
   ['{7DECE203-4AAE-4C9D-86C8-B3D583DF7C8B}']
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
+    function LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean;
     procedure Save(const aFilename : string; aSections : TSectionList);
     function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean;
   end;
@@ -145,6 +146,7 @@ type
   TOptionsSerializer = class(TInterfacedObject,IOptionsSerializer)
   public
     function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; virtual; abstract;
+    function LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean; virtual; abstract;
     procedure Save(const aFilename : string; aSections : TSectionList); virtual; abstract;
     function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; virtual; abstract;
   end;
@@ -199,6 +201,7 @@ type
     function GetFileSectionNames(out oSections : TArray<string>) : Boolean;
     function Count : Integer;
     procedure Load(aFailOnSectionNotExists : Boolean = False);
+    procedure LoadSection(aOptions : TOptions);
     procedure Save;
   end;
 
@@ -408,6 +411,14 @@ begin
     for option in fSections do option.DefaultValues;
     //creates default file
     Save;
+  end;
+end;
+
+procedure TOptionsContainer.LoadSection(aOptions : TOptions);
+begin
+  if FileExists(fFilename) then
+  begin
+    if not fSerializer.LoadSection(fFilename,fSections,aOptions) then Save;
   end;
 end;
 
