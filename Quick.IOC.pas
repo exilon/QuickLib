@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 05/04/2020
+  Modified    : 06/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -48,12 +48,14 @@ type
   type
     TRegisterMode = (rmTransient, rmSingleton, rmScoped);
   private
+    fName : string;
     fRegisterMode : TRegisterMode;
     fIntfInfo : PTypeInfo;
     fImplementation : TClass;
     fActivatorDelegate : TActivatorDelegate<TValue>;
   public
-    constructor Create;
+    constructor Create(const aName : string);
+    property Name : string read fName;
     property IntfInfo : PTypeInfo read fIntfInfo write fIntfInfo;
     property &Implementation : TClass read fImplementation write fImplementation;
     function IsSingleton : Boolean;
@@ -105,7 +107,7 @@ type
     destructor Destroy; override;
     property Dependencies : TDictionary<string,TIocRegistration> read fDependencies write fDependencies;
     function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName : string = '') : Boolean; overload;
-    function IsRegistered<TInterface : IInterface>(const aName : string = '') : Boolean; overload;
+    function IsRegistered<T>(const aName : string = '') : Boolean; overload;
     function GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
     function RegisterType<TInterface: IInterface; TImplementation: class>(const aName : string = '') : TIocRegistration<TImplementation>; overload;
     function RegisterType(aTypeInfo : PTypeInfo; aImplementation : TClass; const aName : string = '') : TIocRegistration; overload;
@@ -120,7 +122,7 @@ type
     function RegisterType(aInterface: PTypeInfo; aImplementation : TClass; const aName : string = '') : TIocRegistration;
     function RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue;
-    //procedure Build;
+    procedure Build;
   end;
 
   IIocInjector = interface
@@ -185,10 +187,12 @@ type
     function AbstractFactory<T : class, constructor>(aClass : TClass) : T; overload;
     function AbstractFactory<T : class, constructor> : T; overload;
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
+    procedure Build;
   end;
 
   EIocRegisterError = class(Exception);
   EIocResolverError = class(Exception);
+  EIocBuildError = class(Exception);
 
   //singleton global instance
   function GlobalContainer: TIocContainer;
@@ -261,6 +265,20 @@ end;
 function TIocContainer.AbstractFactory<T> : T;
 begin
   Result := fResolver.CreateInstance(TClass(T)).AsType<T>;
+end;
+
+procedure TIocContainer.Build;
+var
+  dependency : TIocRegistration;
+begin
+  for dependency in fRegistrator.Dependencies.Values do
+  begin
+    try
+      if dependency.IsSingleton then fResolver.Resolve(dependency.fIntfInfo,dependency.Name);
+    except
+      on E : Exception do raise EIocBuildError.CreateFmt('Build Error on "%s(%s)" dependency: %s!',[dependency.fImplementation.ClassName,dependency.Name,e.Message]);
+    end;
+  end;
 end;
 
 constructor TIocContainer.Create;
@@ -416,17 +434,17 @@ begin
   end
 end;
 
-function TIocRegistrator.IsRegistered<TInterface>(const aName: string): Boolean;
+function TIocRegistrator.IsRegistered<T>(const aName: string): Boolean;
 var
   key : string;
   reg : TIocRegistration;
 begin
   Result := False;
-  key := GetKey(TypeInfo(TInterface),aName);
+  key := GetKey(TypeInfo(T),aName);
   if fDependencies.TryGetValue(key,reg) then
   begin
-    //if (reg is TIocRegistrationInterface) and (TIocRegistrationInterface(reg).Instance <> nil) then Result := True;
-    if reg is TIocRegistrationInterface then Result := True;
+    if reg is TIocRegistrationInterface then Result := True
+      else if (reg is TIocRegistrationInstance) {and (TIocRegistrationInterface(reg).Instance <> nil)} then Result := True;
   end
 end;
 
@@ -451,7 +469,7 @@ begin
   end
   else
   begin
-    Result := TIocRegistrationInterface.Create;
+    Result := TIocRegistrationInterface.Create(aName);
     Result.IntfInfo := tpinfo;
     TIocRegistrationInterface(Result).Instance := aInstance;
     //reg.Instance := T.Create;
@@ -470,7 +488,7 @@ begin
   end
   else
   begin
-    Result := TIocRegistrationInstance.Create;
+    Result := TIocRegistrationInstance.Create(aName);
     Result.IntfInfo := aTypeInfo;
     Result.&Implementation := aTypeInfo.TypeData.ClassType;
     //reg.Instance := T.Create;
@@ -492,7 +510,7 @@ begin
   end
   else
   begin
-    reg := TIocRegistrationInterface.Create;
+    reg := TIocRegistrationInterface.Create('');
     reg.IntfInfo := pInfo;
     reg.&Implementation := aOptions.ClassType;
     TIocRegistrationInterface(reg).Instance := TOptionValue<T>.Create(aOptions);
@@ -519,7 +537,7 @@ begin
     if Result.&Implementation = aImplementation then raise EIocRegisterError.Create('Implementation for this interface is already registered!')
       else Key := key + '#' + TGUID.NewGuid.ToString;
   end;
-  Result := TIocRegistrationInterface.Create;
+  Result := TIocRegistrationInterface.Create(aName);
   Result.IntfInfo := aTypeInfo;
   Result.&Implementation := aImplementation;
   fDependencies.Add(key,Result);
