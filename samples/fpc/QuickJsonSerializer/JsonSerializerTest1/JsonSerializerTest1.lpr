@@ -4,7 +4,6 @@ program JsonSerializerTest1;
 
 uses
   SysUtils,
-  Generics.Collections,
   Quick.Commons,
   Quick.Console,
   Quick.Json.Serializer;
@@ -21,7 +20,7 @@ type
     property Port : Integer read fPort write fPort;
   end;
 
-  THostList = TObjectList<THost>;
+  THostList = TArray<THost>;
 
   TConfig = class
   private
@@ -51,12 +50,13 @@ var
 
 constructor TConfig.Create;
 begin
-  fHosts := THostList.Create(True);
 end;
 
 destructor TConfig.Destroy;
+var
+  host : THost;
 begin
-  fHosts.Free;
+  for host in fHosts do host.Free;
   inherited;
 end;
 
@@ -75,17 +75,17 @@ begin
         host.Port := 80;
         config.DebugMode := True;
         config.Level := 1;
-        config.Hosts.Add(host);
+        config.Hosts := config.Hosts + [host];
 
         host := THost.Create;
         host.Name := 'Host 2';
         host.IP := '192.168.1.1';
         host.Port := 443;
-        config.Hosts.Add(host);
+        config.Hosts := config.Hosts + [host];
 
         json := serializer.ObjectToJson(config,True);
         cout(json,ccWhite);
-        coutFmt('Capacity: %d / Count: %d',[config.Hosts.Capacity,config.Hosts.Count],etInfo);
+        coutFmt('Count: %d',[High(config.Hosts) + 1],etInfo);
       finally
         config.Free;
       end;
@@ -97,7 +97,7 @@ begin
         serializer.JsonToObject(config,jsonstring);
         json := serializer.ObjectToJson(config,True);
         cout(json,ccWhite);
-        coutFmt('Capacity: %d / Count: %d',[config.Hosts.Capacity,config.Hosts.Count],etInfo);
+        coutFmt('Count: %d',[High(config.Hosts) + 1],etInfo);
       finally
         config.Free;
       end;
@@ -109,7 +109,7 @@ begin
         serializer.JsonToObject(config,jsonstring2);
         json := serializer.ObjectToJson(config,True);
         cout(json,ccWhite);
-        coutFmt('Capacity: %d / Count: %d',[config.Hosts.Capacity,config.Hosts.Count],etInfo);
+        coutFmt('Count: %d',[High(config.Hosts) + 1],etInfo);
       finally
         config.Free;
       end;
