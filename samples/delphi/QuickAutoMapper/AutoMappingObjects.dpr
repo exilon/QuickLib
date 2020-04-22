@@ -290,6 +290,7 @@ begin
       AutoMapper.Free;
       User.Free;
       User2.Free;
+      User3.Free;
     end;
     ConsoleWaitForEnterKey;
   except

@@ -76,6 +76,7 @@ end;
 
 begin
   try
+    ReportMemoryLeaksOnShutdown := True;
     serializer := TJsonSerializer.Create(slPublishedProperty);
     try
 
