@@ -742,8 +742,6 @@ end;
 function TMemoryCache.TryGetValue(const aKey: string; out aValue: TArray<string>): Boolean;
 var
   cacheitem : ICacheEntry;
-  flexvalue : TFlexValue;
-  obj : TObject;
 begin
   fLock.BeginRead;
   try
@@ -760,8 +758,6 @@ end;
 function TMemoryCache.TryGetValue(const aKey: string; out aValue: TArray<TObject>): Boolean;
 var
   cacheitem : ICacheEntry;
-  flexvalue : TFlexValue;
-  obj : TObject;
 begin
   fLock.BeginRead;
   try
