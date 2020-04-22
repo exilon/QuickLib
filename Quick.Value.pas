@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Value
   Description : Autofree value record
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 07/01/2019
-  Modified    : 27/08/2019
+  Modified    : 20/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1058,6 +1058,11 @@ begin
 end;
 
 procedure TFlexValue.SetAsVariant(const Value: Variant);
+var
+  dispatch : IDispatch;
+  i : Int64;
+  b : Boolean;
+  f : Extended;
 begin
   Clear;
   case VarType(Value) and varTypeMask of
@@ -1076,9 +1081,9 @@ begin
     varDate      : SetAsDateTime(Value);
     varOleStr    : SetAsString(Value);
     varDispatch  : begin
-                     if TryVarAsType(Value,varInt64) then SetAsInt64(Value)
-                     else if TryVarAsType(Value,varDouble) then SetAsExtended(Value)
-                     else if TryVarAsType(Value,varBoolean) then SetAsBoolean(Value)
+                     if TryStrToInt64(Value,i) then SetAsInt64(i)
+                     else if TryStrToFloat(Value,f) then SetAsExtended(f)
+                     else if TryStrToBool(Value,b) then SetAsBoolean(b)
                      else if TryVarAsType(Value,varString) then SetAsString(Value)
                      else
                      begin
