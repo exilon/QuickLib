@@ -43,7 +43,7 @@ type
   private
     fCallerClass : TClass;
   public
-    constructor Create(aCaller : TObject; aMessage : string);
+    constructor Create(aCaller : TObject; const aMessage : string);
     property CallerClass : TClass read fCallerClass write fCallerClass;
   end;
 
@@ -552,7 +552,7 @@ end;
 
 { EControlledException }
 
-constructor EControlledException.Create(aCaller: TObject; aMessage: string);
+constructor EControlledException.Create(aCaller: TObject; const aMessage: string);
 begin
   inherited Create(aMessage);
   if aCaller <> nil then fCallerClass := aCaller.ClassType;
