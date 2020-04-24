@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Data.InfluxDB
   Description : InfluxDB data provider
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 05/04/2019
-  Modified    : 10/04/2019
+  Modified    : 21/04/2020
 
   This file is part of QuickLogger: https://github.com/exilon/QuickLogger
 
@@ -37,6 +37,7 @@ uses
   Classes,
   SysUtils,
   DateUtils,
+  Quick.Collections,
   Quick.HttpClient,
   Quick.Commons,
   Quick.Value,
@@ -57,7 +58,7 @@ type
     fTags : TPairArray;
     fCreateDataBaseIfNotExists : Boolean;
     procedure CreateDataBase;
-    function GenerateWriteQuery(const aMeasurement : string; aTagPairs : TPairArray; aFieldPairs : TFlexPairArray; aTime : TDateTime): string;
+    function GenerateWriteQuery(const aMeasurement : string; aTagPairs : IList<TPair>; aFieldPairs : IList<TFlexPair>; aTime : TDateTime): string;
     procedure SetWriteURL;
     procedure SetPassword(const Value: string);
     procedure SetUserName(const Value: string);
@@ -74,8 +75,9 @@ type
     property Tags : TPairArray read fTags write fTags;
     procedure Init; override;
     procedure Restart; override;
-    procedure Write(const aMeasurement : string; aFieldPairs : TFlexPairArray; aTime : TDateTime = 0); overload;
-    procedure Write(const aMeasurement : string; aTagPairs : TPairArray; aFieldPairs : TFlexPairArray; aTime : TDateTime = 0); overload;
+    procedure Stop; override;
+    procedure Write(const aMeasurement : string; aFieldPairs : IList<TFlexPair>; aTime : TDateTime = 0); overload;
+    procedure Write(const aMeasurement: string; aTagPairs : IList<TPair>; aFieldPairs: IList<TFlexPair>; aTime: TDateTime); overload;
     procedure Write(const aMeasurement: string; const aFieldKey : string; aFieldValue : TFlexValue; aTime: TDateTime); overload;
   end;
 
@@ -97,15 +99,13 @@ end;
 
 destructor TInfluxDBData.Destroy;
 begin
-  if Assigned(fHTTPClient) then FreeAndNil(fHTTPClient);
-
+  if Assigned(fHTTPClient) then fHTTPClient.Free;
   inherited;
 end;
 
 procedure TInfluxDBData.Init;
 begin
   if fInitiated then Stop;
-
   SetWriteURL;
   fHTTPClient := TJsonHTTPClient.Create;
   fHTTPClient.ContentType := 'application/json';
@@ -137,22 +137,28 @@ begin
     else fFullURL := Format('%s/write?db=%s&precision=ms',[fURL,fDataBase]);
 end;
 
-procedure TInfluxDBData.Write(const aMeasurement: string; const aFieldKey : string; aFieldValue : TFlexValue; aTime: TDateTime);
-var
-  fparray : TFlexPairArray;
+procedure TInfluxDBData.Stop;
 begin
-  fparray.Add(aFieldKey,aFieldValue);
-  if atime <> 0 then Write(GenerateWriteQuery(aMeasurement,nil,fparray,aTime))
-    else Write(GenerateWriteQuery(aMeasurement,nil,fparray,Now()));
+  inherited;
+  if Assigned(fHTTPClient) then FreeAndNil(fHTTPClient);
 end;
 
-procedure TInfluxDBData.Write(const aMeasurement: string; aTagPairs : TPairArray; aFieldPairs: TFlexPairArray; aTime: TDateTime);
+procedure TInfluxDBData.Write(const aMeasurement: string; const aFieldKey : string; aFieldValue : TFlexValue; aTime: TDateTime);
+var
+  fields : IList<TFlexPair>;
+begin
+  fields.Add(TFlexPair.Create(aFieldKey,aFieldValue));
+  if atime <> 0 then Write(GenerateWriteQuery(aMeasurement,nil,fields,aTime))
+    else Write(GenerateWriteQuery(aMeasurement,nil,fields,Now()));
+end;
+
+procedure TInfluxDBData.Write(const aMeasurement: string; aTagPairs : IList<TPair>; aFieldPairs: IList<TFlexPair>; aTime: TDateTime);
 begin
   if atime <> 0 then Write(GenerateWriteQuery(aMeasurement,aTagPairs,aFieldPairs,aTime))
     else Write(GenerateWriteQuery(aMeasurement,aTagPairs,aFieldPairs,Now()));
 end;
 
-procedure TInfluxDBData.Write(const aMeasurement: string; aFieldPairs: TFlexPairArray; aTime: TDateTime);
+procedure TInfluxDBData.Write(const aMeasurement: string; aFieldPairs: IList<TFlexPair>; aTime: TDateTime);
 begin
   if atime <> 0 then Write(GenerateWriteQuery(aMeasurement,nil,aFieldPairs,aTime))
     else Write(GenerateWriteQuery(aMeasurement,nil,aFieldPairs,Now()));
@@ -171,7 +177,6 @@ procedure TInfluxDBData.CreateDataBase;
 var
   resp : IHttpRequestResponse;
 begin
-  exit;
   try
     resp := fHTTPClient.Post(Format('%s/query?q=CREATE DATABASE %s',[fURL,fDatabase]),'');
   except
@@ -182,7 +187,7 @@ begin
     raise EInfluxDBData.Create(Format('[TInfluxDBData] : Response %d : %s trying to create database',[resp.StatusCode,resp.StatusText]));
 end;
 
-function TInfluxDBData.GenerateWriteQuery(const aMeasurement : string; aTagPairs : TPairArray; aFieldPairs : TFlexPairArray; aTime : TDateTime): string;
+function TInfluxDBData.GenerateWriteQuery(const aMeasurement : string; aTagPairs : IList<TPair>; aFieldPairs : IList<TFlexPair>; aTime : TDateTime): string;
 var
   incinfo : TStringList;
   tags : string;
@@ -228,6 +233,7 @@ begin
   if not fInitiated then Init;
 
   stream := TStringStream.Create(aLine);
+  var a := aline;
   try
     try
       resp := fHTTPClient.Post(fFullURL,stream);
