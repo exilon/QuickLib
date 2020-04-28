@@ -164,6 +164,8 @@ begin
     colItems := fWMIService.ExecQuery(Format('SELECT * FROM %s',[aWMIClass]),'WQL',wbemFlagForwardOnly and wbemFlagReturnImmediately);
     oEnum := IUnknown(colItems._NewEnum) as IEnumVariant;
     Result := TWMIClass.Create(fWMIService,aWMIClass,oEnum);
+    oEnum := nil;
+    colItems := Unassigned;
   except
     on E : Exception do raise EWMICollector.CreateFmt('Error getting WMI Class "\\%s\%s\%s": %s',[aHost,aRoot,aWMIClass,e.Message]);
   end;
@@ -191,12 +193,18 @@ end;
 function TWMIInstance.GetProperties(const aProperties : TArray<string>) : IList<TFlexPair>;
 var
   prop : string;
+  item : OleVariant;
 begin
   Result := TxList<TFlexPair>.Create;
   for prop in aProperties do
   begin
     try
-      Result.Add(TFlexPair.Create(prop,fWMIItem.Properties_.Item(prop, 0)));
+      item := fWMIItem.Properties_.Item(prop, 0);
+      try
+        Result.Add(TFlexPair.Create(prop,item));
+      finally
+        item := Unassigned;
+      end;
     except
       on E : Exception do raise EWMICollector.CreateFmt('Retrieving "%s" (%s)',[prop,e.message]);
     end;
@@ -204,8 +212,15 @@ begin
 end;
 
 function TWMIInstance.GetProperty(const aPropertyName: string): TFlexValue;
+var
+  item : OleVariant;
 begin
-  Result := fWMIItem.Properties_.Item(aPropertyName, 0);
+  item := fWMIItem.Properties_.Item(aPropertyName, 0);
+  try
+    Result := item;
+  finally
+    item := Unassigned;
+  end;
 end;
 
 { TWMIClass }
@@ -219,7 +234,7 @@ end;
 
 destructor TWMIClass.Destroy;
 begin
-  //fWMIClassItems := nil;
+  fWMIClassItems := nil;
   fWMIService := Unassigned;
   inherited;
 end;
@@ -232,8 +247,8 @@ var
 begin
   while fWMIClassItems.Next(1, propItem, iValue) = 0 do
   begin
-    instanceName := GetInstanceName(propItem);
     try
+      instanceName := GetInstanceName(propItem);
       if CompareText(aInstance,instanceName) = 0 then
       begin
         Result := TWMIInstance.Create(instanceName,propItem);
@@ -256,6 +271,7 @@ var
   iValue : Cardinal;
   properties : OleVariant;
   objSWbemObjectSet : OleVariant;
+  item : OleVariant;
 begin
   Result := '';
   objSWbemObjectSet:= fWMIService.Get(fClassName, wbemFlagUseAmendedQualifiers and wbemFlagReturnWhenComplete);
@@ -273,17 +289,21 @@ begin
       //Result := rgvarQualif.Value;
       if qualifItem.Name = 'key' then
       begin
-        if qualifItem.Value then if Result = '' then Result := aWMIClass.Properties_.Item(propItem.Name,0)
-          else Result := Format('%s %s',[Result,aWMIClass.Properties_.Item(propItem.Name,0)]);
+        item := aWMIClass.Properties_.Item(propItem.Name,0);
+        try
+          if qualifItem.Value then if Result = '' then Result := item
+            else Result := Format('%s %s',[Result,item]);
+        finally
+          item := Unassigned;
+        end;
       end;
-      //VarClear(qualifItem);
       qualifItem := Unassigned;
     end;
-    //enumQualif := nil;
+    enumQualif := nil;
     qualifiers := Unassigned;
     propItem := Unassigned;
   end;
-  //enumProp := nil;
+  enumProp := nil;
   properties := Unassigned;
   objSWbemObjectSet := Unassigned;
 end;
