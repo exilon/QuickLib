@@ -1059,7 +1059,6 @@ end;
 
 procedure TFlexValue.SetAsVariant(const Value: Variant);
 var
-  dispatch : IDispatch;
   i : Int64;
   b : Boolean;
   f : Extended;
