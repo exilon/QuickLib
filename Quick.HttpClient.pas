@@ -381,7 +381,7 @@ begin
   if fResponse = nil then
   begin
     fResponse := TJSONObject.Create;
-    {$IFDEF DELPHIXE7_UP}
+    {$IFDEF DELPHIXE4_UP}
     fResponse.AddPair('Result',aContent);
     {$ELSE}
     fResponse.Add('Result',aContent);

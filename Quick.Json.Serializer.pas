@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.11
   Created     : 21/05/2018
-  Modified    : 07/04/2020
+  Modified    : 27/04/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -49,12 +49,15 @@ uses
   {$ELSE}
     {$IFDEF DELPHIXE7_UP}
     System.Json,
+    {$ELSE}
+    Data.DBXJSON,
     {$ENDIF}
     {$IFDEF DELPHIRX10_UP}
    
     {$ENDIF}
     Variants,
   {$ENDIF}
+  Generics.Collections,
   Quick.RTTI.Utils,
   DateUtils,
   Quick.Commons,
@@ -83,6 +86,30 @@ type
     constructor Create(const aName: string);
     property Name : string read fName;
   end;
+    {$IFNDEF DELPHIXE7_UP}
+     TJSONArrayHelper = class helper for Data.DBXJson.TJSONArray
+      private
+        function GetItem(aValue : Integer) : TJSONValue;
+      public
+        function Count : Integer;
+        property Items[index : Integer] : TJSONValue read GetItem;
+        procedure SetElements(aElements : TList<TJSONValue>);
+      end;
+
+      TJSONValueHelper = class helper for Data.DBXJson.TJSONValue
+      public
+        function ToJson : string;
+      end;
+
+      TJSONObjectHelper = class helper for Data.DBXJson.TJSONObject
+      private
+        function GetPair(aValue : Integer) : TJSONPair;
+      public
+        function Count : Integer;
+        function GetValue(const aName : string) : TJSONValue;
+        property Pairs[index : Integer] : TJSONPair read GetPair;
+      end;
+    {$ENDIF}
   {$ENDIF}
 
   IJsonSerializer = interface
@@ -189,9 +216,6 @@ resourcestring
   cNotValidJson = 'Not a valid Json';
 
 implementation
-
-uses
-  Generics.Collections;
 
 { TRTTIJson }
 
@@ -394,7 +418,7 @@ begin
           {$IFDEF DELPHIRX10_UP}
           rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,TJsonValue(member).value)
           {$ELSE}
-          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.JsonString.ToString)
+          rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.Value)
           {$ENDIF}
           else rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.ToJSON);
       end;
@@ -677,7 +701,7 @@ begin
             {$IFDEF DELPHIRX10_UP}
             rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,TJsonValue(member).value)
             {$ELSE}
-            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.JsonString.ToString)
+            rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.Value)
             {$ENDIF}
           else rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.ToJSON);
           {$ELSE}
@@ -1702,6 +1726,59 @@ begin
 end;
 {$ENDIF}
 
+{$IF NOT DEFINED(DELPHIXE7_UP) AND NOT DEFINED(FPC)}
+{ TJSONArrayHelper }
+
+function TJSONArrayHelper.Count: Integer;
+begin
+  Result := Self.Size;
+end;
+
+function TJSONArrayHelper.GetItem(aValue: Integer): TJSONValue;
+begin
+  Result := Self.Get(aValue);
+end;
+
+procedure TJSONArrayHelper.SetElements(aElements: TList<TJSONValue>);
+var
+  jvalue : TJSONValue;
+begin
+  for jvalue in aElements do Self.AddElement(jvalue);
+  aElements.Free;
+end;
+
+{ TJSONValueHelper }
+
+function TJSONValueHelper.ToJson: string;
+begin
+  Result := Self.ToString;
+end;
+
+
+{ TJSONObjectHelper }
+
+function TJSONObjectHelper.Count: Integer;
+begin
+  Result := Self.Size;
+end;
+
+function TJSONObjectHelper.GetValue(const aName: string): TJSONValue;
+var
+  jPair : TJSONPair;
+begin
+  Result := nil;
+  for jPair in Self do
+  begin
+    if jPair.JsonString.ToString = aName then Exit(jPair.JsonValue);
+  end;
+end;
+
+function TJSONObjectHelper.GetPair(aValue: Integer) : TJSONPair;
+begin
+  Result := Self.Get(aValue);
+end;
+
+{$ENDIF}
 
 end.
 

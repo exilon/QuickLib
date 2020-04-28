@@ -31,7 +31,9 @@ unit Quick.Chrono;
 
 interface
 
-{$HPPEMIT LEGACYHPP}
+{$IFDEF DELPHIXE7_UP}
+  {$HPPEMIT LEGACYHPP}
+{$ENDIF}
 
 {$i QuickLib.inc}
 

@@ -106,7 +106,11 @@ begin
   fMaxRetries := 0;
   fWaitTimeBetweenRetries := 0;
   fWaitTimeMultiplierFactor := 1;
+  {$IFDEF DELPHIXE7_UP}
   fWaitTimeArray := [];
+  {$ELSE}
+  fWaitTimeArray := nil;
+  {$ENDIF}
 end;
 
 function TFaultControl.NeedToRetry: Boolean;
