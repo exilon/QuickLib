@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 22/05/2018
-  Modified    : 27/05/2018
+  Modified    : 02/05/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,6 +36,7 @@ interface
 uses
   Classes,
   SysUtils,
+  Quick.Commons,
   {$IFDEF DELPHIXE8_UP}
   System.Net.HttpClient,
   System.Net.URLClient,
@@ -105,7 +106,7 @@ type
     property ConnectionTimeout : Integer read fConnectionTimeout write SetConnectionTimeout;
     property HandleRedirects : Boolean read fHandleRedirects write SetHandleRedirects;
     function Get(const aURL : string) : IHttpRequestResponse;
-    function Post(const aURL, aInContent : string) : IHttpRequestResponse; overload;
+    function Post(const aURL, aInContent : string; aHeaders : TPairList = nil) : IHttpRequestResponse; overload;
     function Post(const aURL : string; aInContent : TStream) : IHttpRequestResponse; overload;
     function Post(const aURL : string; aJsonContent : TJsonObject) : IHttpRequestResponse; overload;
     function Put(const aURL, aInContent : string) : IHttpRequestResponse;
@@ -169,10 +170,12 @@ begin
   end;
 end;
 
-function TJsonHttpClient.Post(const aURL, aInContent : string) : IHttpRequestResponse;
+function TJsonHttpClient.Post(const aURL, aInContent : string; aHeaders : TPairList = nil) : IHttpRequestResponse;
 var
+  pair : TPairItem;
   {$IFDEF DELPHIXE8_UP}
   resp : IHTTPResponse;
+  headers : TArray<TNameValuePair>;
   {$ELSE}
   resp : TIdHTTPResponse;
   {$ENDIF}
@@ -185,8 +188,22 @@ begin
     responsecontent := TStringStream.Create;
     try
       {$IFDEF DELPHIXE8_UP}
-      resp := fHTTPClient.Post(aURL,postcontent,responsecontent);
+      if aHeaders <> nil then
+      begin
+        for pair in aHeaders do
+        begin
+          headers := headers + [TNameValuePair.Create(pair.Name,pair.Value)];
+        end;
+      end;
+      resp := fHTTPClient.Post(aURL,postcontent,responsecontent,headers);
       {$ELSE}
+        if aHeaders <> nil then
+        begin
+          for pair in aHeaders do
+          begin
+            fHttpClient.Request.CustomHeaders.Values[pair.Name] := pair.Value;
+          end;
+        end;
         {$IFDEF FPC}
         try
            fHTTPClient.Post(aURL,postcontent,responsecontent);
