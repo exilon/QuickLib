@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 14/07/2017
-  Modified    : 22/03/2020
+  Modified    : 02/05/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -223,6 +223,7 @@ type
     property Items[const aName : string] : string read GetValue write AddOrUpdate;
     function ToArray : TArray<TPairItem>;
     procedure FromArray(aValue : TArray<TPairItem>);
+    procedure Clear;
   end;
 
   EEnvironmentPath = class(Exception);
@@ -1761,6 +1762,11 @@ begin
   fItems := aValue;
 end;
 
+procedure TPairList.Clear;
+begin
+  SetLength(fItems,0);
+end;
+
 { TPairList.TPairEnumerator}
 
 constructor TPairList.TPairEnumerator.Create(var aArray: TArray<TPairItem>);
@@ -1923,4 +1929,5 @@ initialization
 {$ENDIF}
 
 end.
+
 
