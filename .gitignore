@@ -64,3 +64,4 @@ bin
 *.xml
 *.or
 *.or
+/Reports
