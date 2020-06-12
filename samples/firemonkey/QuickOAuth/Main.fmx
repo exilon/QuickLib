@@ -1,0 +1,277 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Quick.OAuth'
+  ClientHeight = 588
+  ClientWidth = 640
+  Fill.Kind = Solid
+  Position = DesktopCenter
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnClose = FormClose
+  DesignerMasterStyle = 0
+  object Label1: TLabel
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 16.000000000000000000
+    Position.Y = 80.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 30.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 14.000000000000000000
+    Text = 'ClientID'
+  end
+  object efClientID: TEdit
+    Touch.InteractiveGestures = [LongTap, DoubleTap]
+    Anchors = [akLeft, akTop, akRight]
+    TextSettings.Font.Size = 14.000000000000000000
+    Position.X = 120.000000000000000000
+    Position.Y = 80.000000000000000000
+    Size.Width = 500.000000000000000000
+    Size.Height = 30.000000000000000000
+    Size.PlatformDefault = False
+    StyledSettings = [Family, Style, FontColor]
+  end
+  object Label2: TLabel
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 16.000000000000000000
+    Position.Y = 138.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 30.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 14.000000000000000000
+    Text = 'SecretID'
+  end
+  object efSecretID: TEdit
+    Touch.InteractiveGestures = [LongTap, DoubleTap]
+    Anchors = [akLeft, akTop, akRight]
+    TextSettings.Font.Size = 14.000000000000000000
+    Position.X = 120.000000000000000000
+    Position.Y = 136.000000000000000000
+    Size.Width = 500.000000000000000000
+    Size.Height = 30.000000000000000000
+    Size.PlatformDefault = False
+    StyledSettings = [Family, Style, FontColor]
+  end
+  object Label3: TLabel
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 16.000000000000000000
+    Position.Y = 189.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 36.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 14.000000000000000000
+    Text = 'Callback URL'
+  end
+  object efCallbackURL: TEdit
+    Touch.InteractiveGestures = [LongTap, DoubleTap]
+    Anchors = [akLeft, akTop, akRight]
+    Text = 'http://127.0.0.1:8889'
+    TextSettings.Font.Size = 14.000000000000000000
+    Position.X = 120.000000000000000000
+    Position.Y = 192.000000000000000000
+    Size.Width = 500.000000000000000000
+    Size.Height = 30.000000000000000000
+    Size.PlatformDefault = False
+    StyledSettings = [Family, Style, FontColor]
+  end
+  object Label5: TLabel
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 120.000000000000000000
+    Position.Y = 296.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 14.000000000000000000
+    Text = 'Access Token:'
+  end
+  object btnAuthorise: TButton
+    Position.X = 16.000000000000000000
+    Position.Y = 256.000000000000000000
+    Size.Width = 97.000000000000000000
+    Size.Height = 35.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Authorise'
+    OnClick = btnAuthoriseClick
+  end
+  object Label6: TLabel
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 120.000000000000000000
+    Position.Y = 344.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 14.000000000000000000
+    Text = 'Expiration:'
+  end
+  object Label7: TLabel
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 120.000000000000000000
+    Position.Y = 392.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 14.000000000000000000
+    Text = 'Refresh Token:'
+  end
+  object btnRefresh: TButton
+    Position.X = 16.000000000000000000
+    Position.Y = 448.000000000000000000
+    Size.Width = 97.000000000000000000
+    Size.Height = 35.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Refresh Token'
+    OnClick = btnRefreshClick
+  end
+  object cbUseExisting: TCheckBox
+    StyledSettings = [Family, Style, FontColor]
+    IsChecked = True
+    Position.X = 120.000000000000000000
+    Position.Y = 264.000000000000000000
+    Size.Width = 137.000000000000000000
+    Size.Height = 19.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Use Existing Token'
+    TextSettings.Font.Size = 14.000000000000000000
+  end
+  object Label4: TLabel
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 120.000000000000000000
+    Position.Y = 488.000000000000000000
+    Size.Width = 100.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 14.000000000000000000
+    Text = 'Access Token:'
+  end
+  object crcAuthorise: TCircle
+    Fill.Color = claRed
+    Position.X = 20.000000000000000000
+    Position.Y = 265.000000000000000000
+    Size.Width = 16.000000000000000000
+    Size.Height = 16.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+  end
+  object crcRefresh: TCircle
+    Fill.Color = claRed
+    Position.X = 92.000000000000000000
+    Position.Y = 497.000000000000000000
+    Size.Width = 16.000000000000000000
+    Size.Height = 16.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+  end
+  object cbMakeTokenExpire: TCheckBox
+    StyledSettings = [Family, Style, FontColor]
+    Position.X = 120.000000000000000000
+    Position.Y = 456.000000000000000000
+    Size.Width = 137.000000000000000000
+    Size.Height = 19.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Make Token Expire'
+    TextSettings.Font.Size = 14.000000000000000000
+  end
+  object RoundRect1: TRoundRect
+    Anchors = [akLeft, akTop, akRight]
+    Fill.Color = claAntiquewhite
+    Position.X = 216.000000000000000000
+    Position.Y = 296.000000000000000000
+    Size.Width = 401.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+    object lbAccessToken: TLabel
+      Align = Client
+      StyledSettings = [Family, Style, FontColor]
+      Margins.Left = 10.000000000000000000
+      Margins.Right = 10.000000000000000000
+      Size.Width = 381.000000000000000000
+      Size.Height = 33.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 14.000000000000000000
+      Text = 'Not retrieved'
+    end
+  end
+  object RoundRect2: TRoundRect
+    Fill.Color = claAntiquewhite
+    Position.X = 216.000000000000000000
+    Position.Y = 344.000000000000000000
+    Size.Width = 65.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+    object lbExpiration: TLabel
+      Align = Client
+      StyledSettings = [Family, Style, FontColor]
+      Margins.Left = 10.000000000000000000
+      Margins.Right = 10.000000000000000000
+      Size.Width = 45.000000000000000000
+      Size.Height = 33.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 14.000000000000000000
+      TextSettings.HorzAlign = Trailing
+      Text = '0'
+    end
+  end
+  object RoundRect3: TRoundRect
+    Anchors = [akLeft, akTop, akRight]
+    Fill.Color = claAntiquewhite
+    Position.X = 216.000000000000000000
+    Position.Y = 392.000000000000000000
+    Size.Width = 401.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+    object lbRefreshToken: TLabel
+      Align = Client
+      StyledSettings = [Family, Style, FontColor]
+      Margins.Left = 10.000000000000000000
+      Margins.Right = 10.000000000000000000
+      Size.Width = 381.000000000000000000
+      Size.Height = 33.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 14.000000000000000000
+      Text = 'Not retrieved'
+    end
+  end
+  object RoundRect4: TRoundRect
+    Anchors = [akLeft, akTop, akRight]
+    Fill.Color = claAntiquewhite
+    Position.X = 216.000000000000000000
+    Position.Y = 488.000000000000000000
+    Size.Width = 401.000000000000000000
+    Size.Height = 33.000000000000000000
+    Size.PlatformDefault = False
+    Stroke.Kind = None
+    object lbReloadedToken: TLabel
+      Align = Client
+      StyledSettings = [Family, Style, FontColor]
+      Margins.Left = 10.000000000000000000
+      Margins.Right = 10.000000000000000000
+      Size.Width = 381.000000000000000000
+      Size.Height = 33.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 14.000000000000000000
+      Text = 'Not retrieved'
+    end
+  end
+  object Label8: TLabel
+    Align = Top
+    StyledSettings = [Family]
+    Margins.Left = 20.000000000000000000
+    Margins.Top = 20.000000000000000000
+    Margins.Right = 20.000000000000000000
+    Position.X = 20.000000000000000000
+    Position.Y = 20.000000000000000000
+    Size.Width = 600.000000000000000000
+    Size.Height = 29.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.Font.Size = 26.000000000000000000
+    TextSettings.Font.StyleExt = {00070000000000000004000000}
+    TextSettings.FontColor = claRed
+    TextSettings.HorzAlign = Center
+    Text = '*** Check the Readme.txt for instructions ***'
+    TabOrder = 1
+  end
+end
