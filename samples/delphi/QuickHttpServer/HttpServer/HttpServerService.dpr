@@ -67,8 +67,7 @@ begin
     begin
       AppService.DisplayName := 'Remote Server';
       AppService.ServiceName := 'RemoteServerSvc';
-      AppServic
-      e.CanInstallWithOtherName := True;
+      AppService.CanInstallWithOtherName := True;
       AppService.OnStart := procedure
                                begin
                                  HttpServer := TMyHttpServer.Create('127.0.0.1',Port,False,nil);
