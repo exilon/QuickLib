@@ -1111,6 +1111,7 @@ begin
       propertyname := rProp.Name;
       {$IFNDEF FPC}
       comment := '';
+      if not rProp.IsReadable then Continue;
       for attr in rProp.GetAttributes do
       begin
         if attr is TNotSerializableProperty then ExcludeSerialize := True
