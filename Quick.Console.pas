@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 23/11/2019
+  Modified    : 05/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -292,6 +292,8 @@ begin
           etWarning : TextColor(ccYellow);
           etDebug : TextColor(ccLightCyan);
           etTrace : TextColor(ccLightMagenta);
+          etCritical : begin TextColor(ccYellow); TextBackground(ccRed); end;
+          etException : TextColor(ccRed);
           else TextColor(ccWhite);
         end;
         {$I-}
