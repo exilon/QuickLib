@@ -5,9 +5,9 @@
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
-  Version     : 1.9
+  Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 02/05/2020
+  Modified    : 05/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -76,14 +76,14 @@ interface
 
 type
 
- TLogEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etTrace);
+ TLogEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etDone, etTrace, etCritical, etException);
  TLogVerbose = set of TLogEventType;
 
 const
   LOG_ONLYERRORS = [etInfo,etError];
   LOG_ERRORSANDWARNINGS = [etInfo,etWarning,etError];
   LOG_TRACE = [etInfo,etError,etWarning,etTrace];
-  LOG_ALL = [etInfo,etSuccess,etWarning,etError,etTrace];
+  LOG_ALL = [etInfo, etSuccess, etWarning, etError, etDebug, etDone, etTrace, etCritical, etException];
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
   {$IFDEF DELPHIXE7_UP}
   EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','TRACE'];
