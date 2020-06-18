@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2020 Kike Pérez
 
   Unit        : Quick.Chrono
   Description : Chronometers time elapsed and estimated time to do a task
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 27/08/2015
-  Modified    : 05/12/2019
+  Modified    : 05/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -88,7 +88,30 @@ const
 
 type
 
-  TChronometer = class
+  IChronometer = interface
+  ['{F742C1AD-69DF-4EAA-AB0D-6E571C887901}']
+    function GetElapsedTicks: Int64;
+    function GetElapsedMilliseconds: Int64;
+    function GetElapsedMillisecondsWithPrecission: Extended;
+    function GetElapsedMilliseconds_BreakPoint: Int64;
+    function GetElapsedMillisecondsWithPrecission_BreakPoint: Extended;
+    function GetElapsedSeconds : Int64;
+    procedure Start;
+    procedure Stop;
+    procedure Reset;
+    procedure Check;
+    procedure BreakPoint;
+    property ElapsedTicks: Int64 read GetElapsedTicks;
+    property ElapsedMilliseconds: Int64 read GetElapsedMilliseconds;
+    property ElapsedMilliseconds_Breakpoint: Int64 read GetElapsedMilliseconds_BreakPoint;
+    property ElapsedMillisecondsWithPrecission: Extended read GetElapsedMillisecondsWithPrecission;
+    property ElapsedMillisecondsWithPrecission_BreakPoint: Extended read GetElapsedMillisecondsWithPrecission_BreakPoint;
+    property ElapsedSeconds: Int64 read GetElapsedSeconds;
+    function ElapsedTime(LongFormat : Boolean = False) : string;
+    function ElapsedTime_BreakPoint(LongFormat : Boolean = False) : string;
+  end;
+
+  TChronometer = class(TInterfacedObject,IChronometer)
   private
     fFrequency: Int64;
     fIsRunning: Boolean;
