@@ -217,7 +217,7 @@ end;
 
 function TChronometer.ElapsedTime_BreakPoint(LongFormat : Boolean = False) : string;
 begin
-  Result := MillisecondsToString(ElapsedMillisecondsWithPrecission_BreakPoint,fReportFormatPrecission,True);
+  Result := MillisecondsToString(ElapsedMillisecondsWithPrecission_BreakPoint,fReportFormatPrecission,LongFormat);
 end;
 
 class function TChronometer.GetUnitTime(TimeValue : TTimeValue; LongFormat : Boolean) : string;
