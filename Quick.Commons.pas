@@ -946,15 +946,19 @@ function GetComputerName : string;
       begin
         try
           phost := AllocMem(256);
-          if gethostname(phost,_SC_HOST_NAME_MAX) = 0 then
-          begin
-            {$IFDEF DEBUG}
-            Result := Copy(Trim(phost),1,Length(Trim(phost)));
-            {$ELSE}
-            Result := Copy(phost,1,Length(phost));
-            {$ENDIF}
-          end
-          else Result := 'N/A.';
+          try
+            if gethostname(phost,_SC_HOST_NAME_MAX) = 0 then
+            begin
+              {$IFDEF DEBUG}
+              Result := Copy(Trim(phost),1,Length(Trim(phost)));
+              {$ELSE}
+              Result := Copy(phost,1,Length(phost));
+              {$ENDIF}
+            end
+            else Result := 'N/A.';
+          finally
+            FreeMem(phost);
+          end;
         except
           Result := 'N/A';
         end;
