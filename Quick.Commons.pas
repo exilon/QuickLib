@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 05/06/2020
+  Modified    : 22/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -945,6 +945,7 @@ function GetComputerName : string;
         phost : PAnsiChar;
       begin
         try
+          phost := AllocMem(256);
           if gethostname(phost,_SC_HOST_NAME_MAX) = 0 then
           begin
             {$IFDEF DEBUG}
