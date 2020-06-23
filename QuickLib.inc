@@ -1,7 +1,7 @@
 ﻿{
     This file is part of QuickLib: https://github.com/exilon/QuickLib
 
-    QuickLibs. Copyright (C) 2019 Kike Pérez
+    QuickLibs. Copyright (C) 2020 Kike Pérez
       Exilon - https://www.exilon.es
 
      ***************************************************************************
@@ -128,6 +128,13 @@
       {$define DELPHIRX103_UP}
 	    {$define DELPHIRIO_UP}
     {$ifend}
+    {$if CompilerVersion >= 33.0} //Delphi RX10.4 Sydney
+      {$define DELPHIRX104_UP}
+	    {$define DELPHISYDNEY_UP}
+      {$if defined(ANDROID) OR defined(LINUX) OR defined(IOS)}
+        {$define NEXTGEN} //compatibility with older delphis
+      {$endif}
+    {$ifend}
   {$else}
     //Delphi 5 or older
     {$define DELPHI6OROLDER}
@@ -151,5 +158,11 @@
 {$endif}
 
 {.$define SHOW_ENVIRONMENTPATH_ERRORS}
+
+//Debug library
+{$IFDEF DEBUG}
+  {$DEFINE DEBUG_SERIALIZER}
+  {$DEFINE DEBUG_HTTPSERVER}
+{$ENDIF}
 
 
