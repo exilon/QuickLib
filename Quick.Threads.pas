@@ -2102,12 +2102,7 @@ begin
         end
         else
         begin
-          if task.IsEnabled then
-          begin
-            //if TScheduledTask(task).ExpireWithSync then Synchronize(ExpireTask)
-            //  else task.DoExpire;
-            if fRemoveTaskAfterExpiration then fTaskList.Remove(task);
-          end;
+          if (not task.IsEnabled) and (fRemoveTaskAfterExpiration) then fTaskList.Remove(task);
         end;
       end;
       task := nil;
