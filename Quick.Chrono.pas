@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 27/08/2015
-  Modified    : 05/06/2020
+  Modified    : 27/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -90,12 +90,14 @@ type
 
   IChronometer = interface
   ['{F742C1AD-69DF-4EAA-AB0D-6E571C887901}']
+    function GetIsRunning : Boolean;
     function GetElapsedTicks: Int64;
     function GetElapsedMilliseconds: Int64;
     function GetElapsedMillisecondsWithPrecission: Extended;
     function GetElapsedMilliseconds_BreakPoint: Int64;
     function GetElapsedMillisecondsWithPrecission_BreakPoint: Extended;
     function GetElapsedSeconds : Int64;
+    property IsRunning: Boolean read GetIsRunning;
     procedure Start;
     procedure Stop;
     procedure Reset;
@@ -129,6 +131,7 @@ type
     function GetElapsedSeconds : Int64;
     class function GetUnitTime(TimeValue : TTimeValue; LongFormat : Boolean) : string;
     class function GetFmtTime(TimeFmt : TTimeFmt; LongFormat : Boolean) : string;
+    function GetIsRunning: Boolean;
   public
     constructor Create(const StartOnCreate: Boolean = false);
     procedure Start;
@@ -137,7 +140,7 @@ type
     procedure Check;
     procedure BreakPoint;
     property IsHighResolution: Boolean read fIsHighResolution;
-    property IsRunning: Boolean read fIsRunning;
+    property IsRunning: Boolean read GetIsRunning;
     property ReportFormatPrecission: TPrecissionFormat read fReportFormatPrecission write fReportFormatPrecission;
     property ElapsedTicks: Int64 read GetElapsedTicks;
     property ElapsedMilliseconds: Int64 read GetElapsedMilliseconds;
@@ -253,6 +256,11 @@ class function TChronometer.GetFmtTime(TimeFmt : TTimeFmt; LongFormat : Boolean)
 begin
   if LongFormat then Result := FmtLongTime[TimeFmt]
     else Result := FmtShortTime[TimeFmt];
+end;
+
+function TChronometer.GetIsRunning: Boolean;
+begin
+  Result := fIsRunning;
 end;
 
 class function TChronometer.MillisecondsToString(aMilliseconds : Int64; LongFormat : Boolean = False) : string;
