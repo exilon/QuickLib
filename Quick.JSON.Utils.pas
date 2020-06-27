@@ -121,8 +121,8 @@ begin
           end;
       end;
     end;
-    isEscape := (c = '\') and not isEscape;
     if not isEscape and (c = '"') then isIntoString := not isIntoString;
+    isEscape := (c = '\') and not isEscape;
   end;
 end;
 
