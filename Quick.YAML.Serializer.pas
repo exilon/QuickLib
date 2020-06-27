@@ -151,10 +151,11 @@ type
   private
     procedure SetUseEnumNames(const Value: Boolean);
     procedure SetUseYamlCaseSense(const Value: Boolean);
+    procedure SetSerializeLevel(const Value: TSerializeLevel);
   public
     constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
     destructor Destroy; override;
-    property SerializeLevel : TSerializeLevel read fSerializeLevel;
+    property SerializeLevel : TSerializeLevel read fSerializeLevel write SetSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
     property UseYamlCaseSense : Boolean read fUseYamlCaseSense write SetUseYamlCaseSense;
     function YamlToObject(aType : TClass; const aYaml: string) : TObject; overload;
@@ -1540,6 +1541,12 @@ begin
   finally
     Yaml.Free;
   end;
+end;
+
+procedure TYamlSerializer.SetSerializeLevel(const Value: TSerializeLevel);
+begin
+  fSerializeLevel := Value;
+  if Assigned(fRTTIYaml) then fRTTIYaml.fSerializeLevel := Value;
 end;
 
 procedure TYamlSerializer.SetUseEnumNames(const Value: Boolean);
