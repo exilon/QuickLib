@@ -618,6 +618,7 @@ begin
       dtNull : Result := nil;
       dtInterface : Result := fDataIntf;
       dtPointer : Result := IInterface(fDataIntf);
+      dtVariant : Result := IInterface(fDataIntf);
       else raise Exception.Create('DataType not supported');
     end;
   except

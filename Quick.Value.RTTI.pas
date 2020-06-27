@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 06/05/2019
-  Modified    : 09/04/2020
+  Modified    : 26/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -69,6 +69,7 @@ type
     function AsType<T : class> : T;
     function AsRecord<T : record> : T;
     function AsArray<T> : TArray<T>;
+    function AsInterfaceEx<T : IInterface> : T; overload;
   end;
 
 implementation
@@ -79,6 +80,11 @@ function TRTTIFlexValue.AsArray<T>: TArray<T>;
 begin
   if DataType <> dtArray then raise Exception.Create('DataType not supported');
   Result := (Self.Data as IValueTValue).Value.AsType<TArray<T>>;
+end;
+
+function TRTTIFlexValue.AsInterfaceEx<T>: T;
+begin
+  Result := T(Self.Data);
 end;
 
 function TRTTIFlexValue.AsRecord<T>: T;
