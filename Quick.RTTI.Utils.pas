@@ -74,7 +74,8 @@ type
     class function GetPropertyValueEx(aInstance: TObject; const aPropertyName: string): TValue;
     {$IFNDEF FPC}
     class function FindClass(const aClassName: string): TClass;
-    class function CreateInstance<T>: T;
+    class function CreateInstance<T>: T; overload;
+    class function CreateInstance(aBaseClass : TClass): TObject; overload;
     {$ENDIF}
   end;
 
@@ -110,6 +111,26 @@ begin
       rinstype := rtype.AsInstance;
       value := rmethod.Invoke(rinstype.MetaclassType,[]);
       Result := value.AsType<T>;
+      Exit;
+    end;
+  end;
+end;
+
+class function TRTTI.CreateInstance(aBaseClass : TClass): TObject;
+var
+  value: TValue;
+  rtype: TRttiType;
+  rmethod: TRttiMethod;
+  rinstype: TRttiInstanceType;
+begin
+  rtype := fCtx.GetType(aBaseClass);
+  for rmethod in rtype.GetMethods do
+  begin
+    if (rmethod.IsConstructor) and (Length(rmethod.GetParameters) = 0) then
+    begin
+      rinstype := rtype.AsInstance;
+      value := rmethod.Invoke(rinstype.MetaclassType,[]);
+      Result := value.AsType<TObject>;
       Exit;
     end;
   end;
