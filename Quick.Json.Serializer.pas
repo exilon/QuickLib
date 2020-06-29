@@ -5,9 +5,9 @@
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
-  Version     : 1.11
+  Version     : 1.12
   Created     : 21/05/2018
-  Modified    : 27/04/2020
+  Modified    : 16/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,6 +34,9 @@ unit Quick.Json.Serializer;
 interface
 
 uses
+  {$IFDEF DEBUG_SERIALIZER}
+    Quick.Debug.Utils,
+  {$ENDIF}
   Classes,
   SysUtils,
   Rtti,
@@ -123,6 +126,8 @@ type
   TSerializeLevel = (slPublicProperty, slPublishedProperty);
 
   TRTTIJson = class
+  type
+    TGenericListType = (gtNone, gtList, gtObjectList);
   private
     fSerializeLevel : TSerializeLevel;
     fUseEnumNames : Boolean;
@@ -130,8 +135,6 @@ type
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
-    function IsGenericList(aObject : TObject) : Boolean;
-    function IsGenericXArray(const aClassName : string) : Boolean;
     function GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
     function GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
     {$IFNDEF FPC}
@@ -144,12 +147,19 @@ type
     function GetPropType(aPropInfo: PPropInfo): PTypeInfo;
     procedure LoadSetProperty(aInstance : TObject; aPropInfo: PPropInfo; const aValue: string);
     {$ENDIF}
+    {$IFNDEF FPC}
+    function CreateInstance(aClass: TClass): TValue; overload;
+    function CreateInstance(aType: TRttiType): TValue; overload;
+    {$ENDIF}
   public
     constructor Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write fUseJsonCaseSense;
     function GetJsonPairValueByName(aJson : TJSONObject; const aName : string) : TJsonValue;
     function GetJsonPairByName(aJson : TJSONObject; const aName : string) : TJSONPair;
+    function IsGenericList(aObject : TObject) : Boolean;
+    function IsGenericXArray(const aClassName : string) : Boolean;
+    function GetGenericListType(aObject : TObject) : TGenericListType;
     //serialize methods
     function SerializeValue(const aValue : TValue) : TJSONValue;
     function SerializeObject(aObject : TObject) : TJSONObject; overload;
@@ -184,10 +194,11 @@ type
   private
     procedure SetUseEnumNames(const Value: Boolean);
     procedure SetUseJsonCaseSense(const Value: Boolean);
+    procedure SetSerializeLevel(const Value: TSerializeLevel);
   public
     constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
     destructor Destroy; override;
-    property SerializeLevel : TSerializeLevel read fSerializeLevel;
+    property SerializeLevel : TSerializeLevel read fSerializeLevel write SetSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write SetUseJsonCaseSense;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
@@ -436,12 +447,50 @@ begin
   fUseJsonCaseSense := False;
 end;
 
+{$IFNDEF FPC}
+function TRTTIJson.CreateInstance(aClass: TClass): TValue;
+var
+  ctx : TRttiContext;
+  rtype : TRttiType;
+begin
+  Result := nil;
+  rtype := ctx.GetType(aClass);
+  Result := CreateInstance(rtype);
+end;
+{$ENDIF}
+
+{$IFNDEF FPC}
+function TRTTIJson.CreateInstance(aType: TRttiType): TValue;
+var
+  rmethod : TRttiMethod;
+begin
+  Result := nil;
+  if atype = nil then Exit;
+  for rmethod in TRttiInstanceType(atype).GetMethods do
+  begin
+    if rmethod.IsConstructor then
+    begin
+      //create if don't have parameters
+      if Length(rmethod.GetParameters) = 0 then
+      begin
+        Result := rmethod.Invoke(TRttiInstanceType(atype).MetaclassType,[]);
+        Break;
+      end;
+    end;
+  end;
+end;
+{$ENDIF}
+
 function TRTTIJson.DeserializeClass(aType: TClass; const aJson: TJSONObject): TObject;
 begin
   Result := nil;
   if (aJson = nil) or ((aJson as TJSONValue) is TJSONNull) or (aJson.Count = 0) then Exit;
 
+  {$IFNDEF FPC}
+  Result := CreateInstance(aType).AsObject;
+  {$ELSE}
   Result := aType.Create;
+  {$ENDIF}
   try
     Result := DeserializeObject(Result,aJson);
   except
@@ -460,6 +509,7 @@ var
   rProp: TRttiProperty;
   {$IFNDEF FPC}
   attr: TCustomAttribute;
+  propvalue : TValue;
   {$ENDIF}
   propertyname : string;
 begin
@@ -468,6 +518,15 @@ begin
   if (aJson = nil) or ((aJson as TJSONValue) is TJSONNull) or (aJson.Count = 0) or (Result = nil) then Exit;
 
   try
+    //if generic list
+    {$IFNDEF FPC}
+    if IsGenericList(aObject) then
+    begin
+      DeserializeList(aObject,'List',aJson);
+      Exit;
+    end;
+    {$ENDIF}
+    //if  standard object
     rType := ctx.GetType(aObject.ClassInfo);
     for rProp in rType.GetProperties do
     begin
@@ -481,17 +540,24 @@ begin
           propertyname := rProp.Name;
           {$IFNDEF FPC}
           for attr in rProp.GetAttributes do if attr is TCustomNameProperty then propertyname := TCustomNameProperty(attr).Name;
+          propvalue := rProp.GetValue(aObject);
           if rProp.Name = 'List' then
           begin
             Result := DeserializeList(Result,propertyname,aJson);
           end
-          else if (rProp.GetValue(aObject).IsObject) and (IsGenericList(rProp.GetValue(aObject).AsObject)) then
+          else if propvalue.IsObject then
           begin
-            DeserializeList(rProp.GetValue(aObject).AsObject,'List',TJSONObject(aJson.GetValue(propertyname)));
+            if propvalue.AsObject = nil then
+            begin
+              propvalue := CreateInstance(rProp.PropertyType);
+              rProp.SetValue(aObject,propvalue);
+            end;
+            if IsGenericList(propvalue.AsObject) then DeserializeList(propvalue.AsObject,'List',TJSONObject(aJson.GetValue(propertyname)))
+              else Result := DeserializeProperty(Result,propertyname,rProp,aJson);
           end
-          else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+          else if IsGenericXArray(propvalue{$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF}) then
           begin
-            DeserializeXArray(Result,rProp.GetValue(aObject),rProp,propertyname,aJson);
+            DeserializeXArray(Result,propvalue,rProp,propertyname,aJson);
           end
           else
           {$ENDIF}
@@ -522,17 +588,27 @@ var
   {$IFNDEF DELPHIRX10_UP}
   rfield : TRttiField;
   {$ENDIF}
+  genericType : TGenericListType;
 begin
   Result := aObject;
 
   rType := ctx.GetType(aObject.ClassInfo);
   rProp := rType.GetProperty('List');
-  if rProp = nil then Exit;
+  if (rProp = nil) or (aJson = nil) or (aJson.ClassType = TJSONNull) then Exit;
 
+  member := nil;
   //check if exists List (denotes delphi json serialized) or not (normal json serialized)
-  member := GetJsonPairValueByName(aJson,aName);
-  if member = nil then jArray := TJSONObject.ParseJSONValue(aJson.ToJSON) as TJSONArray
-    else jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+  if aJson.ClassType = TJSONPair then member := GetJsonPairValueByName(aJson,aName);
+  if member = nil then
+  begin
+    if aJson.ClassType <> TJSONArray then raise EJsonDeserializeError.CreateFmt('Not valid value for "%s" List',[aName]);
+    jArray := TJSONObject.ParseJSONValue(aJson.ToJSON) as TJSONArray;
+  end
+  else
+  begin
+    if member.ClassType <> TJSONArray then raise EJsonDeserializeError.CreateFmt('Not valid value for "%s" List',[aName]);
+    jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
+  end;
   try
     rvalue := DeserializeDynArray(rProp.PropertyType.Handle,Result,jArray);
     //i := jarray.Count;
@@ -545,11 +621,14 @@ begin
     {$IFDEF DELPHIRX10_UP}
     if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
     begin
-      TObjectList<TObject>(aObject).Clear;
+      genericType := GetGenericListType(aObject);
+      if genericType = TGenericListType.gtObjectList then TObjectList<TObject>(aObject).Clear
+        else TList<TObject>(aObject).Clear;
       n := rvalue.GetArrayLength - 1;
       for i := 0 to n do
       begin
-        TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
+        if genericType = TGenericListType.gtObjectList then TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject)
+          else TList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
       end;
     end;
     {$ELSE}
@@ -898,6 +977,18 @@ begin
   Result := (cname.StartsWith('TObjectList')) or (cname.StartsWith('TList'));
 end;
 
+function TRTTIJson.GetGenericListType(aObject : TObject) : TGenericListType;
+var
+  cname : string;
+begin
+  if aObject = nil then Exit(TGenericListType.gtNone);
+
+  cname := aObject.ClassName;
+  if cname.StartsWith('TObjectList') then Result := TGenericListType.gtObjectList
+  else if cname.StartsWith('TList') then Result := TGenericListType.gtList
+  else Result := TGenericListType.gtNone;
+end;
+
 function TRTTIJson.IsGenericXArray(const aClassName : string) : Boolean;
 begin
   Result := aClassName.StartsWith('TXArray');
@@ -1103,6 +1194,14 @@ begin
 
   Result := TJSONObject.Create;
   try
+    //if is GenericList
+    if IsGenericList(aObject) then
+    begin
+      propvalue := GetPropertyValueFromObject(aObject,'List');
+      Result := TJSONObject(SerializeValue(propvalue));
+      Exit;
+    end;
+    //if is standard object
     propertyname := '';
     rType := ctx.GetType(aObject.ClassInfo);
     for rProp in TRTTI.GetProperties(rType,roFirstBase) do
@@ -1527,6 +1626,9 @@ function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObje
 var
   json: TJSONObject;
 begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'JsonToObject',aType.ClassName);
+  {$ENDIF}
   try
     {$IFDEF DELPHIRX10_UP}
     json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
@@ -1549,11 +1651,19 @@ end;
 
 function TJsonSerializer.JsonToObject(aObject: TObject; const aJson: string): TObject;
 var
+  jvalue : TJSONValue;
   json: TJSONObject;
 begin;
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'JsonToObject',aObject.ClassName);
+  {$ENDIF}
   try
     {$IFDEF DELPHIRX10_UP}
-    json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
+    jvalue := TJSONObject.ParseJSONValue(aJson,True);
+    if jvalue.ClassType = TJSONArray then json := TJSONObject(jvalue)
+      else json := jvalue as TJSONObject;
+
+    //json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
     {$ELSE}
      {$IFDEF FPC}
      json := TJSONObject(TJSONObject.ParseJSONValue(aJson,True));
@@ -1575,6 +1685,9 @@ function TJsonSerializer.ObjectToJson(aObject : TObject; aIndent : Boolean = Fal
 var
   json: TJSONObject;
 begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'ObjectToJson',aObject.ClassName);
+  {$ENDIF}
   json := fRTTIJson.SerializeObject(aObject);
   try
     if aIndent then Result := TJsonUtils.JsonFormat(json.ToJSON)
@@ -1588,6 +1701,9 @@ function TJsonSerializer.ObjectToJsonString(aObject : TObject; aIndent : Boolean
 var
   json: TJSONObject;
 begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'ObjectToJsonString',aObject.ClassName);
+  {$ENDIF}
   json := fRTTIJson.SerializeObject(aObject);
   try
     if aIndent then Result := TJsonUtils.JsonFormat(json.ToString)
@@ -1601,6 +1717,9 @@ function TJsonSerializer.ValueToJson(const aValue: TValue; aIndent: Boolean): st
 var
   json: TJSONValue;
 begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'ValueToJson',aValue.ToString);
+  {$ENDIF}
   json:= fRTTIJson.SerializeValue(aValue);
   if json = nil then raise EJsonSerializerError.Create('Error serializing TValue');
   try
@@ -1615,6 +1734,9 @@ function TJsonSerializer.ValueToJsonString(const aValue: TValue; aIndent: Boolea
 var
   json: TJSONValue;
 begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'ValueToJsonString',aValue.ToString);
+  {$ENDIF}
   json:= fRTTIJson.SerializeValue(aValue);
   if json = nil then raise EJsonSerializerError.Create('Error serializing TValue');
   try
@@ -1629,6 +1751,9 @@ function TJsonSerializer.ArrayToJson<T>(aArray: TArray<T>; aIndent: Boolean): st
 var
   json: TJSONValue;
 begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'ArrayToJson','');
+  {$ENDIF}
   json:= fRTTIJson.SerializeValue(TValue.From<TArray<T>>(aArray));
   if json = nil then raise EJsonSerializerError.Create('Error serializing Array');
   try
@@ -1643,6 +1768,9 @@ function TJsonSerializer.ArrayToJsonString<T>(aArray: TArray<T>; aIndent: Boolea
 var
   json: TJSONValue;
 begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'ArrayToJsonString','');
+  {$ENDIF}
   json:= fRTTIJson.SerializeValue(TValue.From<TArray<T>>(aArray));
   if json = nil then raise EJsonSerializerError.Create('Error serializing Array');
   try
@@ -1659,6 +1787,9 @@ var
   jarray: TJSONArray;
   value : TValue;
 begin;
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'JsonToArray','');
+  {$ENDIF}
   try
     {$If Defined(FPC) OR Defined(DELPHIRX10_UP)}
     jarray := TJSONObject.ParseJSONValue(aJson,True) as TJSONArray;
@@ -1681,6 +1812,9 @@ var
   json: TJSONObject;
   value : TValue;
 begin;
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'JsonToValue','');
+  {$ENDIF}
   try
     {$If Defined(FPC) OR Defined(DELPHIRX10_UP)}
     json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
@@ -1698,6 +1832,12 @@ begin;
   end;
 end;
 {$ENDIF}
+
+procedure TJsonSerializer.SetSerializeLevel(const Value: TSerializeLevel);
+begin
+  fSerializeLevel := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.fSerializeLevel := Value;
+end;
 
 procedure TJsonSerializer.SetUseEnumNames(const Value: Boolean);
 begin
