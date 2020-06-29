@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 14/02/2020
+  Modified    : 11/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,7 +34,11 @@ unit Quick.HttpServer;
 interface
 
 uses
+  {$IFDEF DEBUG_HTTPSERVER}
+  Quick.Debug.Utils,
+  {$ENDIF}
   SysUtils,
+  Classes,
   IdHTTPServer,
   IdCustomHTTPServer,
   IdSSLOpenSSL,
@@ -53,12 +57,25 @@ type
   TOnConnectEvent = procedure of object;
   TOnDisconnectEvent = procedure of object;
 
+  TCustomErrorPages = class
+  private
+    fPath : string;
+    fDynamicErrorPage : Boolean;
+    fEnabled : Boolean;
+  public
+    property Path : string read fPath write fPath;
+    property DynamicErrorPage : Boolean read fDynamicErrorPage write fDynamicErrorPage;
+    property Enabled : Boolean read fEnabled write fEnabled;
+  end;
 
   IHttpServer = interface
   ['{3B48198A-49F7-40A5-BBFD-39C78B6FA1EA}']
     procedure SetOnRequest(aRequestEvent : TRequestEvent);
     function GetOnRequest : TRequestEvent;
+    function GetCustomErrorPages: TCustomErrorPages;
+    procedure SetCustomErrorPages(const Value: TCustomErrorPages);
     property OnNewRequest : TRequestEvent read GetOnRequest write SetOnRequest;
+    property CustomErrorPages : TCustomErrorPages read GetCustomErrorPages write SetCustomErrorPages;
     function Logger : ILogger;
     procedure Start;
     procedure Stop;
@@ -69,17 +86,23 @@ type
     fLogger : ILogger;
     fOnConnect : TOnConnectEvent;
     fOnDisconnect : TOnDisconnectEvent;
+    fCustomErrorPages : TCustomErrorPages;
     procedure SetOnRequest(aRequestEvent : TRequestEvent);
     function GetOnRequest : TRequestEvent;
+    function GetCustomErrorPages: TCustomErrorPages;
+    procedure SetCustomErrorPages(const Value: TCustomErrorPages);
   protected
     fOnRequest : TRequestEvent;
     fHost : string;
     fPort : Integer;
     fSSLSecured : Boolean;
+    procedure GetErrorPage(const aURL : string; aResponse : IHttpResponse); virtual;
   public
     constructor Create(const aHost : string; aPort : Integer; aSSLEnabled : Boolean; aLogger : ILogger = nil); virtual;
+    destructor Destroy; override;
     property Host : string read fHost;
     property Port : Integer read fPort;
+    property CustomErrorPages : TCustomErrorPages read GetCustomErrorPages write SetCustomErrorPages;
     property OnNewRequest : TRequestEvent read GetOnRequest write SetOnRequest;
     property OnConnect : TOnConnectEvent read fOnConnect write fOnConnect;
     property OnDisconnect : TOnDisconnectEvent read fOnDisconnect write fOnDisconnect;
@@ -98,9 +121,7 @@ type
     procedure SetResponseInfo(aResponseInfo : TIdHTTPResponseInfo; aResponse : IHttpResponse);
     procedure DoOnQuerySSLPort(aPort: Word; var vUseSSL: Boolean);
     procedure DoConnect(aContext: TIdContext);
-    procedure DoDisconnect;
-    procedure OnConnect(aContext: TIdContext);
-    procedure OnDisconnect;
+    procedure DoDisconnect(aContext: TIdContext);
   protected
     procedure ProcessRequest(aRequest: IHttpRequest; aResponse: IHttpResponse); virtual;
   public
@@ -116,6 +137,10 @@ implementation
 
 constructor TCustomHttpServer.Create(const aHost : string; aPort : Integer; aSSLEnabled : Boolean; aLogger : ILogger = nil);
 begin
+  fCustomErrorPages := TCustomErrorPages.Create;
+  fCustomErrorPages.Path := '.';
+  fCustomErrorPages.DynamicErrorPage := False;
+  fCustomErrorPages.Enabled := False;
   if aHost.IsEmpty then fHost := '127.0.0.1'
     else fHost := aHost;
   {$IFDEF DELPHILINUX}
@@ -130,9 +155,85 @@ begin
   fSSLSecured := aSSLEnabled;
 end;
 
+destructor TCustomHttpServer.Destroy;
+begin
+  fCustomErrorPages.Free;
+  inherited;
+end;
+
+function TCustomHttpServer.GetCustomErrorPages: TCustomErrorPages;
+begin
+  Result := fCustomErrorPages;
+end;
+
+procedure TCustomHttpServer.GetErrorPage(const aURL : string; aResponse : IHttpResponse);
+var
+  filestream : TFileStream;
+  pagestream : TStringStream;
+  pagefilename : string;
+  found : Boolean;
+  content : string;
+begin
+  content := '';
+  found := False;
+  if (fCustomErrorPages.Enabled) then
+  begin
+    pagestream := TStringStream.Create;
+    try
+      //get specific error filename
+      pagefilename := Format('%s\%d.html',[fCustomErrorPages.Path,aResponse.StatusCode]);
+      found := FileExists(pagefilename);
+      //get generic error type filanema
+      if not found then
+      begin
+        pagefilename := Format('%s\%sxx.html',[fCustomErrorPages.Path,(aResponse.StatusCode).ToString[Low(string)]]);
+        found := FileExists(pagefilename);
+      end;
+      //get generic error filename
+      if not found then
+      begin
+        pagefilename := Format('%s\error.html',[fCustomErrorPages.Path]);
+        found := FileExists(pagefilename);
+      end;
+
+      if found then
+      begin
+        filestream := TFileStream.Create(pagefilename,fmShareDenyNone);
+        try
+          pagestream.CopyFrom(filestream,filestream.Size);
+        finally
+          filestream.Free;
+        end;
+        content := pagestream.DataString;
+        if fCustomErrorPages.DynamicErrorPage then
+        begin
+          content := StringReplace(content,'{{URL}}',aURL,[rfReplaceAll,rfIgnoreCase]);
+          content := StringReplace(content,'{{STATUSCODE}}',aResponse.StatusCode.ToString,[rfReplaceAll,rfIgnoreCase]);
+          content := StringReplace(content,'{{STATUSTEXT}}',aResponse.StatusText,[rfReplaceAll,rfIgnoreCase]);
+          content := StringReplace(content,'{{CONTENT}}',aResponse.ContentText,[rfReplaceAll,rfIgnoreCase]);
+        end;
+      end;
+    finally
+      pagestream.Free;
+    end;
+  end;
+
+  if not found then
+  begin
+    aResponse.ContentText := Format('<h2>%d Error: %s</h2>',[aResponse.StatusCode,aResponse.StatusText])
+          + Format('<h4>Message: %s</h4>',[aResponse.ContentText]);
+  end
+  else aResponse.ContentText := content;
+end;
+
 function TCustomHttpServer.GetOnRequest: TRequestEvent;
 begin
   Result := fOnRequest;
+end;
+
+procedure TCustomHttpServer.SetCustomErrorPages(const Value: TCustomErrorPages);
+begin
+  fCustomErrorPages := Value;
 end;
 
 procedure TCustomHttpServer.SetOnRequest(aRequestEvent: TRequestEvent);
@@ -160,8 +261,12 @@ begin
   end;
   if fSSLSecured then fHTTPServer.IOHandler := GetSSLIOHandler;
   fHTTPServer.OnCommandGet := OnGetRequest;
+  fHTTPServer.OnCommandOther := OnGetRequest;
+  fHTTPServer.OnConnect := DoConnect;
+  fHTTPServer.OnDisconnect := DoDisconnect;
   //fHTTPServer.OnExecute := DoConnect;
   fHTTPServer.OnQuerySSLPort := DoOnQuerySSLPort;
+  fHTTPServer.ServerSoftware := 'Quick.HttpServer';
 end;
 
 destructor THTTPServer.Destroy;
@@ -247,11 +352,19 @@ end;
 
 procedure THttpServer.DoConnect(aContext: TIdContext);
 begin
+  {$IFDEF DEBUG_HTTPSERVER}
+  TDebugger.Enter(Self,'DoConnect').TimeIt;
+  {$ENDIF}
+  Logger.Debug('Client connected');
   if Assigned(fOnConnect) then fOnConnect;
 end;
 
-procedure THttpServer.DoDisconnect;
+procedure THttpServer.DoDisconnect(aContext: TIdContext);
 begin
+  {$IFDEF DEBUG_HTTPSERVER}
+  TDebugger.Enter(Self,'DoDisconnect').TimeIt;
+  {$ENDIF}
+  Logger.Debug('Client disconnected!');
   if Assigned(fOnDisconnect) then fOnDisconnect;
 end;
 
@@ -260,21 +373,14 @@ begin
   vUseSSL := (aPort <> 443);
 end;
 
-procedure THTTPServer.OnConnect(aContext: TIdContext);
-begin
-  Logger.Debug('Client connected');
-end;
-
-procedure THTTPServer.OnDisconnect;
-begin
-  Logger.Debug('Client disconnected!');
-end;
-
 procedure THTTPServer.OnGetRequest(aContext: TIdContext; aRequestInfo: TIdHTTPRequestInfo; aResponseInfo: TIdHTTPResponseInfo);
 var
   request : IHttpRequest;
   response : IHttpResponse;
 begin
+  {$IFDEF DEBUG_HTTPSERVER}
+  TDebugger.Enter(Self,Format('OnGetRequest (%s %s)',[aRequestInfo.Command,aRequestInfo.URI])).TimeIt;
+  {$ENDIF}
   Logger.Debug('Request: %s',[aRequestInfo.RawHTTPCommand]);
   request := GetRequestInfo(aRequestInfo);
   response := THttpResponse.Create;
@@ -298,12 +404,11 @@ begin
     end;
   end;
   //check if need return error page
-  if response.StatusCode > 399 then
-  begin
-    response.ContentText := Format('<h2>%d Error: %s</h2>',[response.StatusCode,response.StatusText])
-          + Format('<h4>Message: %s</h4>',[response.ContentText]);
-  end;
+  if response.StatusCode > 399 then GetErrorPage(aRequestInfo.URI,response);
   //return response to client
+  {$IFDEF DEBUG_HTTPSERVER}
+  TDebugger.TimeIt(Self,Format('OnGetRequest (%s)',[aRequestInfo.URI]),'SendResponse');
+  {$ENDIF}
   SetResponseInfo(aResponseInfo,response);
   aResponseInfo.WriteContent;
 end;
