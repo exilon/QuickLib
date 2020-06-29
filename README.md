@@ -20,6 +20,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Filesystem**: Process and Services control, file modify monitors and helpers, etc...
 * **FailControl**: Fail and Retry policies.
 * **Caching:**: Cache string or objects to retrieve fast later.
+* **Templating:** Simple string templating with dictionaries.
 
 **Main units description:**
 
@@ -52,10 +53,12 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Quick.MemoryCache:** Caches objects/info with an expiration time, to avoid generate this info everytime is needed (database queries, hard to calculate info, etc).
 * **Quick.Collections:** Collections improvements like IList and IObjectList with Linq inherited.
 * **Quick.Pooling:** Creation of object pool to avoid external resource consum exhausts and overheads.
+* **Quick.Template:** String template replacing with dictionary or delegate.
 
 
 **Updates:**
 
+* NEW: String Template
 * NEW: RAD Studio 10.4 supported
 * NEW: Collections: IList and IObjectList with linQ support.
 * NEW: Pooling: ObjectPool.
@@ -1111,3 +1114,29 @@ user := ListObj.Where(function(aUser : TUser) : Boolean
     if user <> nil then cout('%s starts with J letter',[user.Name],etInfo);
 ```
 See Quick.Linq section to view more functions allowed.
+
+**Quick.Template:**
+ --
+String template replacing using a dictionary or delegate function. You can specify quoted token chars. 
+
+Replace passing a dictionary:
+```delphi
+dict := TDictionary<string,string>.Create;
+dict.Add('User','John');
+dict.Add('Age','20');
+dict.Add('SurName','Peterson');
+mytemplate := 'User {{User}} {{SurName}} are {{Age}} years old.';
+template := TStringTemplate.Create('{{','}}',dict);
+Result := template.Replace(mytemplate);
+```
+Replace with delegate function:
+```delphi
+mytemplate := 'User {{User}} {{SurName}} are {{Age}} years old.';
+template := TStringTemplate.Create('{{','}}',function(const aToken : string) : string
+  begin
+    if token = 'User' then Result := 'John'
+    else if token = 'Surname' then Result := 'Peterson'
+    else if token = 'Age' then Result := '20';
+  end);
+Result := template.Replace(mytemplate);
+```
