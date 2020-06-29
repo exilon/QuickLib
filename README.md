@@ -60,6 +60,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 
 **Updates:**
 
+* NEW: HttpServer custom and dynamic error pages.
 * NEW: Debug utils
 * NEW: String Template
 * NEW: RAD Studio 10.4 supported
@@ -861,6 +862,7 @@ Now includes and TArray<string> helper to add, remove and search with regular ex
 **Quick.HTTPServer:**
 --
 TCustomHttpServer is a simple interfaced HttpServer with own HttpRequest and HttpResponse implementations to allow easy httpserver engine changes. 
+You can enable custom error pages to return customized pages and dynamic error pages.
 THttpServer is the IndyHttpServer implementation, but you can define your own.
 ```delphi
 TMyHttpServer = class(THttpServer)
