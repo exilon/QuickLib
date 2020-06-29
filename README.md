@@ -21,6 +21,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **FailControl**: Fail and Retry policies.
 * **Caching:**: Cache string or objects to retrieve fast later.
 * **Templating:** Simple string templating with dictionaries.
+* **Debuging:** Utils to debug your code.
 
 **Main units description:**
 
@@ -54,10 +55,12 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Quick.Collections:** Collections improvements like IList and IObjectList with Linq inherited.
 * **Quick.Pooling:** Creation of object pool to avoid external resource consum exhausts and overheads.
 * **Quick.Template:** String template replacing with dictionary or delegate.
+* **Quick.Debug.Utils:** Simple debugging and code benchmark utils.
 
 
 **Updates:**
 
+* NEW: Debug utils
 * NEW: String Template
 * NEW: RAD Studio 10.4 supported
 * NEW: Collections: IList and IObjectList with linQ support.
@@ -1140,3 +1143,80 @@ template := TStringTemplate.Create('{{','}}',function(const aToken : string) : s
   end);
 Result := template.Replace(mytemplate);
 ```
+
+**Quick.Debug.Utils:**
+ --
+Debug utils to check performance and get enter and exit method checkpoint.Define with a Debug a compiler directive to only be active when your app is compiled in debug mode.
+On console apps uses console out by default. You can pass a logger to output in:
+```delphi
+TDebugUtils.SetLogger(ilogger);
+```
+Trace a part of your code:
+```delphi
+function TCalculator.Subs(a, b: Int64): Int64;
+begin
+  {$IFDEF DEBUG}
+  TDebugger.Trace(Self,Format('Substract %d - %d',[a,b]));
+  {$ENDIF}
+  Result := a - b;
+  //simulate working for 200ms
+  Sleep(200);
+end;
+//Returns:
+//29-06-2020 23:31:41.391  [TRACE] TCalculator -> Substract 30 - 12
+```
+Calculate time to process from point to exit function:
+```delphi
+function TCalculator.Sum(a, b: Int64): Int64;
+begin
+  {$IFDEF DEBUG}
+  TDebugger.TimeIt(Self,'Sum',Format('Sum %d + %d',[a,b]));
+  {$ENDIF}
+  Result := a + b;
+  //simulate working for 1 seconds
+  Sleep(1000);
+end;
+//Returns:
+//29-06-2020 22:58:45.808  [CHRONO] TCalculator.Sum -> Sum 100 + 50 = 1,00s
+```
+Calculate time to process from point to point and exit function:
+```delphi
+function TCalculator.Divide(a, b: Int64): Double;
+begin
+  {$IFDEF DEBUG}
+  var crono := TDebugger.TimeIt(Self,'Divide',Format('Divide %d / %d',[a,b]));
+  {$ENDIF}
+  Result := a / b;
+  //simulate working for 500ms
+  Sleep(500);
+  {$IFDEF DEBUG}
+  crono.BreakPoint('Only divide');
+  {$ENDIF}
+  //simulate working for 1 second
+  Sleep(1000);
+  {$IFDEF DEBUG}
+  crono.BreakPoint('Only Sleep');
+  {$ENDIF}
+end;
+//Returns:
+//29-06-2020 23:25:46.223  [CHRONO] TCalculator.Divide -> First point = 500,18ms
+//29-06-2020 23:25:47.224  [CHRONO] TCalculator.Divide -> Second point = 1,00s
+//29-06-2020 23:25:47.225  [CHRONO] TCalculator.Divide -> Divide 10 / 2 = 1,50s
+```
+Get notification when enter and exit function, and times it:
+```delphi
+function TCalculator.Mult(a, b: Int64): Int64;
+begin
+  {$IFDEF DEBUG}
+  TDebugger.Enter(Self,'Mult').TimeIt;
+  {$ENDIF}
+  Result := a * b;
+  //simulate working for 2 seconds
+  Sleep(2000);
+end;
+//Returns:
+//29-06-2020 22:58:45.808  [ENTER] >> TCalculator.Mult
+//29-06-2020 22:58:47.810  [EXIT] >> TCalculator.Mult in 2,00s
+```
+
+
