@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.Threads
   Description : Thread safe collections
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 02/12/2019
+  Modified    : 27/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -265,8 +265,10 @@ type
   IWorkTask = interface(ITask)
     function OnInitialize(aTaskProc : TTaskProc) : IWorkTask;
     function OnException(aTaskProc : TTaskExceptionProc) : IWorkTask;
+    function OnException_Sync(aTaskProc : TTaskExceptionProc) : IWorkTask;
     function OnRetry(aTaskProc : TTaskRetryProc) : IWorkTask;
     function OnTerminated(aTaskProc : TTaskProc) : IWorkTask;
+    function OnTerminated_Sync(aTaskProc : TTaskProc) : IWorkTask;
     function Retry(aMaxRetries : Integer) : IWorkTask;
     function RetryForever : IWorkTask;
     function WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer) : IWorkTask; overload;
@@ -385,7 +387,9 @@ type
   public
     function OnInitialize(aTaskProc : TTaskProc) : IWorkTask;
     function OnException(aTaskProc : TTaskExceptionProc) : IWorkTask; virtual;
+    function OnException_Sync(aTaskProc : TTaskExceptionProc) : IWorkTask; virtual;
     function OnTerminated(aTaskProc : TTaskProc) : IWorkTask; virtual;
+    function OnTerminated_Sync(aTaskProc : TTaskProc) : IWorkTask; virtual;
     function OnRetry(aTaskProc : TTaskRetryProc) : IWorkTask; virtual;
     function Retry(aMaxRetries : Integer) : IWorkTask;
     function RetryForever : IWorkTask;
@@ -1346,6 +1350,12 @@ begin
   Result := Self;
 end;
 
+function TWorkTask.OnException_Sync(aTaskProc: TTaskExceptionProc): IWorkTask;
+begin
+  fExceptionWithSync := True;
+  Result := OnException(aTaskProc);
+end;
+
 function TWorkTask.OnInitialize(aTaskProc: TTaskProc): IWorkTask;
 begin
   fInitializeProc := aTaskProc;
@@ -1362,6 +1372,12 @@ function TWorkTask.OnTerminated(aTaskProc: TTaskProc): IWorkTask;
 begin
   fTerminateProc := aTaskProc;
   Result := Self;
+end;
+
+function TWorkTask.OnTerminated_Sync(aTaskProc: TTaskProc): IWorkTask;
+begin
+  fTerminateWithSync := True;
+  Result := OnTerminated(aTaskProc);
 end;
 
 procedure TWorkTask.Run;
