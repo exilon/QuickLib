@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 01/04/2020
-  Modified    : 28/06/2020
+  Modified    : 30/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -39,8 +39,12 @@ uses
   Quick.Commons;
 
 type
+  {$IFNDEF FPC}
+  TTokenFunc = reference to function(const aToken : string) : string;
+  {$ELSE}
   TTokenFunc = function(const aToken : string) : string of object;
-  
+  {$ENDIF}
+
   TStringTemplate = class
   private
     fVariables : TDictionary<string,string>;
