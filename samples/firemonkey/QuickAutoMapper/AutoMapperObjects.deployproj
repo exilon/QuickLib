@@ -127,6 +127,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_NotificationIcon_36x36.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\res\drawable-hdpi\</RemoteDir>
+            <RemoteName>ic_notification.png</RemoteName>
+            <DeployClass>Android_NotificationIcon36</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\lib\android\debug\mips\libnative-activity.so" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\library\lib\mips\</RemoteDir>
             <RemoteName>libAutoMapperObjects.so</RemoteName>
@@ -149,6 +158,15 @@
             <RemoteDir>AutoMapperObjects\library\lib\armeabi\</RemoteDir>
             <RemoteName>libAutoMapperObjects.so</RemoteName>
             <DeployClass>AndroidLibnativeArmeabiFile</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_NotificationIcon_96x96.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\res\drawable-xxxhdpi\</RemoteDir>
+            <RemoteName>ic_notification.png</RemoteName>
+            <DeployClass>Android_NotificationIcon96</DeployClass>
             <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -181,6 +199,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_NotificationIcon_24x24.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\res\drawable-mdpi\</RemoteDir>
+            <RemoteName>ic_notification.png</RemoteName>
+            <DeployClass>Android_NotificationIcon24</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_LauncherIcon_96x96.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\res\drawable-xhdpi\</RemoteDir>
             <RemoteName>ic_launcher.png</RemoteName>
@@ -190,10 +217,37 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_NotificationIcon_48x48.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\res\drawable-xhdpi\</RemoteDir>
+            <RemoteName>ic_notification.png</RemoteName>
+            <DeployClass>Android_NotificationIcon48</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_NotificationIcon_72x72.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\res\drawable-xxhdpi\</RemoteDir>
+            <RemoteName>ic_notification.png</RemoteName>
+            <DeployClass>Android_NotificationIcon72</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_SplashImage_640x480.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\res\drawable-large\</RemoteDir>
             <RemoteName>splash_image.png</RemoteName>
             <DeployClass>Android_SplashImage640</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="bin\Android\Debug\strings.xml" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\res\values\</RemoteDir>
+            <RemoteName>strings.xml</RemoteName>
+            <DeployClass>Android_Strings</DeployClass>
             <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -253,6 +307,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="bin\Android\Debug\colors.xml" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>AutoMapperObjects\res\values\</RemoteDir>
+            <RemoteName>colors.xml</RemoteName>
+            <DeployClass>Android_Colors</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="bin\Android\Debug\libAutoMapperObjects.so" Condition="'$(Config)'=='Debug'">
             <RemoteDir>AutoMapperObjects\library\lib\armeabi-v7a\</RemoteDir>
             <RemoteName>libAutoMapperObjects.so</RemoteName>
@@ -287,7 +350,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-2048w-2732h@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch2048x2732</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -296,7 +359,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-1668w-2224h@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch1668</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -305,7 +368,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-812h@3x.png</RemoteName>
             <DeployClass>iPhone_Launch1125</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -341,7 +404,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-1668w-2388h@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch1668x2388</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -386,7 +449,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-640w-1136h@2x.png</RemoteName>
             <DeployClass>iPhone_Launch1136x640</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -404,7 +467,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-750w-1334h@2x.png</RemoteName>
             <DeployClass>iPhone_Launch1334</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -413,7 +476,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-736h@3x.png</RemoteName>
             <DeployClass>iPhone_Launch1242</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -422,7 +485,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-667h@2x.png</RemoteName>
             <DeployClass>iPhone_Launch750</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -458,7 +521,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Portrait~ipad.png</RemoteName>
             <DeployClass>iPad_Launch768x1024</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -476,7 +539,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-812h@3x.png</RemoteName>
             <DeployClass>iPhone_Launch2436</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -503,7 +566,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-2048w-2732h@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch2732x2048</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -512,7 +575,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-1668w-2224h@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch2224</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -521,7 +584,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch2048x1536</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -539,7 +602,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape~ipad.png</RemoteName>
             <DeployClass>iPad_Launch1024x768</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -557,7 +620,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-1242w-2688h@3x.png</RemoteName>
             <DeployClass>iPhone_Launch1242x2688</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -594,7 +657,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-828w-1792h@2x.png</RemoteName>
             <DeployClass>iPhone_Launch828</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -648,7 +711,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Portrait@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch1536x2048</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -657,7 +720,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-736h@3x.png</RemoteName>
             <DeployClass>iPhone_Launch2208</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -729,7 +792,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-828w-1792h@2x.png</RemoteName>
             <DeployClass>iPhone_Launch1792</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -756,7 +819,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-1668w-2388h@2x~ipad.png</RemoteName>
             <DeployClass>iPad_Launch2388x1668</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
@@ -774,7 +837,7 @@
             <RemoteDir>AutoMapperObjects.app\</RemoteDir>
             <RemoteName>Default-Landscape-1242w-2688h@3x.png</RemoteName>
             <DeployClass>iPhone_Launch2688x1242</DeployClass>
-            <Operation>0</Operation>
+            <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
