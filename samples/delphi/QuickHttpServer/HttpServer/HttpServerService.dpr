@@ -13,7 +13,7 @@ uses
   Quick.HttpServer,
   Quick.HttpServer.Request,
   Quick.HttpServer.Response,
-  HttpServerService.Logger;
+  HttpServerService.Logger in 'HttpServerService.Logger.pas';
 
 type
   TMyHttpServer = class(THttpServer)
@@ -38,6 +38,10 @@ begin
     //run as console
     Logger := TQuickLogger.Create;
     Logger.Init;
+
+    // Use TCP port 8889 for demo
+    // Otherise, we need to register/open the port
+    Port:=8889;
     if not AppService.IsRunningAsService then
     begin
       //create server
