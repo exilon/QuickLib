@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pérez
 
   Unit        : Quick.SMTP
   Description : Send Emails
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 28/11/2019
+  Modified    : 07/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -212,6 +212,7 @@ begin
       begin
         mBody := TIdText.Create(msg.MessageParts);
         mBody.ContentType := 'text/html';
+        mBody.CharSet:= 'utf-8';
         mBody.Body.Text := aMail.Body;
       end;
       //add attachements if exists
