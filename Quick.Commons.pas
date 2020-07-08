@@ -366,6 +366,8 @@ type
   function RemoveLastChar(const aText : string) : string;
   function DateTimeToSQL(aDateTime : TDateTime) : string;
   function IsInteger(const aValue : string) : Boolean;
+  function IsFloat(const aValue : string) : Boolean;
+  function IsBoolean(const aValue : string) : Boolean;
   //extract a substring and deletes from source string
   function ExtractStr(var vSource : string; aIndex : Integer; aCount : Integer) : string;
   //get first string between string delimiters
@@ -1824,6 +1826,20 @@ var
   i : Integer;
 begin
   Result := TryStrToInt(aValue,i);
+end;
+
+function IsFloat(const aValue : string) : Boolean;
+var
+  e : Extended;
+begin
+  Result := TryStrToFloat(aValue,e);
+end;
+
+function IsBoolean(const aValue : string) : Boolean;
+var
+  b : Boolean;
+begin
+  Result := TryStrToBool(aValue,b);
 end;
 
 function ExtractStr(var vSource : string; aIndex : Integer; aCount : Integer) : string;
