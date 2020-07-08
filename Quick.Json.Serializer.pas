@@ -41,6 +41,7 @@ uses
   SysUtils,
   Rtti,
   TypInfo,
+  Quick.Serializer.Intf,
   {$IFDEF FPC}
    rttiutils,
    fpjson,
@@ -67,6 +68,8 @@ uses
   Quick.JSON.Utils;
 
 type
+
+  IJsonSerializer = ISerializer;
 
   EJsonSerializeError = class(Exception);
   EJsonDeserializeError = class(Exception);
@@ -114,14 +117,6 @@ type
       end;
     {$ENDIF}
   {$ENDIF}
-
-  IJsonSerializer = interface
-  ['{CA26F7AE-F1FE-41BE-9C23-723A687F60D1}']
-    function JsonToObject(aType: TClass; const aJson: string): TObject; overload;
-    function JsonToObject(aObject: TObject; const aJson: string): TObject; overload;
-    function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
-    function ValueToJson(const aValue : TValue; aIndent : Boolean = False) : string;
-  end;
 
   TSerializeLevel = (slPublicProperty, slPublishedProperty);
 
@@ -709,6 +704,7 @@ begin
       case aProperty.PropertyType.TypeKind of
         tkDynArray :
           begin
+            if member is TJSONNull then Exit;
             {$IFNDEF FPC}
             jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
             {$ELSE}
