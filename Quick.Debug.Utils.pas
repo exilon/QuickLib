@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 05/06/2020
-  Modified    : 28/06/2020
+  Modified    : 07/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -36,6 +36,7 @@ interface
 uses
   System.SysUtils,
   Quick.Logger.Intf,
+  Quick.Serializer.Intf,
   Quick.Commons,
   {$IFNDEF NEXTGEN}
   Quick.Console,
@@ -117,6 +118,7 @@ type
   TDebugger = class
   private class var
     fLogger : ILogger;
+    fSerializer : ISerializer;
     fShowTime : Boolean;
   public
     class constructor Create;
@@ -130,6 +132,7 @@ type
     class procedure Trace(aOwner : TObject; const aMsg : string; aParams : array of const); overload;
     class procedure Trace(const aMsg : string); overload;
     class procedure Trace(const aMsg : string; aParams : array of const); overload;
+    class procedure Trace(const aMsg : string; const aObject : TObject); overload;
     class function Enter(aOwner : TObject; const aFunctionName: string) : IDebugMethodEnter;
   end;
 
@@ -139,6 +142,9 @@ type
   {$ENDIF}
 
 implementation
+
+uses
+  Quick.Json.Serializer;
 
 
 {$IFDEF NEXTGEN}
@@ -158,6 +164,7 @@ end;
 
 class constructor TDebugger.Create;
 begin
+  fSerializer := TJsonSerializer.Create(TSerializeLevel.slPublicProperty);
   fLogger := TDebugConsoleLogger.Create;
   fShowTime := True;
 end;
@@ -197,7 +204,8 @@ end;
 
 class procedure TDebugger.Trace(aOwner: TObject; const aMsg: string);
 begin
-  fLogger.Trace(Format('[TRACE] %s -> %s',[aOwner.ClassName,aMsg]));
+  if aOwner <> nil then fLogger.Trace(Format('[TRACE] %s -> %s',[aOwner.ClassName,aMsg]))
+    else fLogger.Trace(Format('[TRACE] -> %s',[aMsg]))
 end;
 
 class procedure TDebugger.Trace(aOwner: TObject; const aMsg: string; aParams: array of const);
@@ -213,6 +221,11 @@ end;
 class procedure TDebugger.Trace(const aMsg: string; aParams: array of const);
 begin
   Self.Trace(Format(aMsg,aParams));
+end;
+
+class procedure TDebugger.Trace(const aMsg: string; const aObject: TObject);
+begin
+  Self.Trace(aMsg + ' ' + fSerializer.ObjectToJson(aObject));
 end;
 
 { TDebugConsoleLogger }
