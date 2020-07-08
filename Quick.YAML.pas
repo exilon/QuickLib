@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 17/04/2019
-  Modified    : 05/02/2020
+  Modified    : 03/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -608,6 +608,7 @@ begin
         else
         begin
           if yvalue is TYamlNull then scalar := 'null'
+          else if (yvalue is TYamlFloat) or (yvalue is TYamlBoolean) then scalar := member.Value.AsString
             else scalar := member.Value.Value.AsString;
           if scalar.IsEmpty then scalar := '""';
           yaml.Writeln(Format('%s%s: %s',[indent,member.Name,scalar]));
@@ -1024,7 +1025,7 @@ end;
 
 function TYamlBoolean.AsString: string;
 begin
-  Result := fValue.ToString(True);
+  Result := BoolToStr(fValue,True).ToLower;
 end;
 
 function TYamlBoolean.Value: TFlexValue;
