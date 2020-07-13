@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 22/06/2020
+  Modified    : 14/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -788,9 +788,12 @@ function NewGuidStr : string;
 var
   guid : TGUID;
 begin
+  {$IFDEF DELPHIRX10_UP}
+  Result := TGUID.NewGuid.ToString;
+  {$ELSE}
   guid.NewGuid;
   Result := guid.ToString
-  //GUIDToString(guid);
+  {$ENDIF}
 end;
 
 function IsLike(cText, Pattern: string) : Boolean;
