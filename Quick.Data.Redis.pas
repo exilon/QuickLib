@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 22/02/2020
-  Modified    : 02/03/2020
+  Modified    : 12/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -62,6 +62,11 @@ type
     property Response : string read GetResponse write SetResponse;
   end;
 
+  TRedisSortedItem = record
+    Value : string;
+    Score : Int64;
+  end;
+
   TRedisClient = class
   private
     fTCPClient : TIdTCPClient;
@@ -92,12 +97,26 @@ type
     property Connected : Boolean read fConnected;
     function RedisSELECT(dbIndex : Integer) : Boolean;
     function RedisSET(const aKey, aValue : string; aTTLMs : Integer = -1) : Boolean;
-    function RedisGET(const aKey : string; var vValue : string) : Boolean;
+    function RedisGET(const aKey : string; out oValue : string) : Boolean;
+    function RedisDEL(const aKey : string) : Boolean;
     function RedisRPUSH(const aKey, aValue : string) : Boolean;
     function RedisLPUSH(const aKey, aValue : string) : Boolean;
+    function RedisRPOP(const aKey : string; out oValue : string) : Boolean;
+    function RedisBRPOP(const aKey: string; out oValue: string; aWaitTimeoutSecs : Integer): Boolean;
+    function RedisLPOP(const aKey : string; out oValue : string) : Boolean;
+    function RedisBLPOP(const aKey: string; out oValue: string; aWaitTimeoutSecs : Integer): Boolean;
+    function RedisBRPOPLPUSH(const aKey, aKeyToMove: string; out oValue: string; aWaitTimeoutSecs : Integer): Boolean;
     function RedisLTRIM(const aKey : string; aFirstElement, aMaxSize : Int64) : Boolean;
     function RedisEXPIRE(const aKey : string; aTTLMs : Integer) : Boolean; overload;
     function RedisEXPIRE(const aKey : string; aExpireDate : TDateTime) : Boolean; overload;
+    function RedisLINDEX(const aKey: string; aIndex: Integer; out oValue : string): Boolean;
+    function RedisLREM(const aKey, aValue: string; aNumOccurrences: Integer): Boolean;
+    function RedisZADD(const aKey, aValue : string; aScore : Int64) : Boolean;
+    function RedisZREM(const aKey, aValue : string) : Boolean;
+    function RedisZRANGE(const aKey : string; aStartPosition, aEndPosition : Int64) : TArray<string>;
+    function RedisZRANGEBYSCORE(const aKey : string; aMinScore, aMaxScore : Int64) : TArray<TRedisSortedItem>;
+    function RedisLLEN(const aKey : string): Integer;
+    function RedisTTL(const aKey, aValue : string): Integer;
     function RedisAUTH(const aPassword : string) : Boolean;
     function RedisPING : Boolean;
     function RedisQUIT : Boolean;
@@ -259,6 +278,7 @@ begin
     if fTCPClient.IOHandler.CheckForDataOnSource(fReadTimeout) then
     begin
       res := fTCPClient.IOHandler.ReadLn;
+
       if not res.IsEmpty then
       case res[Low(res)] of
         '+' :
@@ -284,7 +304,11 @@ begin
             end
             else Result.IsDone := True;
           end;
-        '*' : Result.Response := TrimResponse(res);
+        '*' :
+          begin
+            Result.Response := TrimResponse(res);
+            Result.IsDone := True;
+          end;
       end;
     end;
   except
@@ -307,9 +331,182 @@ begin
   Result := Command('SET','%s "%s" PX %d',[aKey,EscapeString(aValue),aTTLMs]).IsDone;
 end;
 
+function TRedisClient.RedisRPOP(const aKey: string; out oValue: string): Boolean;
+begin
+  Result := False;
+  if Command('RPOP','%s',[aKey]).IsDone then
+  begin
+    oValue := fTCPClient.IOHandler.ReadLn;
+    Result := True;
+  end;
+end;
+
+function TRedisClient.RedisBRPOP(const aKey: string; out oValue: string; aWaitTimeoutSecs : Integer): Boolean;
+var
+  response : IRedisResponse;
+begin
+  Result := False;
+  response := Command('BRPOP','%s %d',[aKey,aWaitTimeoutSecs]);
+  if response.IsDone then
+  begin
+    fTCPClient.IOHandler.ReadLn; //$int
+    fTCPClient.IOHandler.ReadLn; //key
+    fTCPClient.IOHandler.ReadLn; //$int
+    oValue := fTCPClient.IOHandler.ReadLn; //value
+    Result := True;
+  end
+  else raise ERedisCommandError.CreateFmt('BLPOP Error: %s',[response.Response]);
+end;
+
+function TRedisClient.RedisBRPOPLPUSH(const aKey, aKeyToMove: string; out oValue: string; aWaitTimeoutSecs: Integer): Boolean;
+var
+  response : IRedisResponse;
+begin
+  Result := False;
+  response := Command('BRPOPLPUSH','%s %s %d',[aKey,aKeyToMove,aWaitTimeoutSecs]);
+  if response.IsDone then
+  begin
+    oValue := fTCPClient.IOHandler.ReadLn; //value
+    Result := True;
+  end
+  else raise ERedisCommandError.CreateFmt('BRPOPLPUSH Error: %s',[response.Response]);
+end;
+
+function TRedisClient.RedisDEL(const aKey: string): Boolean;
+begin
+  Result := Command('DEL',aKey).IsDone;
+end;
+
+function TRedisClient.RedisLLEN(const aKey : string): Integer;
+var
+  response : IRedisResponse;
+begin
+  Result := 0;
+  response := Command('LLEN',aKey);
+  if response.IsDone then
+  begin
+    Result := response.Response.ToInteger;
+  end;
+end;
+
+function TRedisClient.RedisTTL(const aKey, aValue : string): Integer;
+var
+  response : IRedisResponse;
+begin
+  Result := 0;
+  response := Command('TTL','%s "%s"',[aKey,EscapeString(aValue)]);
+  if response.IsDone then
+  begin
+    Result := response.Response.ToInteger;
+  end;
+end;
+
+function TRedisClient.RedisZADD(const aKey, aValue: string; aScore: Int64): Boolean;
+var
+  response : IRedisResponse;
+begin
+  response := Command('ZADD','%s %d "%s"',[aKey,aScore,EscapeString(aValue)]);
+  if response.IsDone then
+  begin
+    Result := response.Response.ToInteger = 1;
+  end
+  else raise ERedisCommandError.CreateFmt('ZADD %s',[response.Response]);
+end;
+
+function TRedisClient.RedisZRANGE(const aKey: string; aStartPosition, aEndPosition: Int64): TArray<string>;
+var
+  response : IRedisResponse;
+  item : TRedisSortedItem;
+  value : string;
+  score : string;
+  i : Integer;
+begin
+  Result := [];
+  response := Command('ZRANGE','%s %d %d',[aKey,aStartPosition,aEndPosition]);
+  if response.IsDone then
+  begin
+    for i := 1 to (response.Response.ToInteger) do
+    begin
+      fTCPClient.IOHandler.ReadLn; //$int
+      value := fTCPClient.IOHandler.ReadLn; //value
+      Result := Result + [value];
+    end;
+  end
+  else raise ERedisCommandError.CreateFmt('ZRANGE Error: %s',[response.Response]);
+end;
+
+function TRedisClient.RedisZRANGEBYSCORE(const aKey: string; aMinScore, aMaxScore: Int64): TArray<TRedisSortedItem>;
+var
+  response : IRedisResponse;
+  item : TRedisSortedItem;
+  i : Integer;
+  value : string;
+  score : string;
+begin
+  Result := [];
+  response := Command('ZRANGEBYSCORE','%s %d %d WITHSCORES',[aKey,aMinScore,aMaxScore]);
+  if response.IsDone then
+  begin
+    for i := 1 to (response.Response.ToInteger Div 2) do
+    begin
+      fTCPClient.IOHandler.ReadLn; //$int
+      value := fTCPClient.IOHandler.ReadLn; //value
+      fTCPClient.IOHandler.ReadLn; //$int
+      score := fTCPClient.IOHandler.ReadLn; //score
+      item.Value := value;
+      item.Score := score.ToInt64;
+      Result := Result + [item];
+    end;
+  end
+  else raise ERedisCommandError.CreateFmt('ZRANGE Error: %s',[response.Response]);
+end;
+
+function TRedisClient.RedisZREM(const aKey, aValue: string): Boolean;
+var
+  response : IRedisResponse;
+begin
+  response := Command('ZREM','%s "%s"',[aKey,EscapeString(aValue)]);
+  if response.IsDone then
+  begin
+    Result := response.Response.ToInteger = 1;
+  end;
+end;
+
+function TRedisClient.RedisLPOP(const aKey: string; out oValue: string): Boolean;
+begin
+  Result := False;
+  if Command('LPOP','%s',[aKey]).IsDone then
+  begin
+    oValue := fTCPClient.IOHandler.ReadLn;
+    Result := True;
+  end;
+end;
+
+function TRedisClient.RedisBLPOP(const aKey: string; out oValue: string; aWaitTimeoutSecs : Integer): Boolean;
+var
+  response : IRedisResponse;
+begin
+  Result := False;
+  response := Command('BLPOP','%s %d',[aKey,aWaitTimeoutSecs]);
+  if response.IsDone then
+  begin
+    fTCPClient.IOHandler.ReadLn; //$int
+    fTCPClient.IOHandler.ReadLn; //key
+    fTCPClient.IOHandler.ReadLn; //$int
+    oValue := fTCPClient.IOHandler.ReadLn; //value
+    Result := True;
+  end
+  else raise ERedisCommandError.CreateFmt('BLPOP Error: %s',[response.Response]);
+end;
+
 function TRedisClient.RedisLPUSH(const aKey, aValue : string) : Boolean;
 begin
   Result := Command('LPUSH','%s "%s"',[aKey,EscapeString(aValue)]).IsDone;
+end;
+
+function TRedisClient.RedisLREM(const aKey, aValue: string; aNumOccurrences: Integer): Boolean;
+begin
+  Result := Command('LREM','%s "%s" %d',[aKey,EscapeString(aValue),aNumOccurrences * -1]).IsDone;
 end;
 
 function TRedisClient.RedisLTRIM(const aKey : string; aFirstElement, aMaxSize : Int64) : Boolean;
@@ -332,11 +529,25 @@ begin
   Result := Command('PEXPIRE','%s %d',[aKey,aTTLMs]).IsDone;
 end;
 
-function TRedisClient.RedisGET(const aKey: string; var vValue: string): Boolean;
+function TRedisClient.RedisLINDEX(const aKey: string; aIndex: Integer; out oValue : string): Boolean;
+var
+  response : IRedisResponse;
 begin
+  Result := False;
+  response := Command('LINDEX','%s %d',[aKey,aIndex]);
+  if response.IsDone then
+  begin
+    oValue := response.response;
+    Result := True;
+  end;
+end;
+
+function TRedisClient.RedisGET(const aKey: string; out oValue: string): Boolean;
+begin
+  Result := False;
   if Command('GET','%s',[aKey]).IsDone then
   begin
-    vValue := fTCPClient.IOHandler.ReadLn;
+    oValue := fTCPClient.IOHandler.ReadLn;
     Result := True;
   end;
 end;
