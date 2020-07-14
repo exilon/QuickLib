@@ -593,7 +593,7 @@ begin
 
   member := nil;
   //check if exists List (denotes delphi json serialized) or not (normal json serialized)
-  if aJson.ClassType = TJSONPair then member := GetJsonPairValueByName(aJson,aName);
+  if aJson.ClassType = TJSONObject then member := GetJsonPairValueByName(aJson,aName);
   if member = nil then
   begin
     if aJson.ClassType <> TJSONArray then raise EJsonDeserializeError.CreateFmt('Not valid value for "%s" List',[aName]);
