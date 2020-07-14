@@ -159,7 +159,7 @@ type
     function SerializeValue(const aValue : TValue) : TJSONValue;
     function SerializeObject(aObject : TObject) : TJSONObject; overload;
     {$IFNDEF FPC}
-    function SerializeDynArray(const aValue: TValue) : TJsonArray;
+    function SerializeDynArray(const aValue: TValue; aMaxElements : Integer = -1) : TJsonArray;
     function SerializeRecord(const aValue : TValue) : TJSONValue;
     {$ELSE}
     function SerializeObject(aObject : TObject; aType : TTypeKind; const aPropertyName : string) : TJSONPair;
@@ -1193,8 +1193,13 @@ begin
     //if is GenericList
     if IsGenericList(aObject) then
     begin
+      //get list array
       propvalue := GetPropertyValueFromObject(aObject,'List');
+      {$IFDEF DELPHIRX10_UP}
+      Result := TJSONObject(SerializeDynArray(propvalue,TList<TObject>(aObject).Count));
+      {$ELSE}
       Result := TJSONObject(SerializeValue(propvalue));
+      {$ENDIF}
       Exit;
     end;
     //if is standard object
@@ -1226,10 +1231,11 @@ begin
           begin
             propvalue := rProp.GetValue(aObject);
             jpair := TJSONPair.Create(propertyName,nil);
-            if (propvalue.IsObject) and (IsGenericList(propvalue.AsObject)) then
-            begin
-              jpair.JsonValue := SerializeValue(GetPropertyValueFromObject(propvalue.AsObject,'List'));
-            end
+//            if (propvalue.IsObject) and (IsGenericList(propvalue.AsObject)) then
+//            begin
+//              jpair.JsonValue := SerializeValue(GetPropertyValueFromObject(propvalue.AsObject,'List'));
+//            end
+            if propvalue.IsObject then jpair.JsonValue := SerializeObject(propvalue.AsObject)
             {$IFNDEF FPC}
             else if (not propvalue.IsObject) and (IsGenericXArray(propvalue{$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
             begin
@@ -1384,7 +1390,7 @@ begin
 end;
 
 {$IFNDEF FPC}
-function TRTTIJson.SerializeDynArray(const aValue: TValue) : TJsonArray;
+function TRTTIJson.SerializeDynArray(const aValue: TValue; aMaxElements : Integer = -1) : TJsonArray;
 var
   ctx : TRttiContext;
   rDynArray : TRTTIDynamicArrayType;
@@ -1392,14 +1398,20 @@ var
   jValue : TJSONValue;
   element : Integer;
   list : TList<TJSONValue>;
+  len : Integer;
 begin
   element := -1;
   Result := TJSONArray.Create;
   try
     rDynArray := ctx.GetType(aValue.TypeInfo) as TRTTIDynamicArrayType;
+    //if aValue.IsObjectInstance then TList<TObject>(aValue.AsObject).TrimExcess;
+
     list := TList<TJSONValue>.Create;
-    list.Capacity := aValue.GetArrayLength;
-    for i := 0 to aValue.GetArrayLength - 1 do
+    if aMaxElements = -1 then len := aValue.GetArrayLength
+      else len := aMaxElements;
+
+    list.Capacity := len;
+    for i := 0 to len - 1 do
     begin
       if not GetValue(PPByte(aValue.GetReferenceToRawData)^ + rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).IsEmpty then
       begin
@@ -1650,6 +1662,8 @@ var
   jvalue : TJSONValue;
   json: TJSONObject;
 begin;
+  if aObject = nil then raise EJsonDeserializeError.Create('Object param cannot be null!');
+
   {$IFDEF DEBUG_SERIALIZER}
     TDebugger.TimeIt(Self,'JsonToObject',aObject.ClassName);
   {$ENDIF}
