@@ -785,8 +785,10 @@ begin
 end;
 
 function NewGuidStr : string;
+{$IFNDEF DELPHIRX10_UP}
 var
   guid : TGUID;
+{$ENDIF}
 begin
   {$IFDEF DELPHIRX10_UP}
   Result := TGUID.NewGuid.ToString;
