@@ -1503,7 +1503,6 @@ function TYamlSerializer.YamlToObject(aType: TClass; const aYaml: string): TObje
 var
   Yaml: TYamlObject;
 begin
-  Result := nil;
   Yaml := TYamlObject.ParseYamlValue(aYaml) as TYamlObject;
   try
     Result := fRTTIYaml.DeserializeClass(aType,Yaml);
