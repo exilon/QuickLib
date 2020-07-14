@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 03/04/2020
+  Modified    : 14/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -76,6 +76,7 @@ type
     class function FindClass(const aClassName: string): TClass;
     class function CreateInstance<T>: T; overload;
     class function CreateInstance(aBaseClass : TClass): TObject; overload;
+    class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue;
     {$ENDIF}
   end;
 
@@ -123,6 +124,7 @@ var
   rmethod: TRttiMethod;
   rinstype: TRttiInstanceType;
 begin
+  Result := nil;
   rtype := fCtx.GetType(aBaseClass);
   for rmethod in rtype.GetMethods do
   begin
@@ -133,6 +135,25 @@ begin
       Result := value.AsType<TObject>;
       Exit;
     end;
+  end;
+end;
+
+class function TRTTI.CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue;
+var
+  rtype : TRttiType;
+  rmethod : TRttiMethod;
+  rinstype: TRttiInstanceType;
+  value : TValue;
+begin
+  rtype := fCtx.GetType(aObject.ClassInfo);
+  for rmethod in rtype.GetMethods do
+  begin
+    if CompareText(rmethod.Name,aMethodName) = 0 then
+    begin
+      rinstype := rtype.AsInstance;
+      value := rmethod.Invoke(rinstype.MetaclassType,aParams);
+    end;
+
   end;
 end;
 
