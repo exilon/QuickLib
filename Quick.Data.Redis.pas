@@ -34,6 +34,9 @@ unit Quick.Data.Redis;
 interface
 
 uses
+  {$IFDEF DEBUG_REDIS}
+  Quick.Debug.Utils,
+  {$ENDIF}
   System.SysUtils,
   System.DateUtils,
   IdTCPClient,
@@ -83,7 +86,6 @@ type
     function Command(const aCommand : string; const aArguments : string = '') : IRedisResponse; overload;
     function Command(const aCommand, aArgumentsFormat : string; aValues : array of const) : IRedisResponse; overload;
     function EscapeString(const json: string) : string;
-    function IsIntegerResult(const aValue : string) : Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -228,11 +230,6 @@ begin
   end;
 end;
 
-function TRedisClient.IsIntegerResult(const aValue: string): Boolean;
-begin
-  Result := IsInteger(StringReplace(aValue,':','',[]));
-end;
-
 function TRedisClient.EscapeString(const json: string): string;
 begin
   Result := StringReplace(json,'\','\\',[rfReplaceAll]);
@@ -278,7 +275,9 @@ begin
     if fTCPClient.IOHandler.CheckForDataOnSource(fReadTimeout) then
     begin
       res := fTCPClient.IOHandler.ReadLn;
-
+      {$IFDEF DEBUG_REDIS}
+      TDebugger.Trace(Self,Format('Command "%s"',[res]));
+      {$ENDIF}
       if not res.IsEmpty then
       case res[Low(res)] of
         '+' :
@@ -349,20 +348,23 @@ begin
   response := Command('BRPOP','%s %d',[aKey,aWaitTimeoutSecs]);
   if response.IsDone then
   begin
+    //if response.Response = '-1' then Exit;
     fTCPClient.IOHandler.ReadLn; //$int
     fTCPClient.IOHandler.ReadLn; //key
     fTCPClient.IOHandler.ReadLn; //$int
     oValue := fTCPClient.IOHandler.ReadLn; //value
     Result := True;
   end
-  else raise ERedisCommandError.CreateFmt('BLPOP Error: %s',[response.Response]);
+  else
+  begin
+    if not response.Response.IsEmpty then ERedisCommandError.CreateFmt('BRPOP Error: %s',[response.Response]);
+  end;
 end;
 
 function TRedisClient.RedisBRPOPLPUSH(const aKey, aKeyToMove: string; out oValue: string; aWaitTimeoutSecs: Integer): Boolean;
 var
   response : IRedisResponse;
 begin
-  Result := False;
   response := Command('BRPOPLPUSH','%s %s %d',[aKey,aKeyToMove,aWaitTimeoutSecs]);
   if response.IsDone then
   begin
@@ -416,9 +418,7 @@ end;
 function TRedisClient.RedisZRANGE(const aKey: string; aStartPosition, aEndPosition: Int64): TArray<string>;
 var
   response : IRedisResponse;
-  item : TRedisSortedItem;
   value : string;
-  score : string;
   i : Integer;
 begin
   Result := [];
@@ -465,6 +465,7 @@ function TRedisClient.RedisZREM(const aKey, aValue: string): Boolean;
 var
   response : IRedisResponse;
 begin
+  Result := False;
   response := Command('ZREM','%s "%s"',[aKey,EscapeString(aValue)]);
   if response.IsDone then
   begin
@@ -486,7 +487,6 @@ function TRedisClient.RedisBLPOP(const aKey: string; out oValue: string; aWaitTi
 var
   response : IRedisResponse;
 begin
-  Result := False;
   response := Command('BLPOP','%s %d',[aKey,aWaitTimeoutSecs]);
   if response.IsDone then
   begin
