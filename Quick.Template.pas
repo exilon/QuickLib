@@ -107,6 +107,7 @@ begin
   //resolve template
   Result := '';
   idx := 1;
+  st:=0;
   repeat
     st := aTemplate.IndexOf(fQuoteBegin,st) + 1;
     if st > 0 then
