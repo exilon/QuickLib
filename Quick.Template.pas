@@ -65,11 +65,14 @@ type
 
 implementation
 
+uses
+  System.Classes, System.Types;
+
 { TStringTemplate }
 
 constructor TStringTemplate.Create;
 begin
-  
+  raise Exception.Create('Do not use this Constructor');
 end;
 
 constructor TStringTemplate.Create(const aQuoteBegin, aQuoteEnd: string; aVariables: TDictionary<string, string>);
@@ -98,40 +101,55 @@ end;
 
 function TStringTemplate.Replace(const aTemplate : string) : string;
 var
-  idx : Integer;
-  st : Integer;
-  et : Integer;
-  token : string;
-  tokrep : string;
+  idx: Integer;
+  st: Integer;
+  et: Integer;
+  token: string;
+  tokrep: string;
+  tokenArray: array of array [0..1] of integer;
+  arrLen: integer;
 begin
-  //resolve template
-  Result := '';
-  idx := 1;
+  result:='';
   st:=0;
   repeat
-    st := aTemplate.IndexOf(fQuoteBegin,st) + 1;
-    if st > 0 then
+    st:=aTemplate.IndexOf(fQuoteBegin, st);
+    if st > -1 then
     begin
-      et := aTemplate.IndexOf(fQuoteEnd,st) + 1;
-      if et = 0 then Break;
-      Result := Result + Copy(aTemplate,idx,st-idx);
-      token := Copy(aTemplate,st + fBeginOffSet,et-st-fBeginOffSet);
-      //replace token
-      tokrep := '';
-      if fVariables <> nil then
-      begin
-        fVariables.TryGetValue(token,tokrep)
-      end
-      else
-      begin
-        tokrep := fReplaceFunc(token);
-      end;
-      if tokrep.IsEmpty then tokrep := fQuoteBegin + token + '?' + fQuoteEnd;
-      Result := Result + tokrep;
-      idx := et + fEndOffSet;      
+      SetLength(tokenArray, Length(tokenArray) + 1);
+      tokenArray[Length(tokenArray) - 1][0]:=st + fBeginOffSet;
+      st:=st + fBeginOffSet + 1;
+      et:=aTemplate.IndexOf(fQuoteEnd, st);
+      if et = -1 then
+        Break;
+      tokenArray[Length(tokenArray) - 1][1]:=et - 1;
     end;
-  until st = 0;
-  Result := Result + Copy(aTemplate,idx,aTemplate.Length);
+  until st = -1;
+
+  arrLen:=Length(tokenArray);
+  st:=0;
+  for idx := 0 to arrLen - 1 do
+  begin
+    result:=result + aTemplate.Substring(st, tokenArray[idx][0] - fBeginOffSet - st);
+    st:=tokenArray[idx][1] + fEndOffSet + 1;
+    token:=aTemplate.Substring(tokenArray[idx][0], tokenArray[idx][1] - tokenArray[idx][0] + 1);
+    //replace token
+    tokrep := '';
+    if fVariables <> nil then
+    begin
+      fVariables.TryGetValue(token,tokrep)
+    end
+    else
+    begin
+      if Assigned(fReplaceFunc) then
+        tokrep := fReplaceFunc(token);
+    end;
+    if tokrep.IsEmpty then
+      tokrep := fQuoteBegin + token + '?' + fQuoteEnd;
+    Result := Result + tokrep;
+  end;
+  if arrLen > 0 then
+    result:=result + aTemplate.SubString(tokenArray[arrLen - 1][1] + fEndOffSet + 1);
 end;
+
 
 end.
