@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pï¿½rez
 
   Unit        : Quick.SMTP
   Description : Send Emails
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 07/07/2020
+  Modified    : 29/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -58,6 +58,7 @@ type
     fBody : string;
     fCC : string;
     fBCC : string;
+    fReplyTo : string;
     fBodyFromFile : Boolean;
     fAttachments : TStringList;
     procedure SetBody(aValue : string);
@@ -71,6 +72,7 @@ type
     property Body : string read fBody write SetBody;
     property CC : string read fCC write fCC;
     property BCC : string read fBCC write fBCC;
+    property ReplyTo : string read fReplyTo write fReplyTo;
     property Attachments : TStringList read fAttachments write fAttachments;
     procedure AddBodyFromFile(const cFileName : string);
   end;
@@ -89,8 +91,8 @@ type
     property Mail : TMailMessage read fMail write fMail;
     function SendMail: Boolean; overload;
     function SendMail(aMail : TMailMessage) : Boolean; overload;
-    function SendEmail(const aFromEmail,aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean; overload;
-    function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean; overload;
+    function SendEmail(const aFromEmail,aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean; overload;
+    function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean; overload;
   end;
 
 implementation
@@ -149,13 +151,13 @@ begin
   inherited;
 end;
 
-function TSMTP.SendEmail(const aFromEmail, aFromName, aSubject, aTo, aCC, aBC, aBody: string): Boolean;
+function TSMTP.SendEmail(const aFromEmail, aFromName, aSubject, aTo, aCC, aBC, aReplyTo, aBody: string): Boolean;
 begin
   fMail.From := aFromEmail;
-  Result := SendEmail(aFromName,aSubject,aTo,aCC,aBC,aBody);
+  Result := SendEmail(aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody);
 end;
 
-function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aBody : string) : Boolean;
+function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean;
 var
   mail : TMailMessage;
 begin
@@ -170,6 +172,7 @@ begin
     Mail.Recipient := aTo;
     Mail.CC := aCC;
     Mail.BCC := aBC;
+    Mail.ReplyTo := aReplyTo;
     Result := Self.SendMail(mail);
   finally
     mail.Free;
@@ -204,6 +207,7 @@ begin
       for email in aMail.Recipient.Split([',',';']) do msg.Recipients.Add.Address := email;
       for email in aMail.CC.Split([',',';']) do msg.CCList.Add.Address := email;
       for email in aMail.BCC.Split([',',';']) do msg.BCCList.Add.Address := email;
+      for email in aMail.ReplyTo.Split([',',';']) do msg.ReplyTo.Add.Address := email;
       if aMail.fBodyFromFile then
       begin
         msg.Body.LoadFromFile(aMail.Body);
