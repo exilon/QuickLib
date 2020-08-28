@@ -324,8 +324,8 @@ begin
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -379,8 +379,8 @@ begin
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -438,8 +438,8 @@ begin
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -504,8 +504,8 @@ begin
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -566,8 +566,8 @@ begin
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
