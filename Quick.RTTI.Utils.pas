@@ -142,19 +142,14 @@ class function TRTTI.CallMethod(aObject : TObject; const aMethodName : string; a
 var
   rtype : TRttiType;
   rmethod : TRttiMethod;
-  rinstype: TRttiInstanceType;
-  value : TValue;
 begin
-  rtype := fCtx.GetType(aObject.ClassInfo);
-  for rmethod in rtype.GetMethods do
-  begin
-    if CompareText(rmethod.Name,aMethodName) = 0 then
-    begin
-      rinstype := rtype.AsInstance;
-      value := rmethod.Invoke(rinstype.MetaclassType,aParams);
-    end;
-
-  end;
+  result:=nil;
+  rtype := fCtx.GetType(aObject.ClassType);
+  rmethod:=rtype.GetMethod(aMethodName);
+  if assigned(rmethod) then
+    result:=rmethod.invoke(aObject, aParams)
+  else
+    raise ERTTIError.Create('Method ' + aMethodName + ' not found in ' + aObject.ClassName);
 end;
 
 class destructor TRTTI.Destroy;
