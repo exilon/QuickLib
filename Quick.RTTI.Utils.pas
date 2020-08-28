@@ -423,11 +423,13 @@ var
   rfield : TRttiField;
   {$ENDIF}
   lastsegment : Boolean;
+  instance: TObject;
 begin
   if not Assigned(aInstance) then Exit(False);
+  instance:=aInstance;
   lastsegment := False;
   proppath := aPropertyPath;
-  rtype := fCtx.GetType(aInstance.ClassType);
+  rtype := fCtx.GetType(instance.ClassType);
   repeat
     Result := False;
     i := proppath.IndexOf('.');
@@ -461,14 +463,18 @@ begin
       if rprop = nil then Exit
       else
       begin
-        value := rprop.GetValue(aInstance);
+        value := rprop.GetValue(instance);
         Result := True;
       end;
     end;
     if not lastsegment then
     begin
-      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
-        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+      if value.Kind = TTypeKind.tkClass then
+      begin
+        instance:=value.AsObject;
+        rType := fCtx.GetType(instance.ClassType);
+      end
+      else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
     end;
   until lastsegment;
 end;
@@ -485,15 +491,17 @@ var
   rfield : TRttiField;
   {$ENDIF}
   lastsegment : Boolean;
+  instance: TObject;
 begin
   Result := nil;
   if not Assigned(aInstance) then Exit;
 
+  instance:=aInstance;
   lastsegment := False;
   proppath := aPropertyPath;
-  rtype := fCtx.GetType(aInstance.ClassType);
+  rtype := fCtx.GetType(instance.ClassType);
   {$IFDEF FPC}
-  value := aInstance;
+  value := instance;
   {$ENDIF}
   repeat
     i := proppath.IndexOf('.');
@@ -522,7 +530,7 @@ begin
       rprop := rtype.GetProperty(propname);
       if rprop = nil then raise ERTTIError.CreateFmt('Property "%s" not found in object',[propname])
       {$IFNDEF FPC}
-      else value := rprop.GetValue(aInstance);
+      else value := rprop.GetValue(instance);
       {$ELSE}
       else
       begin
@@ -533,8 +541,12 @@ begin
     end;
     if not lastsegment then
     begin
-      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
-        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+      if value.Kind = TTypeKind.tkClass then
+      begin
+        instance:=value.AsObject;
+        rType := fCtx.GetType(instance.ClassType);
+      end
+      else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
     end;
   until lastsegment;
   Result := value;
@@ -552,11 +564,13 @@ var
   rfield : TRttiField;
   {$ENDIF}
   lastsegment : Boolean;
+  instance: TObject;
 begin
   if not Assigned(aInstance) then Exit;
+  instance:=aInstance;
   lastsegment := False;
   proppath := aPropertyPath;
-  rtype := fCtx.GetType(aInstance.ClassType);
+  rtype := fCtx.GetType(instance.ClassType);
   repeat
     i := proppath.IndexOf('.');
     if i > -1 then
@@ -589,14 +603,18 @@ begin
       if rprop = nil then raise ERTTIError.CreateFmt('Property "%s" not found in object',[propname])
       else
       begin
-        if lastsegment then rprop.SetValue(aInstance,aValue)
-          else value := rprop.GetValue(aInstance);
+        if lastsegment then rprop.SetValue(instance,aValue)
+          else value := rprop.GetValue(instance);
       end;
     end;
     if not lastsegment then
     begin
-      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
-        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+      if value.Kind = TTypeKind.tkClass then
+      begin
+        instance:=value.AsObject;
+        rType := fCtx.GetType(instance.ClassType);
+      end
+      else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
     end;
   until lastsegment;
 end;
