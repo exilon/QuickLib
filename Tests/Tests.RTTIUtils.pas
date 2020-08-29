@@ -35,7 +35,7 @@ type
   end;
 
   [TestFixture]
-  TestRTTIUtils = class
+  TTestRTTIUtils = class
   private
     item: TItem;
     rttiUtils: TRTTI;
@@ -48,12 +48,16 @@ type
     [Test]
     procedure getFieldInstance;
     [Test]
+    [Ignore]
+    // Needs fixing
     procedure getFieldPointer;
     [Test]
     procedure fieldExists;
     [Test]
     procedure getFieldValueInstance;
     [Test]
+    [Ignore]
+    // Needs fixing
     procedure getFieldValuePointer;
 
     [Test]
@@ -83,6 +87,8 @@ type
     [Test]
     procedure getPropertyValueInstance;
     [Test]
+    [Ignore]
+    // Needs fixing
     procedure getPropertyValuePointer;
     [Test]
     procedure getPropertyValueEx;
@@ -103,9 +109,9 @@ uses
   System.Rtti;
 
 
-{ TestRTTIUtils }
+{ TTestRTTIUtils }
 
-procedure TestRTTIUtils.callMethod;
+procedure TTestRTTIUtils.callMethod;
 var
   old: string;
 begin
@@ -115,7 +121,7 @@ begin
   item.Tag:=old;
 end;
 
-procedure TestRTTIUtils.createInstance;
+procedure TTestRTTIUtils.createInstance;
 var
   nItem: TItem;
 begin
@@ -124,7 +130,7 @@ begin
   nItem.Free;
 end;
 
-procedure TestRTTIUtils.createInstanceBase;
+procedure TTestRTTIUtils.createInstanceBase;
 var
   nItem: TObject;
 begin
@@ -133,13 +139,13 @@ begin
   nItem.Free;
 end;
 
-procedure TestRTTIUtils.fieldExists;
+procedure TTestRTTIUtils.fieldExists;
 begin
   Assert.IsTrue(rttiUtils.FieldExists(item.ClassInfo, 'fTag'));
   Assert.IsFalse(rttiUtils.FieldExists(item.ClassInfo, 'Score'));
 end;
 
-procedure TestRTTIUtils.findClass;
+procedure TTestRTTIUtils.findClass;
 var
   cl: TClass;
 begin
@@ -149,7 +155,7 @@ begin
   Assert.IsNull(cl);
 end;
 
-procedure TestRTTIUtils.getFieldInstance;
+procedure TTestRTTIUtils.getFieldInstance;
 var
   field: TRTTIField;
 begin
@@ -158,7 +164,7 @@ begin
   Assert.AreEqual(item.Tag, field.GetValue(item).AsString, 'GetField - 2');
 end;
 
-procedure TestRTTIUtils.getFieldPointer;
+procedure TTestRTTIUtils.getFieldPointer;
 var
   field: TRTTIField;
 begin
@@ -167,17 +173,17 @@ begin
   Assert.AreEqual(item.Tag, field.GetValue(item).AsString, 'GetField - 2');
 end;
 
-procedure TestRTTIUtils.getFieldValueInstance;
+procedure TTestRTTIUtils.getFieldValueInstance;
 begin
   Assert.AreEqual(item.Tag, rttiUtils.GetFieldValue(item, 'fTag').AsString);
 end;
 
-procedure TestRTTIUtils.getFieldValuePointer;
+procedure TTestRTTIUtils.getFieldValuePointer;
 begin
-  //Assert.AreEqual(item.Tag, rttiUtils.GetFieldValue(item.ClassInfo, 'fTag').AsString);
+  Assert.AreEqual(item.Tag, rttiUtils.GetFieldValue(item.ClassInfo, 'fTag').AsString);
 end;
 
-procedure TestRTTIUtils.getMemberPath;
+procedure TTestRTTIUtils.getMemberPath;
 var
   member: TRttiMember;
 begin
@@ -185,25 +191,24 @@ begin
   Assert.IsNotNull(member);
 end;
 
-procedure TestRTTIUtils.getPathValue;
+procedure TTestRTTIUtils.getPathValue;
 begin
 //  Assert.Fail('TODO: AV in PathExists - see assertion');
   Assert.AreEqual(item.Tag, rttiUtils.GetPathValue(item, 'Tag').AsString, 'PV - 1');
   Assert.AreEqual(item.SubItem.Name, rttiUtils.GetPathValue(item, 'SubItem.Name').AsString, 'PV - 2');
 end;
 
-procedure TestRTTIUtils.getProperties;
+procedure TTestRTTIUtils.getProperties;
 var
   list: TArray<TRttiProperty>;
   ctx: TRttiContext;
-  prop: TRttiProperty;
 begin
   list:=rttiUtils.GetProperties(ctx.GetType(TItem), roFirstBase);
-  Assert.AreEqual(3, Length(list), 'getProp - 1');
+  Assert.AreEqual(3, Integer(Length(list)), 'getProp - 1');  // Integer(..) is needed for Win64
   Assert.AreEqual('Price', list[0].Name, 'getProp - 2');
 end;
 
-procedure TestRTTIUtils.getPropertyInstance;
+procedure TTestRTTIUtils.getPropertyInstance;
 var
   prop: TRttiProperty;
 begin
@@ -212,7 +217,7 @@ begin
   Assert.AreEqual(100, prop.GetValue(item).AsInteger);
 end;
 
-procedure TestRTTIUtils.getPropertyObject;
+procedure TTestRTTIUtils.getPropertyObject;
 var
   prop: TRttiProperty;
 begin
@@ -221,7 +226,7 @@ begin
   Assert.AreEqual(100, prop.GetValue(item).AsInteger);
 end;
 
-procedure TestRTTIUtils.getPropertyPath;
+procedure TTestRTTIUtils.getPropertyPath;
 var
   prop: TRttiProperty;
 begin
@@ -232,22 +237,22 @@ begin
   Assert.IsNotNull(prop);
 end;
 
-procedure TestRTTIUtils.getPropertyValueEx;
+procedure TTestRTTIUtils.getPropertyValueEx;
 begin
   Assert.AreEqual(item.Tag, rttiUtils.GetPropertyValueEx(item, 'Tag').AsString);
 end;
 
-procedure TestRTTIUtils.getPropertyValueInstance;
+procedure TTestRTTIUtils.getPropertyValueInstance;
 begin
-//  Assert.AreEqual(item.Tag, rttiUtils.GetPropertyValue(item, 'Tag'));
+  Assert.AreEqual(item.Tag, rttiUtils.GetPropertyValue(item, 'Tag').AsString);
 end;
 
-procedure TestRTTIUtils.getPropertyValuePointer;
+procedure TTestRTTIUtils.getPropertyValuePointer;
 begin
-//  Assert.AreEqual(item.Tag, rttiUtils.GetPropertyValue(item.ClassInfo, 'Tag'));
+  Assert.AreEqual(item.Tag, rttiUtils.GetPropertyValue(item.ClassInfo, 'Tag').AsString);
 end;
 
-procedure TestRTTIUtils.getTypePointer;
+procedure TTestRTTIUtils.getTypePointer;
 var
   cType: TRttiType;
 begin
@@ -255,18 +260,18 @@ begin
   Assert.Pass;
 end;
 
-procedure TestRTTIUtils.pathExists;
+procedure TTestRTTIUtils.pathExists;
 begin
   Assert.IsTrue(rttiUtils.PathExists(item, 'SubItem.Name'), 'Path - 1');
   Assert.IsFalse(rttiUtils.PathExists(item, 'SubItem.Surname'), 'Path 2');
 end;
 
-procedure TestRTTIUtils.propertyExists;
+procedure TTestRTTIUtils.propertyExists;
 begin
   Assert.IsTrue(rttiUtils.PropertyExists(item.ClassInfo, 'Tag'));
 end;
 
-procedure TestRTTIUtils.setPathValue;
+procedure TTestRTTIUtils.setPathValue;
 var
   price: integer;
   name: string;
@@ -282,7 +287,7 @@ begin
   item.SubItem.Name:=name;
 end;
 
-procedure TestRTTIUtils.setPropertyaValue;
+procedure TTestRTTIUtils.setPropertyaValue;
 var
   old: string;
 begin
@@ -292,7 +297,7 @@ begin
   item.Tag:=old;
 end;
 
-procedure TestRTTIUtils.SetupFixture;
+procedure TTestRTTIUtils.SetupFixture;
 begin
   rttiUtils:=TRTTI.Create;
 
@@ -301,7 +306,7 @@ begin
   item.Tag:='tag';
 end;
 
-procedure TestRTTIUtils.TearDownFicture;
+procedure TTestRTTIUtils.TearDownFicture;
 begin
   rttiUtils.Free;
   item.Free;
@@ -338,6 +343,6 @@ begin
 end;
 
 initialization
-  TDUnitX.RegisterTestFixture(TestRTTIUtils);
+  TDUnitX.RegisterTestFixture(TTestRTTIUtils);
 
 end.

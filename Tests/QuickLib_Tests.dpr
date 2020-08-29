@@ -10,18 +10,17 @@ uses
   TestInsight.DUnitX,
   {$ELSE}
   DUnitX.Loggers.Console,
-  DUnitX.Loggers.Xml.NUnit,
   {$ENDIF }
   DUnitX.TestFramework,
-  Tests.RTTIUtils in 'Tests.RTTIUtils.pas';
+  Tests.RTTIUtils in 'Tests.RTTIUtils.pas',
+  Tests.RTTIUtils.Attributes in 'Tests.RTTIUtils.Attributes.pas';
 
-{$IFNDEF TESTINSIGHT}
 var
   runner: ITestRunner;
   results: IRunResults;
   logger: ITestLogger;
   nunitLogger : ITestLogger;
-{$ENDIF}
+
 begin
 {$IFDEF TESTINSIGHT}
   TestInsight.DUnitX.RunRegisteredTests;
