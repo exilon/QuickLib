@@ -42,6 +42,8 @@ uses
 type
 
   TRttiPropertyOrder = (roFirstBase, roFirstInherited);
+  TAttributeClass = class of TCustomAttribute;
+  TAttributeValidate = reference to function (const aAttribute: TCustomAttribute): boolean;
 
   TRTTI = class
   private class var
@@ -76,8 +78,16 @@ type
     class function FindClass(const aClassName: string): TClass;
     class function CreateInstance<T>: T; overload;
     class function CreateInstance(aBaseClass : TClass): TObject; overload;
-    class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue;
+    class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue; overload;
     {$ENDIF}
+
+    class function GetAttributes(aInstance: TObject): TArray<TCustomAttribute>;
+
+    class function CallMethod(aObject : TObject; const aAttribute: TAttributeClass; const aParams : array of TValue) : TValue; overload;
+    class function CallMethod(aObject : TObject; const aAttribute: TAttributeClass; validateFunc: TAttributeValidate; const aParams : array of TValue) : TValue; overload;
+
+    class function AttributeExists(aObject: TObject; const aAttribute:
+        TAttributeClass): boolean;
   end;
 
   ERTTIError = class(Exception);
@@ -92,6 +102,23 @@ implementation
 { TRTTIUtils }
 
 {$IFNDEF FPC}
+class function TRTTI.AttributeExists(aObject: TObject; const aAttribute:
+    TAttributeClass): boolean;
+var
+  attr: TCustomAttribute;
+begin
+  result:=false;
+  for attr in GetAttributes(aObject) do
+    if attr.ClassInfo = aAttribute.ClassInfo then
+      Exit(true);
+end;
+
+class function TRTTI.CallMethod(aObject : TObject; const aAttribute:
+    TAttributeClass; const aParams : array of TValue): TValue;
+begin
+  result:=CallMethod(aObject, aAttribute, nil, aParams);
+end;
+
 class constructor TRTTI.Create;
 begin
   fCtx := TRttiContext.Create;
@@ -169,11 +196,26 @@ class function TRTTI.GetField(aInstance: TObject; const aFieldName: string): TRt
 var
   rtype : TRttiType;
 begin
-  Result := nil;
+  result:=GetField(aInstance.ClassInfo, aFieldName);
+end;
+
+class function TRTTI.GetAttributes(
+  aInstance: TObject): TArray<TCustomAttribute>;
+var
+  rtype : TRttiType;
+  method: TRttiMethod;
+  attribute: TCustomAttribute;
+begin
+  SetLength(result, 0);
   rtype := fCtx.GetType(aInstance.ClassInfo);
   if rtype <> nil then
   begin
-    Result := rtype.GetField(aFieldName);
+    for method in rtype.GetMethods do
+      for attribute in method.GetAttributes do
+      begin
+        SetLength(result, Length(result) + 1);
+        result[Length(result) - 1]:=attribute;
+      end;
   end;
 end;
 
@@ -735,5 +777,33 @@ begin
 end;
 {$ENDIF}
 
+
+class function TRTTI.CallMethod(aObject : TObject; const aAttribute:
+    TAttributeClass; validateFunc: TAttributeValidate; const aParams : array of
+    TValue): TValue;
+var
+  rtype : TRttiType;
+  rmethod : TRttiMethod;
+  rattr: TCustomAttribute;
+begin
+  result:=nil;
+  Assert(AttributeExists(aObject, aAttribute));
+  rtype := fCtx.GetType(aObject.ClassType);
+  for rmethod in rtype.GetMethods do
+  begin
+    for rattr in rmethod.GetAttributes do
+      if rattr.ClassInfo = aAttribute.ClassInfo then
+      begin
+        if Assigned(validateFunc) then
+        begin
+          if validateFunc(rattr) then
+            result:=rmethod.Invoke(aObject, aParams);
+        end
+        else
+          result:=rmethod.Invoke(aObject, aParams);
+        break;
+      end;
+  end;
+end;
 
 end.
