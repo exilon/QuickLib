@@ -62,17 +62,26 @@ type
 
     [Test]
     procedure getAttributes;
+
     [Test]
     procedure attributeExists;
+
     [Test]
     procedure callMethod;
+
     [Test]
     [TestCase ('Value - 1', '123')]
     [TestCase ('Value - 2', '1000')]
     procedure callMethodAttributeWithArguments (const aValue: integer);
+
+    [Test]
+    procedure getAttributeMethods;
   end;
 
 implementation
+
+uses
+  System.Rtti;
 
 constructor TAttributeItem.Create;
 begin
@@ -142,6 +151,15 @@ begin
   rttiUtils.CallMethod(attrItem, AttributeParams, validator, []);
   Assert.AreEqual(tag + aValue, attrItem.Tag, 'Call');
   attrItem.Tag:=tag;
+end;
+
+procedure TTestRTTIUtilsAttributes.getAttributeMethods;
+var
+  list: TArray<TRttiMethod>;
+begin
+  list:=rttiUtils.GetAttributeMethods(attrItem, AttributeParams);
+  Assert.AreEqual(2, Length(list), 'Attr - 1');
+  Assert.AreEqual('change123', list[0].Name, 'Attr - 2');
 end;
 
 procedure TTestRTTIUtilsAttributes.getAttributes;

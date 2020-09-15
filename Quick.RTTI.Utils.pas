@@ -82,6 +82,9 @@ type
     {$ENDIF}
 
     class function GetAttributes(aInstance: TObject): TArray<TCustomAttribute>;
+    /// Retrieves a Method with a given Attribute
+    class function GetAttributeMethods(aInstance: TObject; const aAttribute:
+        TAttributeClass): TArray<TRttiMethod>;
 
     class function CallMethod(aObject : TObject; const aAttribute: TAttributeClass; const aParams : array of TValue) : TValue; overload;
     class function CallMethod(aObject : TObject; const aAttribute: TAttributeClass; validateFunc: TAttributeValidate; const aParams : array of TValue) : TValue; overload;
@@ -197,6 +200,29 @@ var
   rtype : TRttiType;
 begin
   result:=GetField(aInstance.ClassInfo, aFieldName);
+end;
+
+class function TRTTI.GetAttributeMethods(aInstance: TObject;
+  const aAttribute: TAttributeClass): TArray<TRttiMethod>;
+var
+  rtype: TRttiType;
+  method: TRttiMethod;
+  attribute: TCustomAttribute;
+begin
+  SetLength(result, 0);
+  rtype := fCtx.GetType(aInstance.ClassInfo);
+  if rtype <> nil then
+  begin
+    for method in rtype.GetMethods do
+      for attribute in method.GetAttributes do
+      begin
+        if attribute is aAttribute then
+        begin
+          SetLength(result, Length(result) + 1);
+          result[Length(result) - 1]:=method;
+        end;
+      end;
+  end;
 end;
 
 class function TRTTI.GetAttributes(
@@ -792,7 +818,7 @@ begin
   for rmethod in rtype.GetMethods do
   begin
     for rattr in rmethod.GetAttributes do
-      if rattr.ClassInfo = aAttribute.ClassInfo then
+      if rattr is aAttribute then
       begin
         if Assigned(validateFunc) then
         begin
