@@ -41,6 +41,7 @@ uses
   Quick.Threads;
 
 type
+  EObjectPool = class(Exception);
 
   IPoolItem<T : class, constructor> = interface
   ['{D52E794B-FDC1-42C1-94BA-823DB74703E4}']
@@ -80,11 +81,15 @@ type
   IObjectPool<T : class, constructor> = interface
   ['{AA856DFB-AE8C-46FE-A107-034677010A58}']
     function GetPoolSize: Integer;
+    procedure SetPoolSize(const aValue: Integer);
+
     function Get : IPoolItem<T>;
-    property PoolSize : Integer read GetPoolSize;
-    function TimeoutMs(aTimeout : Integer) : IObjectPool<T>;
-    function CreateDelegate(aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
-    function AutoFreeIdleItemTimeMs(aIdleTimeMs : Integer) : IObjectPool<T>;
+    function TryGet(var aItem: IPoolItem<T>): boolean;
+    function TimeoutMs(const aTimeout : Integer) : IObjectPool<T>;
+    function CreateDelegate(const aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
+    function AutoFreeIdleItemTimeMs(const aIdleTimeMs : Integer) : IObjectPool<T>;
+
+    property PoolSize: Integer read GetPoolSize write SetPoolSize;
   end;
 
   TObjectPool<T : class, constructor> = class(TInterfacedObject,IObjectPool<T>)
@@ -97,26 +102,34 @@ type
     fSemaphore : TSemaphore;
     fAutoFreeIdleItemTimeMs : Integer;
     fScheduler : TScheduledTasks;
+
+    procedure SetPoolSize(const aValue: Integer);
     function GetPoolSize: Integer;
+
     procedure CreateScheduler;
     procedure CheckForIdleItems;
   public
     constructor Create(aPoolSize : Integer; aAutoFreeIdleItemTimeMs : Integer = 30000; aCreateProc : TCreateDelegator<T> = nil);
     destructor Destroy; override;
     property PoolSize : Integer read GetPoolSize;
-    function TimeoutMs(aTimeout : Integer) : IObjectPool<T>;
-    function CreateDelegate(aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
-    function AutoFreeIdleItemTimeMs(aIdleTimeMs : Integer) : IObjectPool<T>;
+    function TimeoutMs(const aTimeout : Integer) : IObjectPool<T>;
+    function CreateDelegate(const aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
+    function AutoFreeIdleItemTimeMs(const aIdleTimeMs : Integer) : IObjectPool<T>;
     function Get : IPoolItem<T>;
+    function TryGet(var aItem: IPoolItem<T>): boolean;
   end;
 
 implementation
 
 { TObjectPool<T> }
 
-function TObjectPool<T>.AutoFreeIdleItemTimeMs(aIdleTimeMs: Integer): IObjectPool<T>;
+function TObjectPool<T>.AutoFreeIdleItemTimeMs(const aIdleTimeMs : Integer):
+    IObjectPool<T>;
 begin
   fAutoFreeIdleItemTimeMs := aIdleTimeMs;
+  fScheduler.GetTask('IdleCleaner')
+          .RepeatEvery(fAutoFreeIdleItemTimeMs,TTimeMeasure.tmMilliseconds);
+  result:=self;
 end;
 
 constructor TObjectPool<T>.Create(aPoolSize : Integer; aAutoFreeIdleItemTimeMs : Integer = 30000; aCreateProc : TCreateDelegator<T> = nil);
@@ -160,9 +173,11 @@ begin
   end;
 end;
 
-function TObjectPool<T>.CreateDelegate(aCreateProc: TCreateDelegator<T>): IObjectPool<T>;
+function TObjectPool<T>.CreateDelegate(const aCreateProc :
+    TCreateDelegator<T>): IObjectPool<T>;
 begin
   fDelegate := aCreateProc;
+  result:=self;
 end;
 
 destructor TObjectPool<T>.Destroy;
@@ -190,7 +205,8 @@ var
 begin
   Result := nil;
   waitResult := fSemaphore.WaitFor(fWaitTimeoutMs);
-  if waitResult <> TWaitResult.wrSignaled then raise Exception.Create('Connection Pool Timeout: Cannot obtain a connection');
+  if waitResult <> TWaitResult.wrSignaled then
+    raise EObjectPool.Create('Connection Pool Timeout: Cannot obtain a connection');
   fLock.Enter;
   try
     if High(fPool) < fPoolSize then SetLength(fPool,High(fPool)+2);
@@ -218,9 +234,29 @@ begin
   Result := fPoolSize;
 end;
 
-function TObjectPool<T>.TimeoutMs(aTimeout: Integer): IObjectPool<T>;
+procedure TObjectPool<T>.SetPoolSize(const aValue: Integer);
+var
+  waitResult: TWaitResult;
+begin
+  fPoolSize:=aValue;
+  FreeAndNil(fSemaphore);
+  fSemaphore := TSemaphore.Create(nil,fPoolSize,fPoolSize,'');
+end;
+
+function TObjectPool<T>.TimeoutMs(const aTimeout : Integer): IObjectPool<T>;
 begin
   fWaitTimeoutMs := aTimeout;
+  result:=self;
+end;
+
+function TObjectPool<T>.TryGet(var aItem: IPoolItem<T>): boolean;
+begin
+  try
+    aItem:=Get;
+    result:=true;
+  except
+    result:=false;
+  end;
 end;
 
 { TPoolItem<T> }
