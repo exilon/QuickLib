@@ -66,8 +66,8 @@ type
   protected
     fLock : TCriticalSection;
     fSemaphore : TSemaphore;
-    function _AddRef: Integer; stdcall;
-    function _Release: Integer; stdcall;
+//    function _AddRef: Integer; stdcall;
+//    function _Release: Integer; stdcall;
   public
     constructor Create(aSemaphore : TSemaphore; aLock : TCriticalSection; aItemIndex : Integer; aCreateProc : TCreateDelegator<T>);
     destructor Destroy; override;
@@ -261,36 +261,38 @@ function TPoolItem<T>.GetRefCount: Integer;
 begin
   Result := FRefCount;
 end;
-
-function TPoolItem<T>._AddRef: Integer;
-begin
-  fLock.Enter;
-  //writeln('enter');
-  try
-    Inc(FRefCount);
-    Result := FRefCount;
-  finally
-    fLock.Leave;
-  end;
-end;
-
-function TPoolItem<T>._Release: Integer;
-begin
-  fLock.Enter;
+//
+//function TPoolItem<T>._AddRef: Integer;
+//begin
+//  fLock.Enter;
+//  //writeln('enter');
+//  try
+//    Inc(FRefCount);
+//    Result := FRefCount;
+//  finally
+//    fLock.Leave;
+//  end;
+//end;
+//
+//function TPoolItem<T>._Release: Integer;
+//begin
+//  fLock.Enter;
   //writeln('exit');
-  try
-    Dec(fRefCount);
-    Result := fRefCount;
-    if Result = 0 then
-    begin
-      FreeAndNil(fItem);
-      Destroy;
-    end
-    else fLastAccess := Now;
-  finally
-    fLock.Leave;
-    if fRefCount = 1 then fSemaphore.Release;
-  end;
-end;
+//  try
+//    Dec(fRefCount);
+//    Result := fRefCount;
+//    if Result = 0 then
+//    begin
+//      FreeAndNil(fItem);
+//      Destroy;
+//    end
+//    else fLastAccess := Now;
+//    if FRefCount > 0 then
+//      fLastAccess:=Now;
+//  finally
+//    fLock.Leave;
+//    if fRefCount = 1 then fSemaphore.Release;
+//  end;
+//end;
 
 end.
