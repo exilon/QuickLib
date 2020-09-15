@@ -13,7 +13,8 @@ uses
   {$ENDIF }
   DUnitX.TestFramework,
   Tests.RTTIUtils in 'Tests.RTTIUtils.pas',
-  Tests.RTTIUtils.Attributes in 'Tests.RTTIUtils.Attributes.pas';
+  Tests.RTTIUtils.Attributes in 'Tests.RTTIUtils.Attributes.pas',
+  Tests.Pooling in 'Tests.Pooling.pas';
 
 var
   runner: ITestRunner;
@@ -22,6 +23,7 @@ var
   nunitLogger : ITestLogger;
 
 begin
+  ReportMemoryLeaksOnShutDown:=true;
 {$IFDEF TESTINSIGHT}
   TestInsight.DUnitX.RunRegisteredTests;
 {$ELSE}
@@ -65,3 +67,7 @@ begin
   end;
 {$ENDIF}
 end.
+
+
+
+

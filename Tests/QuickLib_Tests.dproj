@@ -87,6 +87,8 @@
         <VerInfo_Locale>2057</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <DCC_Define>TESTINSIGHT;$(DCC_Define)</DCC_Define>
+        <DCC_MapFile>3</DCC_MapFile>
+        <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Android)'!=''">
         <DCC_UsePackage>DBXSqliteDriver;RESTComponents;DBXInterBaseDriver;TMSLogging;emsclientfiredac;tethering;DataSnapFireDAC;bindcompfmx;fmx;FireDACIBDriver;FMXTMSFNCCloudPackPkgDXE13;FireDACDBXDriver;dbexpress;IndyCore;xdata;dsnap;emsclient;DataSnapCommon;FireDACCommon;RESTBackendComponents;soapserver;FMXTMSFNCUIPackPkgDXE13;bindengine;CloudService;FireDACCommonDriver;DataSnapClient;inet;IndyIPCommon;bindcompdbx;IndyIPServer;sparkle;tmsbcl;IndySystem;fmxFireDAC;FMXTMSFNCCorePkgDXE13;FireDAC;FireDACSqliteDriver;ibmonitor;soaprtl;DbxCommonDriver;ibxpress;xmlrtl;soapmidas;DataSnapNativeClient;FireDACDSDriver;rtl;DbxClientDriver;ibxbindings;CustomIPTransport;bindcomp;IndyIPClient;dbxcds;aurelius;dsnapxml;DataSnapProviderClient;dbrtl;IndyProtocols;FMXTMSFNCChartPkgDXE13;$(DCC_UsePackage)</DCC_UsePackage>
@@ -146,6 +148,7 @@
         </DelphiCompile>
         <DCCReference Include="Tests.RTTIUtils.pas"/>
         <DCCReference Include="Tests.RTTIUtils.Attributes.pas"/>
+        <DCCReference Include="Tests.Pooling.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
