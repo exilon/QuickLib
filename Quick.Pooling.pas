@@ -44,7 +44,6 @@ type
   EObjectPool = class(Exception);
 
   IPoolItem<T : class, constructor> = interface
-  ['{D52E794B-FDC1-42C1-94BA-823DB74703E4}']
     function Item : T;
     function GetRefCount : Integer;
     function GetItemIndex : Integer;
@@ -79,7 +78,6 @@ type
   end;
 
   IObjectPool<T : class, constructor> = interface
-  ['{AA856DFB-AE8C-46FE-A107-034677010A58}']
     function GetPoolSize: Integer;
     procedure SetPoolSize(const aValue: Integer);
 
@@ -134,6 +132,7 @@ end;
 
 constructor TObjectPool<T>.Create(aPoolSize : Integer; aAutoFreeIdleItemTimeMs : Integer = 30000; aCreateProc : TCreateDelegator<T> = nil);
 begin
+  inherited Create;
   fLock := TCriticalSection.Create;
   fPoolSize := aPoolSize;
   fWaitTimeoutMs := 30000;
@@ -181,14 +180,14 @@ begin
 end;
 
 destructor TObjectPool<T>.Destroy;
-  var
+var
   i: Integer;
 begin
   fScheduler.Stop;
   fScheduler.Free;
   fLock.Enter;
   try
-    for i := Low(fPool) to High(fPool) do fPool[i] := nil;
+    for i:= Low(fPool) to High(fPool) do fPool[i] := nil;
     SetLength(FPool,0);
   finally
     fLock.Leave;
@@ -235,8 +234,6 @@ begin
 end;
 
 procedure TObjectPool<T>.SetPoolSize(const aValue: Integer);
-var
-  waitResult: TWaitResult;
 begin
   fPoolSize:=aValue;
   FreeAndNil(fSemaphore);
@@ -269,6 +266,7 @@ end;
 
 constructor TPoolItem<T>.Create(aSemaphore : TSemaphore; aLock : TCriticalSection; aItemIndex : Integer; aCreateProc : TCreateDelegator<T>);
 begin
+  inherited Create;
   fLastAccess := Now();
   fItemIndex := aItemIndex;
   if Assigned(aCreateProc) then aCreateProc(fItem)
