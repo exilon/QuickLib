@@ -198,6 +198,7 @@ end;
 
 class procedure TDebugger.SetLogger(aLogger: ILogger);
 begin
+  if aLogger = nil then raise Exception.Create('Debugger logger cannot be nil!');
   fLogger := aLogger;
   fShowTime := False;
 end;
