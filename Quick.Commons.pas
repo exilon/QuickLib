@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 14/07/2020
+  Modified    : 06/08/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -304,6 +304,8 @@ type
   function GetComputerName : string;
   //Changes incorrect delims in path
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
+  //combine paths normalized with delim
+  function CombinePaths(const aFirstPath, aSecondPath: string; aDelim : Char): string;
   //Removes last segment of a path
   function RemoveLastPathSegment(cDir : string) : string;
   //returns path delimiter if found
@@ -386,6 +388,8 @@ type
 
 var
   path : TEnvironmentPath;
+  //Enabled if QuickService is defined
+  IsQuickServiceApp : Boolean;
 
 implementation
 
@@ -983,6 +987,22 @@ function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
 begin
   if Delim = '\' then Result := StringReplace(cPath,'/',Delim,[rfReplaceAll])
     else Result := StringReplace(cPath,'\',Delim,[rfReplaceAll]);
+end;
+
+function CombinePaths(const aFirstPath, aSecondPath: string; aDelim : Char): string;
+begin
+  var path1 := NormalizePathDelim(aFirstPath,aDelim);
+  var path2 := NormalizePathDelim(aSecondPath,aDelim);
+  if path1.EndsWith(aDelim) then
+  begin
+    if path2.StartsWith(aDelim) then Result := path1 + path2.Substring(1)
+      else Result := path1 + path2;
+  end
+  else
+  begin
+     if path2.StartsWith(aDelim) then Result := path1 + path2
+      else result := path1 + aDelim + path2;
+  end;
 end;
 
 function RemoveLastPathSegment(cDir : string) : string;
