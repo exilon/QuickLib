@@ -391,7 +391,8 @@ begin
     on E : Exception do
     begin
       //get unexpected exception
-      if E.ClassType <> EControlledException then
+      if E.InheritsFrom(EControlledException) then response.ContentText := response.ContentText + '<BR>' + e.Message
+      else
       begin
         if response.StatusCode = 200 then
         begin
@@ -399,8 +400,7 @@ begin
           response.StatusText := 'Internal server error';
         end;
         response.ContentText := e.Message;
-      end
-      else response.ContentText := response.ContentText + '<BR>' + e.Message;
+      end;
     end;
   end;
   //check if need return error page
