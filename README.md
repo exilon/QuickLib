@@ -22,6 +22,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Caching:**: Cache string or objects to retrieve fast later.
 * **Templating:** Simple string templating with dictionaries.
 * **Debuging:** Utils to debug your code.
+* **Parameters:** Work with commandline parameters.
 
 **Main units description:**
 
@@ -56,10 +57,12 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Quick.Pooling:** Creation of object pool to avoid external resource consum exhausts and overheads.
 * **Quick.Template:** String template replacing with dictionary or delegate.
 * **Quick.Debug.Utils:** Simple debugging and code benchmark utils.
+* **Quick.Parameters:** Work with commandline parameters like a class.
 
 
 **Updates:**
 
+* NEW: QuickParameters to work with commandline arguments like a class.
 * NEW: HttpServer custom and dynamic error pages.
 * NEW: Debug utils
 * NEW: String Template
@@ -1221,4 +1224,118 @@ end;
 //29-06-2020 22:58:47.810  [EXIT] >> TCalculator.Mult in 2,00s
 ```
 
+**Quick.Parameters:**
+--
+Working with commandline parameters will be easy using commandline extension.
+Define a class inherited from TParameters or TServiceParameters (if working with QuickAppServices) with your possible arguments as published properties:
+```delphi
+uses
+  Quick.Parameters;
+type
+  TCommand = (Copy, Move, Remove);
+  TMyMode = (mdAdd, mdSelect, mdRemove);
+
+  [CommandDescription('Simple console application example with Quick.Parameters')]
+  TMyParameter = class(TParameters)
+  private
+    fCommand : TCommand;
+    fHost : string;
+    fPort : Integer;
+    fRetries : Integer;
+    fUseTCP : Boolean;
+    fConfigFile: string;
+    fSilent: Boolean;
+    fMyMode: TMyMode;
+    fLogErrorsConsole: Boolean;
+    fLogErrors: Boolean;
+    fShowReport: Boolean;
+  published
+    [ParamCommand(1)]
+    [ParamRequired]
+    [ParamHelp('Command action.','command-action')]
+    property Command : TCommand read fCommand write fCommand;
+
+    [ParamName('HostName'),ParamRequired]
+    [ParamHelp('Define host to connect.','host')]
+    property Host : string read fHost write fHost;
+
+    [ParamName('Port','p')]
+    [ParamValueIsNextParam]
+    [ParamHelp('Define Port to connect (default 80)','port')]
+    property Port : Integer read fPort write fPort;
+
+    [ParamHelp('Number of max retries.')]
+    property Retries : Integer read fRetries write fRetries;
+
+    [ParamHelp('Path to config.','path')]
+    [ParamName('Config-file')]
+    property ConfigFile : String read fConfigFile write fConfigFile;
+
+    [ParamHelp('Silent mode.')]
+    property Silent : Boolean read fSilent write fSilent;
+
+    [ParamHelp('Modes (mdAdd, mdSelect, mdRemove)')]
+    property Mode : TMyMode read fMyMode write fMyMode;
+  end;
+
+```
+And pass to de commandline extension:
+```delphi
+services.AddCommandline<TArguments>;
+```
+When you call your exe with --help you get documentation. If you need to check for a switch or value, you can do like this:
+```delphi
+if services.Commandline<TArguments>.Port = 0 then ...
+if services.Commandline<TArguments>.Silent then ...
+```
+QuickParameters uses custom attributes to define special parameter conditions:
+
+- **CommandDescription:** Defines text to describe your application in help documentation.
+
+- **ParamCommand(number):** Defines static position into commandline for single parameters.
+
+- **ParamName(name,alias):** Define a diferent name for parameter. Allows to use special characters not allowed for class properties (like file-name or config.file). Optional Alias argument defines an alternative (normally short name) parameter name.
+
+- **ParamHelp(helptext,valuename):** Defines a commandline help text and value name in usage section.
+
+- **ParamSwitchChar(sign):** Defines string or char to indicate switch or parameter. If not defined, a double dash (--) will be used by default.
+
+- **ParamValueSeparator(sign):** Defines string or char to separate parameter name from value (filename=config.json). If not defined, equal sign (=) will be used by default.
+
+- **ParamValueIsNextParam:** Defines a parameter with a value without value separator (filename c:\config.ini)
+
+- **ParamRequired:** Defines a parameter as required. If param not found, an exception will be raised.
+
+QuickParameter automatically checks for value types. If you define a parameter value as Integer, and pass an alfanumeric, an exception will be raised.
+
+Help customization:
+You can define your own color customization with ColorizeHelp. Enabled property will use custom colors, otherwise b/w will be used.
+```delphi
+Parameters.ColorizeHelp.Enabled := True;
+Parameters.ColorizeHelp.CommandName := ccCyan;
+Parameters.ColorizeHelp.CommandUsage := ccBlue;
+```
+When parameters detects help parameter, help documentation will be showed.
+
+Parameters.ShowHelp: Shows help documentation, generated automatically:
+```
+Parameters v.1.0
+Usage: Parameters <command-action> <--HostName=<host>> [--Port <port>] [--Retries=<value>]
+                  [--Config-file=<path>] [--UseTCP] [--Silent] [--Mode=<value>]
+                  [--ShowReport] [--Help]
+
+Simple console application example with Quick.Parameters
+
+Arguments:
+
+    Command                  Command action.
+  --HostName                 Define host to connect.
+  --Port, -p                 Define Port to connect (default 80)
+  --Retries                  Number of max retries.
+  --Config-file              Path to config.
+  --UseTCP                   Use TCP connection if present.
+  --Silent                   Silent mode.
+  --Mode                     Modes (mdAdd, mdSelect, mdRemove)
+  --Help, -h                 Show this documentation
+```
 

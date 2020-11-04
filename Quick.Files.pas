@@ -224,6 +224,21 @@ type
   end;
   {$ENDIF FPC}
 
+  TDirItem = record
+  private
+    fName : string;
+    fIsDirectory : Boolean;
+    fSize : Int64;
+    fCreationDate : TDateTime;
+    fLastModified : TDateTime;
+  public
+    property Name : string read fName write fName;
+    property IsDirectory : Boolean read fIsDirectory write fIsDirectory;
+    property Size : Int64 read fSize write fSize;
+    property CreationDate : TDateTime read fCreationDate write fCreationDate;
+    property LastModified : TDateTime read fLastModified write fLastModified;
+  end;
+
   function CreateDummyFile(const aFilename : string; const aSize : Int64) : Boolean;
   procedure SplitFile(const aFileName : string; aSplitByteSize : Int64);
   procedure MergeFiles(const aFirstSplitFileName, aOutFileName : string); overload;
@@ -242,7 +257,11 @@ type
   function FindDelimiter(const Delimiters, S: string; StartIdx: Integer = 1): Integer;
   {$ENDIF}
   function ConvertDateTimeToFileTime(const DateTime: TDateTime; const UseLocalTimeZone: Boolean): TFileTime;
+  function ConvertFileTimeToDateTime(const FileTime : TFileTime; const UseLocalTimeZone : Boolean) : TDateTime;
   procedure SetDateTimeInfo(const Path: string; const CreationTime, LastAccessTime, LastWriteTime: PDateTime; const UseLocalTimeZone: Boolean);
+  function GetFiles(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
+  function GetDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
+  function GetFilesAndDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
 
 implementation
 
@@ -731,7 +750,6 @@ var
   i : Integer;
   buf : string;
 Begin
-  Result := False;
   fs := TFileStream.Create(aFilename,fmCreate);
   buf := 'A';
   try
@@ -969,6 +987,7 @@ var
   lft: TFileTime;
   h:   THandle;
 begin
+  Result := 0;
   {$IFDEF FPC}
   h := FindFirstFile(PAnsiChar(aFileName), ffd);
   {$ELSE}
@@ -990,6 +1009,7 @@ var
   lft: TFileTime;
   h:   THandle;
 begin
+  Result := 0;
   {$IFDEF FPC}
   h := FindFirstFile(PAnsiChar(aFileName), ffd);
   {$ELSE}
@@ -1011,6 +1031,7 @@ var
   lft: TFileTime;
   h:   THandle;
 begin
+  Result := 0;
   {$IFDEF FPC}
   h := FindFirstFile(PAnsiChar(aFileName), ffd);
   {$ELSE}
@@ -1123,6 +1144,17 @@ begin
     else
       Result := LFileTime;
 end;
+function ConvertFileTimeToDateTime(const FileTime : TFileTime; const UseLocalTimeZone : Boolean) : TDateTime;
+var
+  dft: DWORD;
+  lft: TFileTime;
+begin
+  FileTimeToLocalFileTime(FileTime, lft);
+  FileTimeToDosDateTime(lft, LongRec(dft).Hi, LongRec(dft).Lo);
+  Result := FileDateToDateTime(dft);
+end;
+
+
 {$ENDIF}
 {$If Defined(FPC) AND Defined(LINUX)}
 function ConvertDateTimeToFileTime(const DateTime: TDateTime; const UseLocalTimeZone: Boolean): TFileTime;
@@ -1255,5 +1287,89 @@ end;
 begin
 end;
 {$ENDIF}
+
+function GetFiles(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
+var
+  rec : TSearchRec;
+  diritem : TDirItem;
+begin
+  if FindFirst(IncludeTrailingPathDelimiter(Path) + '*', faAnyFile, rec) = 0 then
+  try
+    repeat
+      if (rec.Attr and faDirectory) <> faDirectory then
+      begin
+        diritem.Name := rec.Name;
+        diritem.IsDirectory := False;
+        diritem.Size := rec.Size;
+        diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
+        diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        Result := Result + [diritem];
+      end
+      else
+      begin
+        if Recursive then Result := Result + GetFiles(IncludeTrailingPathDelimiter(Path) + diritem.Name,Recursive);
+      end;
+    until FindNext(rec) <> 0;
+  finally
+    SysUtils.FindClose(rec);
+  end;
+end;
+
+function GetDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
+var
+  rec : TSearchRec;
+  diritem : TDirItem;
+begin
+  if FindFirst(IncludeTrailingPathDelimiter(Path) + '*', faAnyFile, rec) = 0 then
+  try
+    repeat
+      if ((rec.Attr and faDirectory) = faDirectory) and (rec.Name <> '.') and (rec.Name <> '..') then
+      begin
+        diritem.Name := rec.Name;
+        diritem.IsDirectory := True;
+        diritem.Size := rec.Size;
+        diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
+        diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        Result := Result + [diritem];
+        if Recursive then Result := Result + GetFiles(IncludeTrailingPathDelimiter(Path) + diritem.Name,Recursive);
+      end;
+    until FindNext(rec) <> 0;
+  finally
+    SysUtils.FindClose(rec);
+  end;
+end;
+
+function GetFilesAndDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
+var
+  rec : TSearchRec;
+  diritem : TDirItem;
+begin
+  if FindFirst(IncludeTrailingPathDelimiter(Path) + '*', faAnyFile, rec) = 0 then
+  try
+    repeat
+      if (rec.Attr and faDirectory) <> faDirectory then
+      begin
+        diritem.Name := rec.Name;
+        diritem.IsDirectory := False;
+        diritem.Size := rec.Size;
+        diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
+        diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        Result := Result + [diritem];
+      end
+      else if (rec.Name <> '.') and (rec.Name <> '..') then
+      begin
+        diritem.Name := rec.Name;
+        diritem.IsDirectory := True;
+        diritem.Size := rec.Size;
+        diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
+        diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        Result := Result + [diritem];
+        if Recursive then Result := Result + GetFiles(IncludeTrailingPathDelimiter(Path) + diritem.Name,Recursive);
+      end;
+    until FindNext(rec) <> 0;
+  finally
+    SysUtils.FindClose(rec);
+  end;
+end;
 
 end.
