@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 18/11/2016
-  Modified    : 21/02/2018
+  Modified    : 11/09/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -28,6 +28,8 @@
  *************************************************************************** }
 
 unit Quick.Amazon;
+
+{$i QuickLib.inc}
 
 interface
 
@@ -111,7 +113,9 @@ type
       function ListBuckets(var amResponseInfo : TAmazonResponseInfo) : TStrings;
       function CreateBucket(amBucket : string; amBucketRegion : TAmazonRegion; amACLType : TAmazonACLAccess; var amResponseInfo : TAmazonResponseInfo) : Boolean;
       function DeleteBucket(amBucket : string; amBucketRegion : TAmazonRegion; var amResponseInfo : TAmazonResponseInfo) : Boolean;
+      {$IFNDEF DELPHISYDNEY_UP}
       class function GetAWSRegion(Region: TAmazonRegion): string; overload;
+      {$ENDIF}
       class function GetAWSRegion(const Region : string) : TAmazonRegion; overload;
   end;
 
@@ -228,7 +232,6 @@ var
   Content : TArray<Byte>;
   CloudResponseInfo : TCloudResponseInfo;
 begin
-  Result := False;
   AmazonS3 := TAmazonStorage.Create(fconAmazon);
   if amBucket = '' then amBucket := '$root';
   CloudResponseInfo := TCloudResponseInfo.Create;
@@ -258,13 +261,16 @@ begin
     try
       //AmazonS3.Timeout := fTimeout;
       CloudResponseInfo := TCloudResponseInfo.Create;
-      //CloudResponseInfo.Headers.AddPair();
-      Content := StreamToArray(cStream);
-      Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
-      amResponseInfo := GetResponseInfo(CloudResponseInfo);
+      try
+        //CloudResponseInfo.Headers.AddPair();
+        Content := StreamToArray(cStream);
+        Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
+        amResponseInfo := GetResponseInfo(CloudResponseInfo);
+      finally
+        CloudResponseInfo.Free;
+      end;
     finally
       AmazonS3.Free;
-      CloudResponseInfo.Free;
       SetLength(Content,0);
       Content := nil;
     end;
@@ -278,7 +284,7 @@ var
   AmazonS3 : TAmazonStorage;
   fs : TFileStream;
   CloudResponseInfo : TCloudResponseInfo;
-  amParams : TAmazonGetObjectOptionals;
+  //amParams : TAmazonGetObjectOptionals;
 begin
   Result := False;
   if amBucket = '' then amBucket := '$root';
@@ -309,7 +315,6 @@ end;
 function TQuickAmazon.GetObject(amBucket, amObjectName : string; var amResponseInfo : TAmazonResponseInfo) : TMemoryStream;
 var
   AmazonS3 : TAmazonStorage;
-  fs : TFileStream;
   CloudResponseInfo : TCloudResponseInfo;
 begin
   Result := TMemoryStream.Create;
@@ -320,14 +325,17 @@ begin
     //AmazonS3.Timeout := fTimeout;
     CloudResponseInfo := TCloudResponseInfo.Create;
     try
-      AmazonS3.GetObject(amBucket,amObjectName,Result,CloudResponseInfo);
-      amResponseInfo := GetResponseInfo(CloudResponseInfo);
-    except
-      Result := nil;
+      try
+        AmazonS3.GetObject(amBucket,amObjectName,Result,CloudResponseInfo);
+        amResponseInfo := GetResponseInfo(CloudResponseInfo);
+      except
+        Result := nil;
+      end;
+    finally
+      CloudResponseInfo.Free;
     end;
   finally
     AmazonS3.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -361,18 +369,20 @@ var
   AmazonS3 : TAmazonStorage;
   CloudResponseInfo : TCloudResponseInfo;
 begin
-  Result := False;
   if amBucket = '' then amBucket := '$root';
   if amObjectName.StartsWith('/') then amObjectName := Copy(amObjectName,2,Length(amObjectName));
   AmazonS3 := TAmazonStorage.Create(fconAmazon);
   try
     //AmazonS3.Timeout := fTimeout;
     CloudResponseInfo := TCloudResponseInfo.Create;
-    Result := AmazonS3.DeleteObject(amBucket,amObjectName,CloudResponseInfo);
-    amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    try
+      Result := AmazonS3.DeleteObject(amBucket,amObjectName,CloudResponseInfo);
+      amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     AmazonS3.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -385,7 +395,6 @@ var
   CloudResponseInfo : TCloudResponseInfo;
   cNextMarker : string;
   amParams : TStrings;
-  a : TAmazonBucketResult;
 begin
   Result := TAmazonObjects.Create(True);
   cNextMarker := '';
@@ -437,7 +446,6 @@ var
   CloudResponseInfo : TCloudResponseInfo;
   cNextMarker : string;
   amParams : TStrings;
-  a : TAmazonBucketResult;
 begin
   Result := TStringList.Create;
   cNextMarker := '';
@@ -510,20 +518,23 @@ begin
   try
     //AmazonS3.Timeout := fTimeout;
     CloudResponseInfo := TCloudResponseInfo.Create;
-    Buckets := AmazonS3.ListBuckets(CloudResponseInfo);
     try
-      Result.Capacity := Buckets.Count;
-      for i := 0 to Buckets.Count -1 do
-      begin
-        Result.Add(Buckets.Names[i]);
+      Buckets := AmazonS3.ListBuckets(CloudResponseInfo);
+      try
+        Result.Capacity := Buckets.Count;
+        for i := 0 to Buckets.Count -1 do
+        begin
+          Result.Add(Buckets.Names[i]);
+        end;
+        amResponseInfo := GetResponseInfo(CloudResponseInfo);
+      finally
+        Buckets.Free;
       end;
-      amResponseInfo := GetResponseInfo(CloudResponseInfo);
     finally
-      Buckets.Free;
+      CloudResponseInfo.Free;
     end;
   finally
     AmazonS3.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -538,11 +549,14 @@ begin
   AmazonS3 := TAmazonStorageService.Create(fconAmazon);
   try
     CloudResponseInfo := TCloudResponseInfo.Create;
-    Result := AmazonS3.CreateBucket(amBucket,amACLType,amBucketRegion,CloudResponseInfo);
-    amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    try
+      Result := AmazonS3.CreateBucket(amBucket,amACLType,amBucketRegion,CloudResponseInfo);
+      amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     AmazonS3.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -557,11 +571,14 @@ begin
   AmazonS3 := TAmazonStorageService.Create(fconAmazon);
   try
     CloudResponseInfo := TCloudResponseInfo.Create;
-    Result := AmazonS3.DeleteBucket(amBucket,CloudResponseInfo,amBucketRegion);
-    amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    try
+      Result := AmazonS3.DeleteBucket(amBucket,CloudResponseInfo,amBucketRegion);
+      amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     AmazonS3.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -570,9 +587,11 @@ begin
   Result := TAmazonStorageService.GetRegionFromString(Region);
 end;
 
+{$IFNDEF DELPHISYDNEY_UP}
 class function TQuickAmazon.GetAWSRegion(Region: TAmazonRegion): string;
 begin
   Result := TAmazonStorageService.GetRegionString(Region);
 end;
+{$ENDIF}
 
 end.

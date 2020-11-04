@@ -188,6 +188,7 @@ begin
   fStatus := TSvcStatus.ssStopped;
   fCanInstallWithOtherName := False;
   fOnExecute := nil;
+  IsQuickServiceApp := True;
 end;
 
 destructor TAppService.Destroy;

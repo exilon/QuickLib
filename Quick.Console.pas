@@ -169,6 +169,7 @@ type
   procedure cout(const cMsg : Double; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : string; cEventType : TLogEventType); overload;
   procedure cout(const cMsg : string; cColor : TConsoleColor); overload;
+  procedure coutSL(const cMsg : string; cColor : TConsoleColor);
   procedure cout(const cMsg : string; params : array of const; cEventType : TLogEventType); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; cEventType : TLogEventType); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor); overload;
@@ -319,6 +320,25 @@ begin
       TextColor(cColor);
       {$I-}
       Writeln(cMsg{$IFDEF LINUX} +#13{$ENDIF});
+      {$I+}
+      TextColor(LastMode);
+    end;
+  finally
+    LeaveCriticalSection(CSConsole);
+  end;
+end;
+
+procedure coutSL(const cMsg : string; cColor : TConsoleColor);
+begin
+  EnterCriticalSection(CSConsole);
+  try
+    {$IFDEF MSWINDOWS}
+      if hStdOut <> 0 then
+    {$ENDIF}
+    begin
+      TextColor(cColor);
+      {$I-}
+      Write(cMsg{$IFDEF LINUX} +#13{$ENDIF});
       {$I+}
       TextColor(LastMode);
     end;
