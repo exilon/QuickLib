@@ -277,7 +277,7 @@ type
   //returns n times a char
   function FillStr(const C : Char; const Count : Integer) : string;
   //checks if string exists in array of string
-  function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+  function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
   //checks if integer exists in array of integer
   function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
   //check if array is empty
@@ -731,13 +731,20 @@ begin
 end;
 
 
-function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
 var
   s : string;
 begin
   for s in aInArray do
   begin
-    if s = aValue then Exit(True);
+    if aCaseSensitive then
+    begin
+      if s = aValue then Exit(True);
+    end
+    else
+    begin
+      if CompareText(aValue,s) = 0 then Exit(True);
+    end;
   end;
   Result := False;
 end;
