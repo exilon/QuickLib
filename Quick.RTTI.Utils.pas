@@ -42,6 +42,8 @@ uses
 type
 
   TRttiPropertyOrder = (roFirstBase, roFirstInherited);
+  TAttributeClass = class of TCustomAttribute;
+  TAttributeValidate = reference to function (const aAttribute: TCustomAttribute): boolean;
 
   TRTTI = class
   private class var
@@ -76,8 +78,19 @@ type
     class function FindClass(const aClassName: string): TClass;
     class function CreateInstance<T>: T; overload;
     class function CreateInstance(aBaseClass : TClass): TObject; overload;
-    class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue;
+    class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue; overload;
     {$ENDIF}
+
+    class function GetAttributes(aInstance: TObject): TArray<TCustomAttribute>;
+    /// Retrieves a Method with a given Attribute
+    class function GetAttributeMethods(aInstance: TObject; const aAttribute:
+        TAttributeClass): TArray<TRttiMethod>;
+
+    class function CallMethod(aObject : TObject; const aAttribute: TAttributeClass; const aParams : array of TValue) : TValue; overload;
+    class function CallMethod(aObject : TObject; const aAttribute: TAttributeClass; validateFunc: TAttributeValidate; const aParams : array of TValue) : TValue; overload;
+
+    class function AttributeExists(aObject: TObject; const aAttribute:
+        TAttributeClass): boolean;
   end;
 
   ERTTIError = class(Exception);
@@ -92,6 +105,23 @@ implementation
 { TRTTIUtils }
 
 {$IFNDEF FPC}
+class function TRTTI.AttributeExists(aObject: TObject; const aAttribute:
+    TAttributeClass): boolean;
+var
+  attr: TCustomAttribute;
+begin
+  result:=false;
+  for attr in GetAttributes(aObject) do
+    if attr.ClassInfo = aAttribute.ClassInfo then
+      Exit(true);
+end;
+
+class function TRTTI.CallMethod(aObject : TObject; const aAttribute:
+    TAttributeClass; const aParams : array of TValue): TValue;
+begin
+  result:=CallMethod(aObject, aAttribute, nil, aParams);
+end;
+
 class constructor TRTTI.Create;
 begin
   fCtx := TRttiContext.Create;
@@ -142,19 +172,14 @@ class function TRTTI.CallMethod(aObject : TObject; const aMethodName : string; a
 var
   rtype : TRttiType;
   rmethod : TRttiMethod;
-  rinstype: TRttiInstanceType;
-  value : TValue;
 begin
-  rtype := fCtx.GetType(aObject.ClassInfo);
-  for rmethod in rtype.GetMethods do
-  begin
-    if CompareText(rmethod.Name,aMethodName) = 0 then
-    begin
-      rinstype := rtype.AsInstance;
-      value := rmethod.Invoke(rinstype.MetaclassType,aParams);
-    end;
-
-  end;
+  result:=nil;
+  rtype := fCtx.GetType(aObject.ClassType);
+  rmethod:=rtype.GetMethod(aMethodName);
+  if assigned(rmethod) then
+    result:=rmethod.invoke(aObject, aParams)
+  else
+    raise ERTTIError.Create('Method ' + aMethodName + ' not found in ' + aObject.ClassName);
 end;
 
 class destructor TRTTI.Destroy;
@@ -174,11 +199,49 @@ class function TRTTI.GetField(aInstance: TObject; const aFieldName: string): TRt
 var
   rtype : TRttiType;
 begin
-  Result := nil;
+  result:=GetField(aInstance.ClassInfo, aFieldName);
+end;
+
+class function TRTTI.GetAttributeMethods(aInstance: TObject;
+  const aAttribute: TAttributeClass): TArray<TRttiMethod>;
+var
+  rtype: TRttiType;
+  method: TRttiMethod;
+  attribute: TCustomAttribute;
+begin
+  SetLength(result, 0);
   rtype := fCtx.GetType(aInstance.ClassInfo);
   if rtype <> nil then
   begin
-    Result := rtype.GetField(aFieldName);
+    for method in rtype.GetMethods do
+      for attribute in method.GetAttributes do
+      begin
+        if attribute is aAttribute then
+        begin
+          SetLength(result, Length(result) + 1);
+          result[Length(result) - 1]:=method;
+        end;
+      end;
+  end;
+end;
+
+class function TRTTI.GetAttributes(
+  aInstance: TObject): TArray<TCustomAttribute>;
+var
+  rtype : TRttiType;
+  method: TRttiMethod;
+  attribute: TCustomAttribute;
+begin
+  SetLength(result, 0);
+  rtype := fCtx.GetType(aInstance.ClassInfo);
+  if rtype <> nil then
+  begin
+    for method in rtype.GetMethods do
+      for attribute in method.GetAttributes do
+      begin
+        SetLength(result, Length(result) + 1);
+        result[Length(result) - 1]:=attribute;
+      end;
   end;
 end;
 
@@ -324,8 +387,8 @@ begin
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -379,8 +442,8 @@ begin
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -428,18 +491,20 @@ var
   rfield : TRttiField;
   {$ENDIF}
   lastsegment : Boolean;
+  instance: TObject;
 begin
   if not Assigned(aInstance) then Exit(False);
+  instance:=aInstance;
   lastsegment := False;
   proppath := aPropertyPath;
-  rtype := fCtx.GetType(aInstance.ClassType);
+  rtype := fCtx.GetType(instance.ClassType);
   repeat
     Result := False;
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -466,14 +531,18 @@ begin
       if rprop = nil then Exit
       else
       begin
-        value := rprop.GetValue(aInstance);
+        value := rprop.GetValue(instance);
         Result := True;
       end;
     end;
     if not lastsegment then
     begin
-      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
-        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+      if value.Kind = TTypeKind.tkClass then
+      begin
+        instance:=value.AsObject;
+        rType := fCtx.GetType(instance.ClassType);
+      end
+      else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
     end;
   until lastsegment;
 end;
@@ -490,22 +559,24 @@ var
   rfield : TRttiField;
   {$ENDIF}
   lastsegment : Boolean;
+  instance: TObject;
 begin
   Result := nil;
   if not Assigned(aInstance) then Exit;
 
+  instance:=aInstance;
   lastsegment := False;
   proppath := aPropertyPath;
-  rtype := fCtx.GetType(aInstance.ClassType);
+  rtype := fCtx.GetType(instance.ClassType);
   {$IFDEF FPC}
-  value := aInstance;
+  value := instance;
   {$ENDIF}
   repeat
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -527,7 +598,7 @@ begin
       rprop := rtype.GetProperty(propname);
       if rprop = nil then raise ERTTIError.CreateFmt('Property "%s" not found in object',[propname])
       {$IFNDEF FPC}
-      else value := rprop.GetValue(aInstance);
+      else value := rprop.GetValue(instance);
       {$ELSE}
       else
       begin
@@ -538,8 +609,12 @@ begin
     end;
     if not lastsegment then
     begin
-      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
-        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+      if value.Kind = TTypeKind.tkClass then
+      begin
+        instance:=value.AsObject;
+        rType := fCtx.GetType(instance.ClassType);
+      end
+      else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
     end;
   until lastsegment;
   Result := value;
@@ -557,17 +632,19 @@ var
   rfield : TRttiField;
   {$ENDIF}
   lastsegment : Boolean;
+  instance: TObject;
 begin
   if not Assigned(aInstance) then Exit;
+  instance:=aInstance;
   lastsegment := False;
   proppath := aPropertyPath;
-  rtype := fCtx.GetType(aInstance.ClassType);
+  rtype := fCtx.GetType(instance.ClassType);
   repeat
     i := proppath.IndexOf('.');
     if i > -1 then
     begin
-      propname := Copy(proppath,1,i);
-      Delete(proppath,1,i+1);
+      propname:=proppath.SubString(0, i);
+      proppath:=proppath.Remove(0, i + 1);
     end
     else
     begin
@@ -594,14 +671,18 @@ begin
       if rprop = nil then raise ERTTIError.CreateFmt('Property "%s" not found in object',[propname])
       else
       begin
-        if lastsegment then rprop.SetValue(aInstance,aValue)
-          else value := rprop.GetValue(aInstance);
+        if lastsegment then rprop.SetValue(instance,aValue)
+          else value := rprop.GetValue(instance);
       end;
     end;
     if not lastsegment then
     begin
-      if value.Kind = TTypeKind.tkClass then rType := fCtx.GetType(value.AsObject.ClassType)
-        else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
+      if value.Kind = TTypeKind.tkClass then
+      begin
+        instance:=value.AsObject;
+        rType := fCtx.GetType(instance.ClassType);
+      end
+      else if value.Kind = TTypeKind.tkRecord then rtype := fCtx.GetType(value.TypeInfo);
     end;
   until lastsegment;
 end;
@@ -722,5 +803,33 @@ begin
 end;
 {$ENDIF}
 
+
+class function TRTTI.CallMethod(aObject : TObject; const aAttribute:
+    TAttributeClass; validateFunc: TAttributeValidate; const aParams : array of
+    TValue): TValue;
+var
+  rtype : TRttiType;
+  rmethod : TRttiMethod;
+  rattr: TCustomAttribute;
+begin
+  result:=nil;
+  Assert(AttributeExists(aObject, aAttribute));
+  rtype := fCtx.GetType(aObject.ClassType);
+  for rmethod in rtype.GetMethods do
+  begin
+    for rattr in rmethod.GetAttributes do
+      if rattr is aAttribute then
+      begin
+        if Assigned(validateFunc) then
+        begin
+          if validateFunc(rattr) then
+            result:=rmethod.Invoke(aObject, aParams);
+        end
+        else
+          result:=rmethod.Invoke(aObject, aParams);
+        break;
+      end;
+  end;
+end;
 
 end.

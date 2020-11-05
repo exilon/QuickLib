@@ -41,9 +41,9 @@ uses
   Quick.Threads;
 
 type
+  EObjectPool = class(Exception);
 
   IPoolItem<T : class, constructor> = interface
-  ['{D52E794B-FDC1-42C1-94BA-823DB74703E4}']
     function Item : T;
     function GetRefCount : Integer;
     function GetItemIndex : Integer;
@@ -66,8 +66,8 @@ type
   protected
     fLock : TCriticalSection;
     fSemaphore : TSemaphore;
-    function _AddRef: Integer; stdcall;
-    function _Release: Integer; stdcall;
+//    function _AddRef: Integer; stdcall;
+//    function _Release: Integer; stdcall;
   public
     constructor Create(aSemaphore : TSemaphore; aLock : TCriticalSection; aItemIndex : Integer; aCreateProc : TCreateDelegator<T>);
     destructor Destroy; override;
@@ -78,13 +78,16 @@ type
   end;
 
   IObjectPool<T : class, constructor> = interface
-  ['{AA856DFB-AE8C-46FE-A107-034677010A58}']
     function GetPoolSize: Integer;
+    procedure SetPoolSize(const aValue: Integer);
+
     function Get : IPoolItem<T>;
-    property PoolSize : Integer read GetPoolSize;
-    function TimeoutMs(aTimeout : Integer) : IObjectPool<T>;
-    function CreateDelegate(aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
-    function AutoFreeIdleItemTimeMs(aIdleTimeMs : Integer) : IObjectPool<T>;
+    function TryGet(var aItem: IPoolItem<T>): boolean;
+    function TimeoutMs(const aTimeout : Integer) : IObjectPool<T>;
+    function CreateDelegate(const aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
+    function AutoFreeIdleItemTimeMs(const aIdleTimeMs : Integer) : IObjectPool<T>;
+
+    property PoolSize: Integer read GetPoolSize write SetPoolSize;
   end;
 
   TObjectPool<T : class, constructor> = class(TInterfacedObject,IObjectPool<T>)
@@ -97,30 +100,39 @@ type
     fSemaphore : TSemaphore;
     fAutoFreeIdleItemTimeMs : Integer;
     fScheduler : TScheduledTasks;
+
+    procedure SetPoolSize(const aValue: Integer);
     function GetPoolSize: Integer;
+
     procedure CreateScheduler;
     procedure CheckForIdleItems;
   public
     constructor Create(aPoolSize : Integer; aAutoFreeIdleItemTimeMs : Integer = 30000; aCreateProc : TCreateDelegator<T> = nil);
     destructor Destroy; override;
     property PoolSize : Integer read GetPoolSize;
-    function TimeoutMs(aTimeout : Integer) : IObjectPool<T>;
-    function CreateDelegate(aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
-    function AutoFreeIdleItemTimeMs(aIdleTimeMs : Integer) : IObjectPool<T>;
+    function TimeoutMs(const aTimeout : Integer) : IObjectPool<T>;
+    function CreateDelegate(const aCreateProc : TCreateDelegator<T>) : IObjectPool<T>;
+    function AutoFreeIdleItemTimeMs(const aIdleTimeMs : Integer) : IObjectPool<T>;
     function Get : IPoolItem<T>;
+    function TryGet(var aItem: IPoolItem<T>): boolean;
   end;
 
 implementation
 
 { TObjectPool<T> }
 
-function TObjectPool<T>.AutoFreeIdleItemTimeMs(aIdleTimeMs: Integer): IObjectPool<T>;
+function TObjectPool<T>.AutoFreeIdleItemTimeMs(const aIdleTimeMs : Integer):
+    IObjectPool<T>;
 begin
   fAutoFreeIdleItemTimeMs := aIdleTimeMs;
+  fScheduler.GetTask('IdleCleaner')
+          .RepeatEvery(fAutoFreeIdleItemTimeMs,TTimeMeasure.tmMilliseconds);
+  result:=self;
 end;
 
 constructor TObjectPool<T>.Create(aPoolSize : Integer; aAutoFreeIdleItemTimeMs : Integer = 30000; aCreateProc : TCreateDelegator<T> = nil);
 begin
+  inherited Create;
   fLock := TCriticalSection.Create;
   fPoolSize := aPoolSize;
   fWaitTimeoutMs := 30000;
@@ -160,20 +172,22 @@ begin
   end;
 end;
 
-function TObjectPool<T>.CreateDelegate(aCreateProc: TCreateDelegator<T>): IObjectPool<T>;
+function TObjectPool<T>.CreateDelegate(const aCreateProc :
+    TCreateDelegator<T>): IObjectPool<T>;
 begin
   fDelegate := aCreateProc;
+  result:=self;
 end;
 
 destructor TObjectPool<T>.Destroy;
-  var
+var
   i: Integer;
 begin
   fScheduler.Stop;
   fScheduler.Free;
   fLock.Enter;
   try
-    for i := Low(fPool) to High(fPool) do fPool[i] := nil;
+    for i:= Low(fPool) to High(fPool) do fPool[i] := nil;
     SetLength(FPool,0);
   finally
     fLock.Leave;
@@ -190,7 +204,8 @@ var
 begin
   Result := nil;
   waitResult := fSemaphore.WaitFor(fWaitTimeoutMs);
-  if waitResult <> TWaitResult.wrSignaled then raise Exception.Create('Connection Pool Timeout: Cannot obtain a connection');
+  if waitResult <> TWaitResult.wrSignaled then
+    raise EObjectPool.Create('Connection Pool Timeout: Cannot obtain a connection');
   fLock.Enter;
   try
     if High(fPool) < fPoolSize then SetLength(fPool,High(fPool)+2);
@@ -218,9 +233,27 @@ begin
   Result := fPoolSize;
 end;
 
-function TObjectPool<T>.TimeoutMs(aTimeout: Integer): IObjectPool<T>;
+procedure TObjectPool<T>.SetPoolSize(const aValue: Integer);
+begin
+  fPoolSize:=aValue;
+  FreeAndNil(fSemaphore);
+  fSemaphore := TSemaphore.Create(nil,fPoolSize,fPoolSize,'');
+end;
+
+function TObjectPool<T>.TimeoutMs(const aTimeout : Integer): IObjectPool<T>;
 begin
   fWaitTimeoutMs := aTimeout;
+  result:=self;
+end;
+
+function TObjectPool<T>.TryGet(var aItem: IPoolItem<T>): boolean;
+begin
+  try
+    aItem:=Get;
+    result:=true;
+  except
+    result:=false;
+  end;
 end;
 
 { TPoolItem<T> }
@@ -233,6 +266,7 @@ end;
 
 constructor TPoolItem<T>.Create(aSemaphore : TSemaphore; aLock : TCriticalSection; aItemIndex : Integer; aCreateProc : TCreateDelegator<T>);
 begin
+  inherited Create;
   fLastAccess := Now();
   fItemIndex := aItemIndex;
   if Assigned(aCreateProc) then aCreateProc(fItem)
@@ -261,36 +295,38 @@ function TPoolItem<T>.GetRefCount: Integer;
 begin
   Result := FRefCount;
 end;
-
-function TPoolItem<T>._AddRef: Integer;
-begin
-  fLock.Enter;
-  //writeln('enter');
-  try
-    Inc(FRefCount);
-    Result := FRefCount;
-  finally
-    fLock.Leave;
-  end;
-end;
-
-function TPoolItem<T>._Release: Integer;
-begin
-  fLock.Enter;
+//
+//function TPoolItem<T>._AddRef: Integer;
+//begin
+//  fLock.Enter;
+//  //writeln('enter');
+//  try
+//    Inc(FRefCount);
+//    Result := FRefCount;
+//  finally
+//    fLock.Leave;
+//  end;
+//end;
+//
+//function TPoolItem<T>._Release: Integer;
+//begin
+//  fLock.Enter;
   //writeln('exit');
-  try
-    Dec(fRefCount);
-    Result := fRefCount;
-    if Result = 0 then
-    begin
-      FreeAndNil(fItem);
-      Destroy;
-    end
-    else fLastAccess := Now;
-  finally
-    fLock.Leave;
-    if fRefCount = 1 then fSemaphore.Release;
-  end;
-end;
+//  try
+//    Dec(fRefCount);
+//    Result := fRefCount;
+//    if Result = 0 then
+//    begin
+//      FreeAndNil(fItem);
+//      Destroy;
+//    end
+//    else fLastAccess := Now;
+//    if FRefCount > 0 then
+//      fLastAccess:=Now;
+//  finally
+//    fLock.Leave;
+//    if fRefCount = 1 then fSemaphore.Release;
+//  end;
+//end;
 
 end.
