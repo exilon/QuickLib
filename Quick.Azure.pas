@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 07/04/2020
+  Modified    : 05/11/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -76,6 +76,7 @@ type
       procedure SetAzureProtocol(azProtocol : TAzureProtocol);
       function FileToArray(cFilename : string) : TArray<Byte>;
       function StreamToArray(cStream : TStream) : TArray<Byte>;
+      function ByteContent(DataStream: TStream): TBytes;
       function GMT2DateTime(const gmtdate : string):TDateTime;
       function CheckContainer(const aContainer : string) : string;
       function RemoveFirstSlash(const aValue : string) : string;
@@ -165,13 +166,7 @@ var
 begin
   fs := TFileStream.Create(cFilename, fmOpenRead);
   try
-    bs := TBytesStream.Create(Result);
-    try
-      bs.LoadFromStream(fs);
-      Result := bs.Bytes;
-    finally
-      bs.Free
-    end;
+    Result := ByteContent(fs);
   finally
     fs.Free;
   end;
@@ -188,6 +183,19 @@ begin
   finally
     bs.Free
   end;
+end;
+
+function TQuickAzure.ByteContent(DataStream: TStream): TBytes;
+var
+  Buffer: TBytes;
+begin
+  if not Assigned(DataStream) then Exit(nil);
+  SetLength(Buffer, DataStream.Size);
+  // the content may have been read
+  DataStream.Position := 0;
+  if DataStream.Size > 0 then
+  DataStream.Read(Buffer[0], DataStream.Size);
+  Result := Buffer;
 end;
 
 function TQuickAzure.GMT2DateTime(const gmtdate : string):TDateTime;
@@ -278,7 +286,6 @@ var
   container : string;
   blobname : string;
 begin
-  Result := False;
   BlobService := TAzureBlobService.Create(fconAzure);
   try
     container := CheckContainer(azContainer);
@@ -302,11 +309,12 @@ end;
 function TQuickAzure.PutBlob(const azContainer : string; cStream : TStream; const azBlobName : string; out azResponseInfo : TAzureResponseInfo) : Boolean;
 var
   BlobService : TAzureBlobService;
-  Content : TArray<Byte>;
+  Content : TBytes;
   CloudResponseInfo : TCloudResponseInfo;
   container : string;
   blobname : string;
 begin
+  Result := False;
   azResponseInfo.StatusCode := 500;
   if cStream.Size = 0 then
   begin
@@ -322,7 +330,7 @@ begin
       BlobService.Timeout := fTimeout;
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
-        Content := StreamToArray(cStream);
+        Content := ByteContent(cStream);
         Result := BlobService.PutBlockBlob(container,blobname,Content,EmptyStr,nil,nil,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
       finally
@@ -349,7 +357,6 @@ var
   container : string;
   blobname : string;
 begin
-  Result := False;
   container := CheckContainer(azContainer);
   blobname := RemoveFirstSlash(azBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
@@ -380,7 +387,7 @@ function TQuickAzure.GetBlob(const azContainer, azBlobName : string; out azRespo
 begin
   Stream := TMemoryStream.Create;
   try
-    GetBlob(azContainer,azBlobName,azResponseInfo,TStream(Stream));
+    Result := GetBlob(azContainer,azBlobName,azResponseInfo,TStream(Stream));
   except
     Stream.Free;
   end;
@@ -398,7 +405,6 @@ var
   container : string;
   blobname : string;
 begin
-  Result := False;
   container := CheckContainer(azContainer);
   blobname := RemoveFirstSlash(azBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
@@ -431,7 +437,6 @@ var
   sourceblobname : string;
   targetblobname : string;
 begin
-  Result := False;
   sourcecontainer := CheckContainer(azSourceContainer);
   targetcontainer := CheckContainer(azTargetContainer);
   sourceblobname := RemoveFirstSlash(azSourceBlobName);
@@ -557,7 +562,6 @@ var
   container : string;
   blobname : string;
 begin
-  Result := False;
   container := CheckContainer(azContainer);
   blobname := RemoveFirstSlash(azBlobName);
   BlobService := TAzureBlobService.Create(fconAzure);
@@ -833,11 +837,14 @@ begin
   try
     BlobService.Timeout := fTimeout;
     CloudResponseInfo := TCloudResponseInfo.Create;
-    Result := BlobService.CreateContainer(azContainer,nil,azPublicAccess,CloudResponseInfo);
-    azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    try
+      Result := BlobService.CreateContainer(azContainer,nil,azPublicAccess,CloudResponseInfo);
+      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
@@ -853,11 +860,14 @@ begin
   try
     BlobService.Timeout := fTimeout;
     CloudResponseInfo := TCloudResponseInfo.Create;
-    Result := BlobService.DeleteContainer(azContainer,CloudResponseInfo);
-    azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    try
+      Result := BlobService.DeleteContainer(azContainer,CloudResponseInfo);
+      azResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     BlobService.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
