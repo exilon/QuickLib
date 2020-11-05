@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 18/11/2016
-  Modified    : 11/09/2020
+  Modified    : 05/11/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -39,24 +39,35 @@ uses
   System.Generics.Collections,
   IPPeerClient,
   Data.Cloud.CloudAPI,
-  Data.Cloud.AmazonAPI;
+  Data.Cloud.AmazonAPI,
+  Quick.Commons;
 
 const
 
   AWSRegionSet : array of string = [
-  'eu-west-1',
-  'eu-west-1',
-  'eu-central-1',
-  'us-east-1',
-  'us-west-1',
-  'us-west-2',
-  'ap-southeast-1',
-  'ap-southeast-2',
-  'ap-northeast-1',
-  'ap-northeast-2',
-  'sa-east-1',
-  'us-east-1',  // deprecate
-  'us-east-1','us-east-1'];
+    'eu-west-1',
+    'eu-west-2',
+    'eu-west-3',
+    'eu-central-1',
+    'us-east-1',
+    'us-east-2',
+    'us-west-1',
+    'us-west-2',
+    'ap-east-1',
+    'ap-south-1',
+    'ap-southeast-1',
+    'ap-southeast-2',
+    'ap-northeast-1',
+    'ap-northeast-2',
+    'ap-northeast-3',
+    'ca-central-1',
+    'sa-east-1',
+    'us-east-1', // deprecated
+    'eu-west-1', // deprecated
+    'cn-north-1',
+    'cn-northwest-1',
+    'eu-north-1',
+    'me-south-1'];
 
 type
 
@@ -92,6 +103,7 @@ type
       procedure SetAWSRegion(Value : TAmazonRegion);
       function FileToArray(cFilename : string) : TArray<Byte>;
       function StreamToArray(cStream : TStream) : TArray<Byte>;
+      function ByteContent(DataStream: TStream): TBytes;
     public
       constructor Create; overload;
       constructor Create(amAccountName, amAccountKey : string); overload;
@@ -145,7 +157,15 @@ end;
 procedure TQuickAmazon.SetAWSRegion(Value : TAmazonRegion);
 begin
   fAWSRegion := Value;
-  fconAmazon.StorageEndpoint := Format('s3-%s.amazonaws.com',[GetAWSRegion(Value)]);
+  if not StrInArray(Value,AWSRegionSet) then raise Exception.CreateFmt('%s is not a valid region for AmazonS3!',[Value]);
+
+  //fconAmazon.StorageEndpoint := Format('s3-%s.amazonaws.com',[GetAWSRegion(Value)]);
+  //fconAmazon.StorageEndpoint := Format('s3.%s.amazonaws.com',[GetAWSRegion(Value)]);
+  {$IFDEF DELPHISYDNEY_UP}
+  fconAmazon.Region := Value;
+  {$ELSE}
+  fconAmazon.StorageEndpoint := Format('s3.%s.amazonaws.com',[GetAWSRegion(Value)]);
+  {$ENDIF}
 end;
 
 procedure TQuickAmazon.SetAccountName(amAccountName : string);
@@ -183,13 +203,7 @@ var
 begin
   fs := TFileStream.Create(cFilename, fmOpenRead);
   try
-    bs := TBytesStream.Create(Result);
-    try
-      bs.LoadFromStream(fs);
-      Result := bs.Bytes;
-    finally
-      bs.Free
-    end;
+    Result := ByteContent(fs);
   finally
     fs.Free;
   end;
@@ -208,12 +222,18 @@ begin
   end;
 end;
 
-{function TQuickAmazon.StreamToArray(cStream : TStream) : TArray<Byte>;
+function TQuickAmazon.ByteContent(DataStream: TStream): TBytes;
+var
+  Buffer: TBytes;
 begin
-  SetLength(Result,cStream.Size);
-  cStream.WriteData(Result,Length(Result));
-end;}
-
+  if not Assigned(DataStream) then Exit(nil);
+  SetLength(Buffer, DataStream.Size);
+  // the content may have been read
+  DataStream.Position := 0;
+  if DataStream.Size > 0 then
+  DataStream.Read(Buffer[0], DataStream.Size);
+  Result := Buffer;
+end;
 
 function GetResponseInfo(amResponseInfo : TCloudResponseInfo) : TAmazonResponseInfo;
 begin
@@ -234,23 +254,26 @@ var
 begin
   AmazonS3 := TAmazonStorage.Create(fconAmazon);
   if amBucket = '' then amBucket := '$root';
-  CloudResponseInfo := TCloudResponseInfo.Create;
   try
     Content := FileToArray(cFilename);
     if amObjectName = '' then amObjectName := cFilename;
     if amObjectName.StartsWith('/') then amObjectName := Copy(amObjectName,2,Length(amObjectName));
-    Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
-    amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    CloudResponseInfo := TCloudResponseInfo.Create;
+    try
+      Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
+      amResponseInfo := GetResponseInfo(CloudResponseInfo);
+    finally
+      CloudResponseInfo.Free;
+    end;
   finally
     AmazonS3.Free;
-    CloudResponseInfo.Free;
   end;
 end;
 
 function TQuickAmazon.PutObject(amBucket : string; cStream : TStream; amObjectName : string; amACLType : TAmazonACLType; var amResponseInfo : TAmazonResponseInfo) : Boolean;
 var
   AmazonS3 : TAmazonStorage;
-  Content : TArray<Byte>;
+  Content : TBytes;
   CloudResponseInfo : TCloudResponseInfo;
 begin
   amResponseInfo.StatusCode := 500;
@@ -263,7 +286,7 @@ begin
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
         //CloudResponseInfo.Headers.AddPair();
-        Content := StreamToArray(cStream);
+        Content := ByteContent(cStream);
         Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
         amResponseInfo := GetResponseInfo(CloudResponseInfo);
       finally
