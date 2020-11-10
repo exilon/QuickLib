@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 14/07/2020
+  Modified    : 05/11/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -143,7 +143,6 @@ var
   rtype : TRttiType;
   rmethod : TRttiMethod;
   rinstype: TRttiInstanceType;
-  value : TValue;
 begin
   rtype := fCtx.GetType(aObject.ClassInfo);
   for rmethod in rtype.GetMethods do
@@ -151,7 +150,7 @@ begin
     if CompareText(rmethod.Name,aMethodName) = 0 then
     begin
       rinstype := rtype.AsInstance;
-      value := rmethod.Invoke(rinstype.MetaclassType,aParams);
+      Result := rmethod.Invoke(rinstype.MetaclassType,aParams);
     end;
 
   end;

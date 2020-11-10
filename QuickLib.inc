@@ -131,7 +131,7 @@
     {$if CompilerVersion >= 34.0} //Delphi RX10.4 Sydney
       {$define DELPHIRX104_UP}
 	    {$define DELPHISYDNEY_UP}
-      {$if defined(ANDROID) OR defined(LINUX) OR defined(IOS)}
+      {$if defined(ANDROID) OR defined(IOS)}
         {$define NEXTGEN} //compatibility with older delphis
       {$endif}
     {$ifend}
