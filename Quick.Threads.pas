@@ -233,6 +233,8 @@ type
     procedure DoExecute;
     procedure DoException(aException : Exception);
     procedure DoTerminate;
+    procedure Enable;
+    procedure Disable;
     {$IFNDEF FPC}
     property Param[index : Integer] : TFlexValue read GetParam write SetParam; default;
     property Param[const Name : string] : TFlexValue read GetParam write SetParam; default;
@@ -381,6 +383,8 @@ type
     function MaxRetries : Integer;
     function LastException : Exception;
     function CircuitBreaked : Boolean;
+    procedure Disable;
+    procedure Enable;
   end;
 
   TWorkTask = class(TTask,IWorkTask)
@@ -1133,6 +1137,11 @@ begin
   inherited;
 end;
 
+procedure TTask.Disable;
+begin
+  fEnabled := False;
+end;
+
 procedure TTask.DoException(aException : Exception);
 begin
   fTaskStatus := TWorkTaskStatus.wtsException;
@@ -1219,6 +1228,11 @@ end;
 procedure TTask.DoTerminate;
 begin
   if Assigned(fTerminateProc) then fTerminateProc(Self);
+end;
+
+procedure TTask.Enable;
+begin
+  fEnabled := True;
 end;
 
 function TTask.GetIdTask: Int64;
