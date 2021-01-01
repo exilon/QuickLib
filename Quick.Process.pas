@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 04/07/2018
+  Modified    : 15/12/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -61,6 +61,10 @@ uses
   function KillProcess(aProcessId : Cardinal) : Boolean; overload;
   //run process as Admin privilegies
   function RunAsAdmin(hWnd: HWND; const aFilename, aParameters: string): Boolean;
+  //impersonate logon
+  function Impersonate(const aDomain, aUser, aPassword : string): Boolean;
+  //revert logon to real logged user
+  procedure RevertToSelf;
   //remove dead icons from taskbar tray
   procedure RemoveDeadIcons;
   //get a process of running processes
@@ -258,6 +262,22 @@ begin
   {$ELSE}
   Result := ShellExecuteEx(@shinfo);
   {$ENDIF}
+end;
+
+function Impersonate(const aDomain, aUser, aPassword : string): Boolean;
+var
+  htoken : THandle;
+begin
+  Result := False;
+  if LogonUser(PChar(aUser),PChar(aDomain),PChar(aPassword),LOGON32_LOGON_INTERACTIVE,LOGON32_PROVIDER_DEFAULT,htoken) then
+  begin
+    Result := ImpersonateLoggedOnUser(htoken);
+  end;
+end;
+
+procedure RevertToSelf;
+begin
+  Windows.RevertToSelf;
 end;
 
 procedure RemoveDeadIcons;
