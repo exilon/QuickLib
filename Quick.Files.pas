@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 23/05/2019
+  Modified    : 16/11/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -239,6 +239,12 @@ type
     property LastModified : TDateTime read fLastModified write fLastModified;
   end;
 
+  {$IFNDEF FPC}
+  TDirItemAddProc = reference to procedure(const diritem : TDirItem);
+  {$ELSE}
+  TDirItemAddProc = procedure(const diritem : TDirItem);
+  {$ENDIF}
+
   function CreateDummyFile(const aFilename : string; const aSize : Int64) : Boolean;
   procedure SplitFile(const aFileName : string; aSplitByteSize : Int64);
   procedure MergeFiles(const aFirstSplitFileName, aOutFileName : string); overload;
@@ -259,9 +265,11 @@ type
   function ConvertDateTimeToFileTime(const DateTime: TDateTime; const UseLocalTimeZone: Boolean): TFileTime;
   function ConvertFileTimeToDateTime(const FileTime : TFileTime; const UseLocalTimeZone : Boolean) : TDateTime;
   procedure SetDateTimeInfo(const Path: string; const CreationTime, LastAccessTime, LastWriteTime: PDateTime; const UseLocalTimeZone: Boolean);
-  function GetFiles(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
+  function GetFiles(const Path : string; Recursive : Boolean) : TArray<TDirItem>; overload;
+  procedure GetFiles(const Path : string; aAddToList : TDirItemAddProc; Recursive : Boolean); overload;
   function GetDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
-  function GetFilesAndDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
+  function GetFilesAndDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>; overload;
+  procedure GetFilesAndDirectories(const Path : string; aAddToList : TDirItemAddProc; Recursive : Boolean); overload;
 
 implementation
 
@@ -1315,6 +1323,33 @@ begin
   end;
 end;
 
+procedure GetFiles(const Path : string; aAddToList : TDirItemAddProc; Recursive : Boolean);
+var
+  rec : TSearchRec;
+  diritem : TDirItem;
+begin
+  if FindFirst(IncludeTrailingPathDelimiter(Path) + '*', faAnyFile, rec) = 0 then
+  try
+    repeat
+      if (rec.Attr and faDirectory) <> faDirectory then
+      begin
+        diritem.Name := rec.Name;
+        diritem.IsDirectory := False;
+        diritem.Size := rec.Size;
+        diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
+        diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        aAddToList(diritem);
+      end
+      else
+      begin
+        if Recursive then GetFiles(IncludeTrailingPathDelimiter(Path) + diritem.Name,aAddToList,Recursive);
+      end;
+    until FindNext(rec) <> 0;
+  finally
+    SysUtils.FindClose(rec);
+  end;
+end;
+
 function GetDirectories(const Path : string; Recursive : Boolean) : TArray<TDirItem>;
 var
   rec : TSearchRec;
@@ -1343,8 +1378,23 @@ function GetFilesAndDirectories(const Path : string; Recursive : Boolean) : TArr
 var
   rec : TSearchRec;
   diritem : TDirItem;
+  dirpath : string;
+  wildcard : string;
 begin
-  if FindFirst(IncludeTrailingPathDelimiter(Path) + '*', faAnyFile, rec) = 0 then
+  if Path.Contains('*') then
+  begin
+    dirpath := ExtractFilePath(Path);
+    wildcard := ExtractFileName(Path);
+  end
+  else
+  begin
+    dirpath := Path;
+    wildcard := '*';
+  end;
+  dirpath := IncludeTrailingPathDelimiter(dirpath);
+
+
+  if FindFirst(dirpath + wildcard, faAnyFile, rec) = 0 then
   try
     repeat
       if (rec.Attr and faDirectory) <> faDirectory then
@@ -1364,7 +1414,57 @@ begin
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
         Result := Result + [diritem];
-        if Recursive then Result := Result + GetFiles(IncludeTrailingPathDelimiter(Path) + diritem.Name,Recursive);
+        if Recursive then Result := Result + GetFilesAndDirectories(dirpath + diritem.Name,Recursive);
+      end;
+    until FindNext(rec) <> 0;
+  finally
+    SysUtils.FindClose(rec);
+  end;
+end;
+
+procedure GetFilesAndDirectories(const Path : string; aAddToList : TDirItemAddProc; Recursive : Boolean);
+var
+  rec : TSearchRec;
+  diritem : TDirItem;
+  dirpath : string;
+  wildcard : string;
+begin
+  if not Assigned(aAddToList) then raise Exception.Create('GetFilesAndDirecties: AddToList cannot be nil!');
+
+  if Path.Contains('*') then
+  begin
+    dirpath := ExtractFilePath(Path);
+    wildcard := ExtractFileName(Path);
+  end
+  else
+  begin
+    dirpath := Path;
+    wildcard := '*';
+  end;
+  dirpath := IncludeTrailingPathDelimiter(dirpath);
+
+
+  if FindFirst(dirpath + wildcard, faAnyFile, rec) = 0 then
+  try
+    repeat
+      if (rec.Attr and faDirectory) <> faDirectory then
+      begin
+        diritem.Name := rec.Name;
+        diritem.IsDirectory := False;
+        diritem.Size := rec.Size;
+        diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
+        diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        aAddToList(diritem);
+      end
+      else if (rec.Name <> '.') and (rec.Name <> '..') then
+      begin
+        diritem.Name := rec.Name;
+        diritem.IsDirectory := True;
+        diritem.Size := rec.Size;
+        diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
+        diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        aAddToList(diritem);
+        if Recursive then GetFilesAndDirectories(dirpath + diritem.Name,aAddToList,Recursive);
       end;
     until FindNext(rec) <> 0;
   finally
