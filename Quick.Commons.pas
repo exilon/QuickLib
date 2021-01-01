@@ -502,7 +502,7 @@ begin
     until NumNumbers = MinNumbers;
   end;
   //checks if need include signs
-  if pfIncludeNumbers in Complexity then
+  if pfIncludeSigns in Complexity then
   begin
     MinSigns := Round(PasswordLength / 10 * 1);
     NumSigns := 0;
