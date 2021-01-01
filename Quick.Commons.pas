@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 06/08/2020
+  Modified    : 01/01/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -302,12 +302,16 @@ type
   function GetLoggedUserName : string;
   //returns computer name
   function GetComputerName : string;
+  //extract domain and user name from user login
+  function ExtractDomainAndUser(const aUser : string; out oDomain, oUser : string) : Boolean;
   //Changes incorrect delims in path
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
   //combine paths normalized with delim
   function CombinePaths(const aFirstPath, aSecondPath: string; aDelim : Char): string;
+  //Removes firs segment of a path
+  function RemoveFirstPathSegment(const cdir : string) : string;
   //Removes last segment of a path
-  function RemoveLastPathSegment(cDir : string) : string;
+  function RemoveLastPathSegment(const cDir : string) : string;
   //returns path delimiter if found
   function GetPathDelimiter(const aPath : string) : string;
   //returns first segment of a path
@@ -990,6 +994,26 @@ function GetComputerName : string;
   {$ENDIF}
 {$ENDIF}
 
+function ExtractDomainAndUser(const aUser : string; out oDomain, oUser : string) : Boolean;
+begin
+  //check if domain specified into username
+  if aUser.Contains('\') then
+  begin
+    oDomain := Copy(aUser,Low(aUser),Pos('\',aUser)-1);
+    oUser := Copy(aUser,Pos('\',aUser)+1,aUser.Length);
+    Exit(True);
+  end
+  else if aUser.Contains('@') then
+  begin
+    oDomain := Copy(aUser,Pos('@',aUser)+1,aUser.Length);
+    oUser := Copy(aUser,Low(aUser),Pos('@',aUser)-1);
+    Exit(True);
+  end;
+  oDomain := '';
+  oUser := aUser;
+  Result := False;
+end;
+
 function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
 begin
   if Delim = '\' then Result := StringReplace(cPath,'/',Delim,[rfReplaceAll])
@@ -1012,33 +1036,61 @@ begin
   end;
 end;
 
-function RemoveLastPathSegment(cDir : string) : string;
+function RemoveFirstPathSegment(const cdir : string) : string;
 var
   posi : Integer;
   delim : Char;
+  dir : string;
+  StartsWithDelim : Boolean;
+begin
+  if cDir.Contains('\') then delim := '\'
+    else if cDir.Contains('/') then delim := '/'
+      else
+      begin
+        Exit('');
+      end;
+
+  dir := NormalizePathDelim(cDir,delim);
+  if dir.StartsWith(delim) then
+  begin
+    dir := Copy(dir,2,dir.Length);
+    StartsWithDelim := True;
+  end
+  else StartsWithDelim := False;
+
+  if dir.CountChar(delim) = 0 then Exit('')
+    else posi := Pos(delim,dir)+1;
+  Result := Copy(dir,posi,dir.Length);
+  if (not Result.IsEmpty) and (StartsWithDelim) then Result := delim + Result;
+end;
+
+function RemoveLastPathSegment(const cDir : string) : string;
+var
+  posi : Integer;
+  delim : Char;
+  dir : string;
   EndsWithDelim : Boolean;
 begin
   if cDir.Contains('\') then delim := '\'
     else if cDir.Contains('/') then delim := '/'
       else
       begin
-        Result := '';
-        Exit;
+        Exit('');
       end;
-  NormalizePathDelim(cDir,delim);
+  dir := NormalizePathDelim(cDir,delim);
 
-  if cDir.EndsWith(delim) then
+  if dir.EndsWith(delim) then
   begin
-    cDir := Copy(cDir,1,cDir.Length-1);
+    dir := Copy(dir,1,dir.Length-1);
     EndsWithDelim := True;
   end
   else EndsWithDelim := False;
 
-  if cDir.CountChar(delim) > 1 then posi := cDir.LastDelimiter(delim)
-    else posi := Pos(delim,cDir)-1;
-  if posi = cDir.Length then posi := 0;
-  Result := Copy(cDir,1,posi);
-  if (Result <> '') and (EndsWithDelim) then Result := Result + delim;
+  if dir.CountChar(delim) > 1 then posi := dir.LastDelimiter(delim)
+    else posi := Pos(delim,dir)-1;
+  if posi = dir.Length then posi := 0;
+  Result := Copy(dir,1,posi);
+  if (not Result.IsEmpty) and (EndsWithDelim) then Result := Result + delim;
 end;
 
 function GetPathDelimiter(const aPath : string) : string;
@@ -1057,7 +1109,8 @@ begin
   if delimiter.IsEmpty then Exit(aPath);
   if aPath.StartsWith(delimiter) then spath := Copy(aPath,2,aPath.Length)
     else spath := aPath;
-  Result := Copy(spath,0,spath.IndexOf(delimiter));
+  if spath.Contains(delimiter) then Result := Copy(spath,0,spath.IndexOf(delimiter))
+    else Result := spath;
 end;
 
 function GetLastPathSegment(const aPath : string) : string;
