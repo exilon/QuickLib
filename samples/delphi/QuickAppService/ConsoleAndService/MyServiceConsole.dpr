@@ -60,6 +60,7 @@ begin
     begin
         AppService.ServiceName := 'MyService';
         AppService.DisplayName := 'MyServicesvc';
+        AppService.DesktopInteraction := False;
         {$IFDEF FPC}
         AppService.OnStart := TSrvFactory.CreateMyService;
         {$ELSE}
