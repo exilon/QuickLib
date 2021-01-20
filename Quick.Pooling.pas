@@ -116,6 +116,7 @@ implementation
 
 function TObjectPool<T>.AutoFreeIdleItemTimeMs(aIdleTimeMs: Integer): IObjectPool<T>;
 begin
+  Result := Self;
   fAutoFreeIdleItemTimeMs := aIdleTimeMs;
 end;
 
@@ -162,6 +163,7 @@ end;
 
 function TObjectPool<T>.CreateDelegate(aCreateProc: TCreateDelegator<T>): IObjectPool<T>;
 begin
+  Result := Self;
   fDelegate := aCreateProc;
 end;
 
