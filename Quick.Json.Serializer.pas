@@ -1188,6 +1188,7 @@ begin
     Exit;
   end;
 
+  Result := nil;
   try
     //if is GenericList
     if IsGenericList(aObject) then
@@ -1263,7 +1264,7 @@ begin
   except
     on E : Exception do
     begin
-      Result.Free;
+      if Result <> nil then Result.Free;
       if not propertyname.IsEmpty then raise EJsonSerializeError.CreateFmt('Serialize Error -> Object property: "%s" (%s)',[propertyname,e.Message])
        else raise EJsonSerializeError.CreateFmt('Serialize Error -> Object (%s)',[e.Message]);
     end;
