@@ -302,6 +302,10 @@ type
   function GetLoggedUserName : string;
   //returns computer name
   function GetComputerName : string;
+  //check if remote desktop session
+  {$IFDEF MSWINDOWS}
+  function IsRemoteSession : Boolean;
+  {$ENDIF}
   //extract domain and user name from user login
   function ExtractDomainAndUser(const aUser : string; out oDomain, oUser : string) : Boolean;
   //Changes incorrect delims in path
@@ -992,6 +996,16 @@ function GetComputerName : string;
       {$ENDIF}
     {$ENDIF}
   {$ENDIF}
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
+function IsRemoteSession : Boolean;
+const
+  SM_REMOTECONTROL      = $2001;
+  SM_REMOTESESSION      = $1000;
+begin
+  Result := (GetSystemMetrics(SM_REMOTESESSION) <> 0) or (GetSystemMetrics(SM_REMOTECONTROL) <> 0);
+end;
 {$ENDIF}
 
 function ExtractDomainAndUser(const aUser : string; out oDomain, oUser : string) : Boolean;
