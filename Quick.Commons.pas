@@ -1035,9 +1035,12 @@ begin
 end;
 
 function CombinePaths(const aFirstPath, aSecondPath: string; aDelim : Char): string;
+var
+  path1 : string;
+  path2 : string;
 begin
-  var path1 := NormalizePathDelim(aFirstPath,aDelim);
-  var path2 := NormalizePathDelim(aSecondPath,aDelim);
+  path1 := NormalizePathDelim(aFirstPath,aDelim);
+  path2 := NormalizePathDelim(aSecondPath,aDelim);
   if path1.EndsWith(aDelim) then
   begin
     if path2.StartsWith(aDelim) then Result := path1 + path2.Substring(1)
