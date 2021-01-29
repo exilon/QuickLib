@@ -704,10 +704,11 @@ begin
       case aProperty.PropertyType.TypeKind of
         tkDynArray :
           begin
-            if member is TJSONNull then Exit;
             {$IFNDEF FPC}
+            if member is TJSONNull then Exit;
             jArray := TJSONObject.ParseJSONValue(member.ToJSON) as TJSONArray;
             {$ELSE}
+            if member.ClassType = TJSONNull.ClassType then Exit;
             jArray := TJSONArray(TJSONObject.ParseJSONValue(member.ToJSON));
             {$ENDIF}
             try
