@@ -817,9 +817,14 @@ Serialize/Deserialize object from/to Yaml.
 
 **Quick.Expression:**
 --
- Evaluate object properties using expressions.
+ Evaluate object properties or single values using expressions.
 ```delphi
   if TExpressionParser.Validate(user,('(Age > 30) AND (Dept.Name = "Financial")') then
+  begin
+    //do something
+  end;
+
+  if TExpressionParser.Validate(user,('(20 > 30) OR (5 > 3)') then
   begin
     //do something
   end;
