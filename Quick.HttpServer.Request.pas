@@ -143,7 +143,7 @@ implementation
 
 function THttpRequest.ContentAsString: string;
 begin
-  if fContent <> nil then Result := StreamToString2(fContent,TEncoding.UTF8);
+  if fContent <> nil then Result := StreamToString(fContent,TEncoding.UTF8);
 end;
 
 constructor THttpRequest.Create;
