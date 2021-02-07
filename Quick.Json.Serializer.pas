@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
   Version     : 1.12
   Created     : 21/05/2018
-  Modified    : 12/01/2020
+  Modified    : 07/02/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -42,6 +42,7 @@ uses
   Rtti,
   TypInfo,
   Quick.Serializer.Intf,
+  Quick.Base64,
   {$IFDEF FPC}
    rttiutils,
    fpjson,
@@ -127,6 +128,7 @@ type
     fSerializeLevel : TSerializeLevel;
     fUseEnumNames : Boolean;
     fUseJsonCaseSense : Boolean;
+    fUseBase64Stream : Boolean;
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
@@ -150,14 +152,17 @@ type
     constructor Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write fUseJsonCaseSense;
+    property UseBase64Stream : Boolean read fUseBase64Stream write fUseBase64Stream;
     function GetJsonPairValueByName(aJson : TJSONObject; const aName : string) : TJsonValue;
     function GetJsonPairByName(aJson : TJSONObject; const aName : string) : TJSONPair;
     function IsGenericList(aObject : TObject) : Boolean;
+    function IsStream(aObject : TObject) : Boolean;
     function IsGenericXArray(const aClassName : string) : Boolean;
     function GetGenericListType(aObject : TObject) : TGenericListType;
     //serialize methods
     function SerializeValue(const aValue : TValue) : TJSONValue;
     function SerializeObject(aObject : TObject) : TJSONObject; overload;
+    function SerializeStream(aObject : TObject) : TJSONValue;
     {$IFNDEF FPC}
     function SerializeDynArray(const aValue: TValue; aMaxElements : Integer = -1) : TJsonArray;
     function SerializeRecord(const aValue : TValue) : TJSONValue;
@@ -168,6 +173,7 @@ type
     function DeserializeClass(aType : TClass; const aJson : TJSONObject) : TObject;
     function DeserializeObject(aObject : TObject; const aJson : TJSONObject) : TObject; overload;
     function DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject; overload;
+    function DeserializeStream(aObject : TObject; const aJson : TJSONValue) : TObject;
     {$IFNDEF FPC}
     function DeserializeType(aObject : TObject; aType : TTypeKind; aTypeInfo : PTypeInfo; const aValue: string) : TValue;
     function DeserializeDynArray(aTypeInfo : PTypeInfo; aObject : TObject; const aJsonArray: TJSONArray) : TValue;
@@ -185,21 +191,26 @@ type
     fSerializeLevel : TSerializeLevel;
     fUseEnumNames : Boolean;
     fUseJsonCaseSense : Boolean;
+    fUseBase64Stream : Boolean;
     fRTTIJson : TRTTIJson;
   private
     procedure SetUseEnumNames(const Value: Boolean);
     procedure SetUseJsonCaseSense(const Value: Boolean);
     procedure SetSerializeLevel(const Value: TSerializeLevel);
+    procedure SetUseBase64Stream(const Value: Boolean);
   public
     constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
     destructor Destroy; override;
     property SerializeLevel : TSerializeLevel read fSerializeLevel write SetSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write SetUseJsonCaseSense;
+    property UseBase64Stream : Boolean read fUseBase64Stream write SetUseBase64Stream;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
+    function JsonStreamToObject(aObject : TObject; aJsonStream : TStream) : TObject;
     function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
     function ObjectToJsonString(aObject : TObject; aIndent : Boolean = False): string;
+    procedure ObjectToJsonStream(aObject : TObject; aStream : TStream);
     function ValueToJson(const aValue : TValue; aIndent : Boolean = False) : string;
     function ValueToJsonString(const aValue : TValue; aIndent : Boolean = False) : string;
     function ArrayToJson<T>(aArray : TArray<T>; aIndent : Boolean = False) : string;
@@ -433,6 +444,19 @@ begin
   end;
   Result := aRecord;
 end;
+function TRTTIJson.DeserializeStream(aObject: TObject; const aJson: TJSONValue): TObject;
+var
+ stream : TStringStream;
+begin
+  if fUseBase64Stream then stream := TStringStream.Create(Base64Decode(aJson.Value),TEncoding.Ansi)
+    else stream := TStringStream.Create(aJson.Value,TEncoding.Ansi);
+  try
+    TStream(aObject).CopyFrom(stream,stream.Size);
+  finally
+    stream.Free;
+  end;
+end;
+
 {$ENDIF}
 
 constructor TRTTIJson.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
@@ -440,6 +464,7 @@ begin
   fSerializeLevel := aSerializeLevel;
   fUseEnumNames := aUseEnumNames;
   fUseJsonCaseSense := False;
+  fUseBase64Stream := True;
 end;
 
 {$IFNDEF FPC}
@@ -519,8 +544,14 @@ begin
     begin
       DeserializeList(aObject,'List',aJson);
       Exit;
-    end;
+    end
+    else
     {$ENDIF}
+    if IsStream(aObject) then
+    begin
+      DeserializeStream(aObject,aJson);
+      Exit;
+    end;
     //if  standard object
     rType := ctx.GetType(aObject.ClassInfo);
     for rProp in rType.GetProperties do
@@ -548,7 +579,7 @@ begin
               rProp.SetValue(aObject,propvalue);
             end;
             if IsGenericList(propvalue.AsObject) then DeserializeList(propvalue.AsObject,'List',TJSONObject(aJson.GetValue(propertyname)))
-              else Result := DeserializeProperty(Result,propertyname,rProp,aJson);
+            else Result := DeserializeProperty(Result,propertyname,rProp,aJson);
           end
           else if IsGenericXArray(propvalue{$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF}) then
           begin
@@ -974,6 +1005,12 @@ begin
   Result := (cname.StartsWith('TObjectList')) or (cname.StartsWith('TList'));
 end;
 
+function TRTTIJson.IsStream(aObject : TObject) : Boolean;
+begin
+  if aObject = nil then Exit(False);
+  Result := aObject.InheritsFrom(TStream);
+end;
+
 function TRTTIJson.GetGenericListType(aObject : TObject) : TGenericListType;
 var
   cname : string;
@@ -1203,6 +1240,13 @@ begin
       {$ENDIF}
       Exit;
     end
+    {$IFNDEF FPC}
+    else if IsStream(aObject) then
+    begin
+      Result := TJSONObject(SerializeStream(aObject));
+      Exit;
+    end
+    {$ENDIF}
     else Result := TJSONObject.Create;
     //if is standard object
     propertyname := '';
@@ -1465,6 +1509,24 @@ begin
   end;
 end;
 
+function TRTTIJson.SerializeStream(aObject: TObject): TJSONValue;
+var
+  stream : TStream;
+  json : string;
+begin
+  Result := nil;
+  try
+     stream := TStream(aObject);
+    if fUseBase64Stream then Result := TJSONString.Create(Base64Encode(StreamToString(stream,TEncoding.Ansi)))
+      else Result := TJSONString.Create(StreamToString(stream,TEncoding.Ansi));
+  except
+    on E : Exception do
+    begin
+      EJsonSerializeError.CreateFmt('Serialize Error -> Stream (%s)',[e.Message]);
+    end;
+  end;
+end;
+
 {$ELSE}
 function TRTTIJson.GetPropType(aPropInfo: PPropInfo): PTypeInfo;
 begin
@@ -1622,8 +1684,10 @@ begin
   fSerializeLevel := aSerializeLevel;
   fUseEnumNames := aUseEnumNames;
   fUseJsonCaseSense := False;
+  fUseBase64Stream := True;
   fRTTIJson := TRTTIJson.Create(aSerializeLevel,aUseEnumNames);
   fRTTIJson.UseJsonCaseSense := fUseJsonCaseSense;
+  fRTTIJson.UseBase64Stream := fUseBase64Stream;
 end;
 
 destructor TJsonSerializer.Destroy;
@@ -1704,6 +1768,29 @@ begin
   try
     if aIndent then Result := TJsonUtils.JsonFormat(json.ToJSON)
       else Result := json.ToJSON;
+  finally
+    json.Free;
+  end;
+end;
+
+procedure TJsonSerializer.ObjectToJsonStream(aObject: TObject; aStream: TStream);
+var
+  json : TJsonObject;
+  ss : TStringStream;
+begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'ObjectToJsonStream',aObject.ClassName);
+  {$ENDIF}
+  if aStream = nil then raise EJsonSerializeError.Create('stream parameter cannot be nil!');
+
+  json := fRTTIJson.SerializeObject(aObject);
+  try
+    ss := TStringStream.Create(json.ToString,TEncoding.UTF8);
+    try
+      aStream.CopyFrom(ss,ss.Size);
+    finally
+      ss.Free;
+    end;
   finally
     json.Free;
   end;
@@ -1794,6 +1881,19 @@ begin
 end;
 
 {$IFNDEF FPC}
+function TJsonSerializer.JsonStreamToObject(aObject: TObject; aJsonStream: TStream): TObject;
+var
+  json : string;
+begin
+  {$IFDEF DEBUG_SERIALIZER}
+    TDebugger.TimeIt(Self,'JsonStreamToObject','');
+  {$ENDIF}
+  if aJsonStream = nil then raise EJsonDeserializeError.Create('JsonStream param cannot be nil!');
+
+  json := StreamToString(aJsonStream,TEncoding.UTF8);
+  Result := JsonToObject(aObject,json);
+end;
+
 function TJsonSerializer.JsonToArray<T>(const aJson: string): TArray<T>;
 var
   jarray: TJSONArray;
@@ -1849,6 +1949,12 @@ procedure TJsonSerializer.SetSerializeLevel(const Value: TSerializeLevel);
 begin
   fSerializeLevel := Value;
   if Assigned(fRTTIJson) then fRTTIJson.fSerializeLevel := Value;
+end;
+
+procedure TJsonSerializer.SetUseBase64Stream(const Value: Boolean);
+begin
+  fUseBase64Stream := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.UseBase64Stream := Value;
 end;
 
 procedure TJsonSerializer.SetUseEnumNames(const Value: Boolean);
