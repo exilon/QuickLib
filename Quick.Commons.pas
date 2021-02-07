@@ -351,11 +351,11 @@ type
   //save stream to file
   procedure SaveStreamToFile(aStream : TStream; const aFilename : string);
   //save stream to string
-  function StreamToString(aStream : TStream) : string;
-  function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
+  function StreamToString(const aStream: TStream; const aEncoding: TEncoding): string;
+  function StreamToStringEx(aStream : TStream) : string;
   //save string to stream
-  procedure StringToStream(const aStr : string; aStream : TStream);
-  procedure StringToStream2(const aStr : string; aStream : TStream);
+  procedure StringToStream(const aStr : string; aStream : TStream; const aEncoding: TEncoding);
+  procedure StringToStreamEx(const aStr : string; aStream : TStream);
   //returns a real comma separated text from stringlist
   function CommaText(aList : TStringList) : string; overload;
   //returns a real comma separated text from array of string
@@ -1501,7 +1501,17 @@ begin
   end;
 end;
 
-function StreamToString(aStream : TStream) : string;
+function StreamToString(const aStream: TStream; const aEncoding: TEncoding): string;
+var
+  sbytes: TBytes;
+begin
+  aStream.Position := 0;
+  SetLength(sbytes, aStream.Size);
+  aStream.ReadBuffer(sbytes,aStream.Size);
+  Result := aEncoding.GetString(sbytes);
+end;
+
+function StreamToStringEx(aStream : TStream) : string;
 var
   ss : TStringStream;
 begin
@@ -1528,27 +1538,11 @@ begin
   end;
 end;
 
-function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
-var
-  sbytes: TBytes;
-begin
-  aStream.Position := 0;
-  SetLength(sbytes, aStream.Size);
-  aStream.ReadBuffer(sbytes,aStream.Size);
-  Result := aEncoding.GetString(sbytes);
-end;
-
-procedure StringToStream(const aStr : string; aStream : TStream);
-begin
-  aStream.Seek(0,soBeginning);
-  aStream.WriteBuffer(Pointer(aStr)^,aStr.Length * SizeOf(Char));
-end;
-
-procedure StringToStream2(const aStr : string; aStream : TStream);
+procedure StringToStream(const aStr : string; aStream : TStream; const aEncoding: TEncoding);
 var
   stream : TStringStream;
 begin
-  stream := TStringStream.Create(aStr,TEncoding.UTF8);
+  stream := TStringStream.Create(aStr,aEncoding);
   try
     aStream.CopyFrom(stream,stream.Size);
   finally
@@ -1556,6 +1550,11 @@ begin
   end;
 end;
 
+procedure StringToStreamEx(const aStr : string; aStream : TStream);
+begin
+  aStream.Seek(0,soBeginning);
+  aStream.WriteBuffer(Pointer(aStr)^,aStr.Length * SizeOf(Char));
+end;
 
 function CommaText(aList : TStringList) : string;
 var
