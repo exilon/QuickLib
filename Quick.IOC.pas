@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.IoC
   Description : IoC Dependency Injector
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 06/04/2020
+  Modified    : 07/02/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -190,18 +190,31 @@ type
     procedure Build;
   end;
 
+  TIocServiceLocator = class
+  public
+    class function GetService<T> : T;
+    class function TryToGetService<T: IInterface>(aService : T) : Boolean;
+  end;
+
   EIocRegisterError = class(Exception);
   EIocResolverError = class(Exception);
   EIocBuildError = class(Exception);
 
   //singleton global instance
-  function GlobalContainer: TIocContainer;
+  function GlobalContainer : TIocContainer;
+
+  function ServiceLocator : TIocServiceLocator;
 
 implementation
 
 function GlobalContainer: TIocContainer;
 begin
   Result := TIocContainer.GlobalInstance;
+end;
+
+function ServiceLocator : TIocServiceLocator;
+begin
+  Result := TIocServiceLocator.Create;
 end;
 
 { TIocRegistration }
@@ -414,7 +427,11 @@ end;
 function TIocRegistrator.GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
 begin
   {$IFDEF NEXTGEN}
-  Result := aPInfo.Name.ToString;
+    {$IFDEF DELPHISYDNEY_UP}
+    Result := string(aPInfo.Name);
+    {$ELSE}
+    Result := aPInfo .Name.ToString;
+    {$ENDIF}
   {$ELSE}
   Result := string(aPInfo.Name);
   {$ENDIF}
@@ -712,6 +729,19 @@ procedure TTypedFactory<T>.DoInvoke(Method: TRttiMethod; const Args: TArray<TVal
 begin
   if CompareText(Method.Name,'New') <> 0 then raise Exception.Create('TTypedFactory needs a method "New"');
   Result := fResolver.CreateInstance(TClass(T)).AsType<T>;
+end;
+
+{ TIocServiceLocator }
+
+class function TIocServiceLocator.GetService<T> : T;
+begin
+  Result := GlobalContainer.Resolve<T>;
+end;
+
+class function TIocServiceLocator.TryToGetService<T>(aService : T) : Boolean;
+begin
+  Result := GlobalContainer.IsRegistered<T>('');
+  if Result then aService := GlobalContainer.Resolve<T>;
 end;
 
 end.
