@@ -129,6 +129,7 @@ type
     fUseEnumNames : Boolean;
     fUseJsonCaseSense : Boolean;
     fUseBase64Stream : Boolean;
+    fUseNullStringsAsEmpty : Boolean;
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
@@ -153,6 +154,7 @@ type
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write fUseJsonCaseSense;
     property UseBase64Stream : Boolean read fUseBase64Stream write fUseBase64Stream;
+    property UseNullStringsAsEmpty : Boolean read fUseNullStringsAsEmpty write fUseNullStringsAsEmpty;
     function GetJsonPairValueByName(aJson : TJSONObject; const aName : string) : TJsonValue;
     function GetJsonPairByName(aJson : TJSONObject; const aName : string) : TJSONPair;
     function IsGenericList(aObject : TObject) : Boolean;
@@ -192,19 +194,23 @@ type
     fUseEnumNames : Boolean;
     fUseJsonCaseSense : Boolean;
     fUseBase64Stream : Boolean;
+    fUseNullStringsAsEmpty : Boolean;
     fRTTIJson : TRTTIJson;
   private
     procedure SetUseEnumNames(const Value: Boolean);
     procedure SetUseJsonCaseSense(const Value: Boolean);
     procedure SetSerializeLevel(const Value: TSerializeLevel);
     procedure SetUseBase64Stream(const Value: Boolean);
+    //Only Delphi -> Workaround, use this when something passes : {Test : "Null"} but we expect : {Test : ""}
+    procedure SetUseNullStringsAsEmpty(const Value : Boolean);
   public
-    constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
+    constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True; aUseNullStringsAsEmpty : Boolean = False);
     destructor Destroy; override;
     property SerializeLevel : TSerializeLevel read fSerializeLevel write SetSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write SetUseEnumNames;
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write SetUseJsonCaseSense;
     property UseBase64Stream : Boolean read fUseBase64Stream write SetUseBase64Stream;
+    property UseNullStringsAsEmpty : Boolean read fUseNullStringsAsEmpty write fUseNullStringsAsEmpty;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
     function JsonStreamToObject(aObject : TObject; aJsonStream : TStream) : TObject;
@@ -835,7 +841,10 @@ begin
     case aType of
       tkString, tkLString, tkWString, tkUString :
         begin
-          Result := value;
+          if fUseNullStringsAsEmpty and (CompareText(value, 'null') = 0) then
+            Result := ''
+          else
+            Result := value;
         end;
       tkChar, tkWChar :
         begin
@@ -1676,7 +1685,7 @@ end;
 
 { TJsonSerializer}
 
-constructor TJsonSerializer.Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True);
+constructor TJsonSerializer.Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True; aUseNullStringsAsEmpty : Boolean = False);
 begin
   {$IFDEF FPC}
   if aSerializeLevel = TSerializeLevel.slPublicProperty then raise EJsonSerializeError.Create('FreePascal RTTI only supports published properties');
@@ -1685,9 +1694,11 @@ begin
   fUseEnumNames := aUseEnumNames;
   fUseJsonCaseSense := False;
   fUseBase64Stream := True;
+  fUseNullStringsAsEmpty := aUseNullStringsAsEmpty;
   fRTTIJson := TRTTIJson.Create(aSerializeLevel,aUseEnumNames);
   fRTTIJson.UseJsonCaseSense := fUseJsonCaseSense;
   fRTTIJson.UseBase64Stream := fUseBase64Stream;
+  fRTTIJson.fUseNullStringsAsEmpty := fUseNullStringsAsEmpty;
 end;
 
 destructor TJsonSerializer.Destroy;
@@ -1967,6 +1978,12 @@ procedure TJsonSerializer.SetUseJsonCaseSense(const Value: Boolean);
 begin
   fUseJsonCaseSense := Value;
   if Assigned(fRTTIJson) then fRTTIJson.UseJsonCaseSense := Value;
+end;
+
+procedure TJsonSerializer.SetUseNullStringsAsEmpty(const Value: Boolean);
+begin
+  fUseNullStringsAsEmpty := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.fUseNullStringsAsEmpty := Value;
 end;
 
 {$IFNDEF FPC}
