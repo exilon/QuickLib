@@ -30,8 +30,6 @@ unit Quick.Crypto;
 
 interface
 
-uses
-
 function AES128_Encrypt(Value, Password: string): string;
 function AES128_Decrypt(Value, Password: string): string;
 
