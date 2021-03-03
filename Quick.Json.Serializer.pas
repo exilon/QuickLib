@@ -1698,7 +1698,7 @@ begin
   fRTTIJson := TRTTIJson.Create(aSerializeLevel,aUseEnumNames);
   fRTTIJson.UseJsonCaseSense := fUseJsonCaseSense;
   fRTTIJson.UseBase64Stream := fUseBase64Stream;
-  fRTTIJson.fUseNullStringsAsEmpty := fUseNullStringsAsEmpty;
+  fRTTIJson.UseNullStringsAsEmpty := fUseNullStringsAsEmpty;
 end;
 
 destructor TJsonSerializer.Destroy;
