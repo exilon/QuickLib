@@ -194,7 +194,12 @@ end;
 
 procedure TRedisClient.Disconnect;
 begin
-  if fConnected then RedisQUIT;
+  if fTCPClient.Connected then
+  begin
+    RedisQUIT;
+    fTCPClient.IOHandler.InputBuffer.Clear;
+    fTCPClient.IOHandler.WriteBufferFlush;
+  end;
   fConnected := False;
 end;
 
@@ -353,7 +358,7 @@ begin
     fTCPClient.IOHandler.ReadLn; //key
     fTCPClient.IOHandler.ReadLn; //$int
     oValue := fTCPClient.IOHandler.ReadLn; //value
-    Result := True;
+    if not oValue.IsEmpty then Result := True;
   end
   else
   begin
@@ -365,11 +370,12 @@ function TRedisClient.RedisBRPOPLPUSH(const aKey, aKeyToMove: string; out oValue
 var
   response : IRedisResponse;
 begin
+  Result := False;
   response := Command('BRPOPLPUSH','%s %s %d',[aKey,aKeyToMove,aWaitTimeoutSecs]);
   if response.IsDone then
   begin
     oValue := fTCPClient.IOHandler.ReadLn; //value
-    Result := True;
+    if not oValue.IsEmpty then Result := True;
   end
   else raise ERedisCommandError.CreateFmt('BRPOPLPUSH Error: %s',[response.Response]);
 end;
@@ -506,7 +512,7 @@ end;
 
 function TRedisClient.RedisLREM(const aKey, aValue: string; aNumOccurrences: Integer): Boolean;
 begin
-  Result := Command('LREM','%s "%s" %d',[aKey,EscapeString(aValue),aNumOccurrences * -1]).IsDone;
+  Result := Command('LREM','%s %d "%s"',[aKey,aNumOccurrences * -1,EscapeString(aValue)]).IsDone;
 end;
 
 function TRedisClient.RedisLTRIM(const aKey : string; aFirstElement, aMaxSize : Int64) : Boolean;
