@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.Data.Redis
   Description : Redis client
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 22/02/2020
-  Modified    : 12/07/2020
+  Modified    : 03/03/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -239,6 +239,8 @@ function TRedisClient.EscapeString(const json: string): string;
 begin
   Result := StringReplace(json,'\','\\',[rfReplaceAll]);
   Result := StringReplace(Result,'"','\"',[rfReplaceAll]);
+  Result := StringReplace(Result,#13,'\r',[rfReplaceAll]);
+  Result := StringReplace(Result,#10,'\n',[rfReplaceAll]);
   //Result := StringReplace(Result,'/','\/"',[rfReplaceAll]);
 end;
 
