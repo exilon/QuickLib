@@ -171,7 +171,8 @@ end;
 
 class destructor TDebugger.Destroy;
 begin
-
+  fSerializer := nil;
+  fLogger := nil;
 end;
 
 class function TDebugger.TimeIt(aOwner : TObject; const aFunctionName, aDescription: string): IDebugMehtodChrono;

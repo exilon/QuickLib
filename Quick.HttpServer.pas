@@ -74,8 +74,12 @@ type
     function GetOnRequest : TRequestEvent;
     function GetCustomErrorPages: TCustomErrorPages;
     procedure SetCustomErrorPages(const Value: TCustomErrorPages);
+    function GetHost: string;
+    function GetPort: Integer;
     property OnNewRequest : TRequestEvent read GetOnRequest write SetOnRequest;
     property CustomErrorPages : TCustomErrorPages read GetCustomErrorPages write SetCustomErrorPages;
+    property Host : string read GetHost;
+    property Port : Integer read GetPort;
     function Logger : ILogger;
     procedure Start;
     procedure Stop;
@@ -91,6 +95,8 @@ type
     function GetOnRequest : TRequestEvent;
     function GetCustomErrorPages: TCustomErrorPages;
     procedure SetCustomErrorPages(const Value: TCustomErrorPages);
+    function GetHost: string;
+    function GetPort: Integer;
   protected
     fOnRequest : TRequestEvent;
     fHost : string;
@@ -100,8 +106,8 @@ type
   public
     constructor Create(const aHost : string; aPort : Integer; aSSLEnabled : Boolean; aLogger : ILogger = nil); virtual;
     destructor Destroy; override;
-    property Host : string read fHost;
-    property Port : Integer read fPort;
+    property Host : string read GetHost;
+    property Port : Integer read GetPort;
     property CustomErrorPages : TCustomErrorPages read GetCustomErrorPages write SetCustomErrorPages;
     property OnNewRequest : TRequestEvent read GetOnRequest write SetOnRequest;
     property OnConnect : TOnConnectEvent read fOnConnect write fOnConnect;
@@ -226,9 +232,19 @@ begin
   else aResponse.ContentText := content;
 end;
 
+function TCustomHttpServer.GetHost: string;
+begin
+  Result := fHost;
+end;
+
 function TCustomHttpServer.GetOnRequest: TRequestEvent;
 begin
   Result := fOnRequest;
+end;
+
+function TCustomHttpServer.GetPort: Integer;
+begin
+  Result := fPort;
 end;
 
 procedure TCustomHttpServer.SetCustomErrorPages(const Value: TCustomErrorPages);
