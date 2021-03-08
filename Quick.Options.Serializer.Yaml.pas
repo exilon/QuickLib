@@ -101,6 +101,8 @@ begin
   if FileExists(aFilename) then
   begin
     fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
+    if fileoptions.IsEmpty then EOptionLoadError.CreateFmt('Config file "%s" is empty!',[ExtractFileName(aFilename)]);
+
     aYamlObj := TYamlObject.ParseYAMLValue(fileoptions) as TYamlObject;
     if aYamlObj = nil then raise EOptionLoadError.CreateFmt('Config file "%s" is damaged or not well-formed Yaml format!',[ExtractFileName(aFilename)]);
   end;
