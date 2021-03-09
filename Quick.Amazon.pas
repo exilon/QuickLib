@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 18/11/2016
-  Modified    : 05/11/2020
+  Modified    : 09/03/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -157,11 +157,12 @@ end;
 procedure TQuickAmazon.SetAWSRegion(Value : TAmazonRegion);
 begin
   fAWSRegion := Value;
-  if not StrInArray(Value,AWSRegionSet) then raise Exception.CreateFmt('%s is not a valid region for AmazonS3!',[Value]);
 
   //fconAmazon.StorageEndpoint := Format('s3-%s.amazonaws.com',[GetAWSRegion(Value)]);
   //fconAmazon.StorageEndpoint := Format('s3.%s.amazonaws.com',[GetAWSRegion(Value)]);
   {$IFDEF DELPHISYDNEY_UP}
+  if not StrInArray(Value,AWSRegionSet) then raise Exception.CreateFmt('%s is not a valid region for AmazonS3!',[Value]);
+
   fconAmazon.Region := Value;
   {$ELSE}
   fconAmazon.StorageEndpoint := Format('s3.%s.amazonaws.com',[GetAWSRegion(Value)]);
