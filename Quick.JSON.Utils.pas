@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.JSON.Utils
   Description : Json utils
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 21/09/2018
-  Modified    : 24/09/2018
+  Modified    : 09/03/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -62,7 +62,10 @@ end;
 
 class function TJsonUtils.JsonFormat(const json : string) : string;
 const
-  EOL = #13#10;
+  {$IFNDEF DELPHIRX10_UP}
+    sLineBreak  = {$IFDEF LINUX} AnsiChar(#10) {$ENDIF}
+                  {$IFDEF MSWINDOWS} AnsiString(#13#10) {$ENDIF};
+  {$ENDIF}
   INDENT = '    ';
   SPACE = ' ';
 var
@@ -97,21 +100,21 @@ begin
           begin
             LIndent := LIndent + INDENT;
             if json[i+1] in ['}',']'] then Result := Result + c
-              else Result := Result + c + EOL + LIndent;
+              else Result := Result + c + sLineBreak  + LIndent;
             isEOL := True;
           end;
         ',' :
           begin
             isEOL := False;
-            Result := Result + c + EOL + LIndent;
+            Result := Result + c + sLineBreak  + LIndent;
           end;
         '}',']' :
           begin
             Delete(LIndent, 1, Length(INDENT));
-            if not isEOL then Result := Result + EOL;
-            if json[i+1] = ',' then Result := Result + LIndent + c
-              else if json[i-1] in ['{','['] then Result := Result + c + EOL
-                else Result := Result + LIndent + c + EOL;
+            if not isEOL then Result := Result + sLineBreak ;
+            if (i<json.Length) and (json[i+1] = ',') then Result := Result + LIndent + c
+              else if json[i-1] in ['{','['] then Result := Result + c + sLineBreak
+                else Result := Result + LIndent + c + sLineBreak ;
             isEOL := True;
           end;
         else
