@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.AutoMapper
   Description : Auto Mapper object properties
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 25/08/2018
-  Modified    : 07/04/2020
+  Modified    : 07/04/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -295,7 +295,8 @@ begin
           except
             on E : Exception do raise EAUtoMapperError.CreateFmt('Error mapping property "%s" : %s',[tgtprop.Name,e.message]);
           end;
-          if clname.StartsWith('TObjectList') then TObjListMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
+          if clname.StartsWith('TList') then TListMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
+          else if clname.StartsWith('TObjectList') then TObjListMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
             else TObjMapper.Map(rType.GetProperty(tgtprop.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
           {$ELSE}
           TObjMapper.Map(GetObjectProp(aSrcObj,tgtprop.Name),obj,aCustomMapping);
@@ -469,6 +470,11 @@ begin
       tkChar, tkString, tkWChar, tkWString : TList<string>(aTgtList).Capacity := value.GetArrayLength;
       tkInteger, tkInt64 : TList<Integer>(aTgtList).Capacity := value.GetArrayLength;
       tkFloat : TList<Extended>(aTgtList).Capacity := value.GetArrayLength;
+      tkRecord :
+        begin
+          TObjMapper.Map(aSrcList,aTgtList,aCustomMapping);
+          exit;
+        end;
       else TList<TObject>(aTgtList).Capacity := value.GetArrayLength;
     end;
 
