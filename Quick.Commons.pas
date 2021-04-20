@@ -240,7 +240,15 @@ type
   //converts a Windows path to Unix path
   function WindowsToUnixPath(const WindowsPath: string): string;
   //corrects malformed urls
-  function CorrectURLPath(cUrl : string) : string;
+  function CorrectURLPath(const cUrl : string) : string;
+  //get url parts
+  function UrlGetProtocol(const aUrl : string) : string;
+  function UrlGetHost(const aUrl : string) : string;
+  function UrlGetPath(const aUrl : string) : string;
+  function UrlGetQuery(const aUrl : string) : string;
+  function UrlRemoveProtocol(const aUrl : string) : string;
+  function UrlRemoveQuery(const aUrl : string) : string;
+  function UrlSimpleEncode(const aUrl : string) : string;
   //get typical environment paths as temp, desktop, etc
   procedure GetEnvironmentPaths;
   {$IFDEF MSWINDOWS}
@@ -552,7 +560,7 @@ begin
   Result := StringReplace(WindowsPath, '\', '/',[rfReplaceAll, rfIgnoreCase]);
 end;
 
-function CorrectURLPath(cUrl : string) : string;
+function CorrectURLPath(const cUrl : string) : string;
 var
   nurl : string;
 begin
@@ -560,6 +568,66 @@ begin
   nurl := StringReplace(nurl,'//','/',[rfReplaceAll]);
   Result := StringReplace(nurl,' ','%20',[rfReplaceAll]);
   //TNetEncoding.Url.Encode()
+end;
+
+function UrlGetProtocol(const aUrl : string) : string;
+begin
+  Result := aUrl.SubString(0,aUrl.IndexOf('://'));
+end;
+
+function UrlGetHost(const aUrl : string) : string;
+var
+  url : string;
+  len : Integer;
+begin
+  url := UrlRemoveProtocol(aUrl);
+
+  if url.Contains('/') then len := url.IndexOf('/')
+    else len := url.Length;
+
+  Result := url.SubString(0,len);
+end;
+
+function UrlGetPath(const aUrl : string) : string;
+var
+  url : string;
+  len : Integer;
+  query : Integer;
+begin
+  url := UrlRemoveProtocol(aUrl);
+  if not url.Contains('/') then Exit('');
+  len := url.IndexOf('?');
+  if len < 0 then len := url.Length
+    else len := url.IndexOf('?') - url.IndexOf('/');
+  Result := url.Substring(url.IndexOf('/'),len);
+end;
+
+function UrlGetQuery(const aUrl : string) : string;
+begin
+  if not aUrl.Contains('?') then Exit('');
+
+  Result := aUrl.Substring(aUrl.IndexOf('?')+1);
+end;
+
+function UrlRemoveProtocol(const aUrl : string) : string;
+var
+  pos : Integer;
+begin
+  pos := aUrl.IndexOf('://');
+  if pos < 0 then pos := 0
+    else pos := pos + 3;
+  Result := aUrl.SubString(pos, aUrl.Length);
+end;
+
+function UrlRemoveQuery(const aUrl : string) : string;
+begin
+  if not aUrl.Contains('?') then Exit(aUrl);
+  Result := aUrl.Substring(0,aUrl.IndexOf('?'));
+end;
+
+function UrlSimpleEncode(const aUrl : string) : string;
+begin
+  Result := StringReplace(aUrl,' ','%20',[rfReplaceAll]);
 end;
 
 procedure GetEnvironmentPaths;
