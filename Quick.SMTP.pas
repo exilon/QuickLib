@@ -1,13 +1,13 @@
-{ ***************************************************************************
+﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike P�rez
+  Copyright (c) 2016-2021 Kike P�rez
 
   Unit        : Quick.SMTP
   Description : Send Emails
   Author      : Kike P�rez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 29/07/2020
+  Modified    : 20/04/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -93,6 +93,7 @@ type
     function SendMail(aMail : TMailMessage) : Boolean; overload;
     function SendEmail(const aFromEmail,aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean; overload;
     function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean; overload;
+    function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string; const aAttachments : TStringList) : Boolean; overload;
   end;
 
 implementation
@@ -158,6 +159,11 @@ begin
 end;
 
 function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean;
+begin
+  Result := SendEmail(aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody,nil);
+end;
+
+function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string; const aAttachments : TStringList) : Boolean;
 var
   mail : TMailMessage;
 begin
@@ -173,6 +179,7 @@ begin
     Mail.CC := aCC;
     Mail.BCC := aBC;
     Mail.ReplyTo := aReplyTo;
+    Mail.Attachments := aAttachments;
     Result := Self.SendMail(mail);
   finally
     mail.Free;
