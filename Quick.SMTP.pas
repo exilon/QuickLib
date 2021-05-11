@@ -7,7 +7,7 @@
   Author      : Kike P�rez
   Version     : 1.4
   Created     : 12/10/2017
-  Modified    : 20/04/2021
+  Modified    : 11/05/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -179,7 +179,7 @@ begin
     Mail.CC := aCC;
     Mail.BCC := aBC;
     Mail.ReplyTo := aReplyTo;
-    Mail.Attachments := aAttachments;
+    if aAttachments <> nil then Mail.Attachments := aAttachments;
     Result := Self.SendMail(mail);
   finally
     mail.Free;
