@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.Chrono
   Description : Chronometers time elapsed and estimated time to do a task
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 27/08/2015
-  Modified    : 27/06/2020
+  Modified    : 06/05/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -134,6 +134,7 @@ type
     function GetIsRunning: Boolean;
   public
     constructor Create(const StartOnCreate: Boolean = false);
+    class function NewChrono(const StartOnCreate: Boolean = True) : IChronometer;
     procedure Start;
     procedure Stop;
     procedure Reset;
@@ -261,6 +262,11 @@ end;
 function TChronometer.GetIsRunning: Boolean;
 begin
   Result := fIsRunning;
+end;
+
+class function TChronometer.NewChrono(const StartOnCreate: Boolean = True) : IChronometer;
+begin
+  Result := TChronometer.Create(StartOnCreate);
 end;
 
 class function TChronometer.MillisecondsToString(aMilliseconds : Int64; LongFormat : Boolean = False) : string;
