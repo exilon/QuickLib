@@ -34,6 +34,9 @@ unit Quick.Pooling;
 interface
 
 uses
+  {$IFDEF DEBUG_OBJPOOL}
+  Quick.Debug.Utils,
+  {$ENDIF}
   System.SysUtils,
   System.SyncObjs,
   System.DateUtils,
@@ -191,6 +194,9 @@ var
   waitResult: TWaitResult;
 begin
   Result := nil;
+  {$IFDEF DEBUG_OBJPOOL}
+  TDebugger.Trace('Waiting for get idle Pool Item...');
+  {$ENDIF}
   waitResult := fSemaphore.WaitFor(fWaitTimeoutMs);
   if waitResult <> TWaitResult.wrSignaled then raise Exception.Create('Connection Pool Timeout: Cannot obtain a connection');
   fLock.Enter;
@@ -201,14 +207,23 @@ begin
       if fPool[i] = nil then
       begin
         fPool[i] := TPoolItem<T>.Create(fSemaphore,fLock,i,fDelegate);
-        //writeln('create ' + i.ToString);
+        {$IFDEF DEBUG_OBJPOOL}
+        TDebugger.Trace('Create Pool Item: %d',[i]);
+        {$ENDIF}
         Exit(fPool[i]);
       end;
       if fPool[i].RefCount = 1 then
       begin
         //writeln('get ' + i.ToString);
+        {$IFDEF DEBUG_OBJPOOL}
+        TDebugger.Trace('Get Idle Pool Item: %d',[i]);
+        {$ENDIF}
         Exit(fPool[i]);
-      end;
+      end
+      {$IFDEF DEBUG_OBJPOOL}
+      else
+      TDebugger.Trace('Pool Item: %d is busy (RefCount: %d)',[i,fPool[i].RefCount]);
+      {$ENDIF}
     end;
   finally
     fLock.Leave;
@@ -267,7 +282,9 @@ end;
 function TPoolItem<T>._AddRef: Integer;
 begin
   fLock.Enter;
-  //writeln('enter');
+  {$IFDEF DEBUG_OBJPOOL}
+  TDebugger.Trace('Got Pool item');
+  {$ENDIF}
   try
     Inc(FRefCount);
     Result := FRefCount;
@@ -279,7 +296,9 @@ end;
 function TPoolItem<T>._Release: Integer;
 begin
   fLock.Enter;
-  //writeln('exit');
+  {$IFDEF DEBUG_OBJPOOL}
+  TDebugger.Trace('Released Pool item');
+  {$ENDIF}
   try
     Dec(fRefCount);
     Result := fRefCount;
@@ -290,8 +309,8 @@ begin
     end
     else fLastAccess := Now;
   finally
-    fLock.Leave;
     if fRefCount = 1 then fSemaphore.Release;
+    fLock.Leave;
   end;
 end;
 
