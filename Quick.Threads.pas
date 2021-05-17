@@ -826,8 +826,9 @@ end;
 destructor TThreadedQueueList<T>.Destroy;
 begin
   DoShutDown;
-  fQueueLock.Free;
   fQueueCondVar.Free;
+  fQueueLock.Free;
+  //fQueueCondVar.Free;
   fQueue.Free;
   inherited;
 end;
@@ -1879,7 +1880,7 @@ begin
   Result := Self;
   ClearSchedule;
   fScheduleMode := TScheduleMode.smRunOnce;
-  fStartDate := ChangeDateOfADay(Now(),aHour,aMinute,aSecond);
+  fStartDate := ChangeTimeOfADay(Now(),aHour,aMinute,aSecond);
   fNextExecution := fStartDate;
 end;
 
