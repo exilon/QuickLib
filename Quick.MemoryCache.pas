@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.MemoryCache
   Description : Cache objects with expiration control
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 14/07/2019
-  Modified    : 02/11/2019
+  Modified    : 17/05/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -479,15 +479,8 @@ begin
 end;
 
 function TMemoryCache<T>.GetValue(const aKey: string): T;
-var
-  cacheitem : ICacheEntry;
 begin
-  fLock.BeginRead;
-  try
-    fItems.TryGetValue(aKey,cacheitem);
-  finally
-    fLock.EndRead;
-  end;
+  TryGetValue(aKey,Result);
 end;
 
 procedure TMemoryCache<T>.RemoveValue(const aKey: string);
@@ -595,10 +588,8 @@ end;
 { TMemoryCache }
 
 function TMemoryCache.GetValue(const aKey: string): string;
-var
-  cacheitem : ICacheEntry;
 begin
-  if fItems.TryGetValue(aKey,cacheitem) then Result := cacheitem.Data;
+  TryGetValue(aKey,Result);
 end;
 
 procedure TMemoryCache.SetValue(const aKey, aValue: string; aExpirationMilliseconds: Integer);
@@ -701,7 +692,7 @@ begin
   try
     Result := fItems.TryGetValue(aKey,cacheitem);
     //check if cacheitem already expired
-    if Result and  cacheitem.IsExpired then Exit(False);
+    if Result and cacheitem.IsExpired then Exit(False);
   finally
     fLock.EndRead;
   end;
