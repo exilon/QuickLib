@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.HttpServer.Request
   Description : Http Server Request
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 31/08/2019
+  Modified    : 07/02/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,6 +34,9 @@ unit Quick.HttpServer.Request;
 interface
 
 uses
+  {$IFDEF DEBUG_HTTPSERVER}
+  Quick.Debug.Utils,
+  {$ENDIF}
   Classes,
   SysUtils,
   Quick.Commons,
@@ -143,6 +146,9 @@ implementation
 
 function THttpRequest.ContentAsString: string;
 begin
+  {$IFDEF DEBUG_HTTPSERVER}
+  TDebugger.Trace(Self,'ContentAsString Encode: %s',[ContentEncoding]);
+  {$ENDIF}
   if fContent <> nil then Result := StreamToString(fContent,TEncoding.UTF8);
 end;
 
