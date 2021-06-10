@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 01/01/2021
+  Modified    : 02/06/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -368,10 +368,14 @@ type
   function CommaText(aList : TStringList) : string; overload;
   //returns a real comma separated text from array of string
   function CommaText(aArray : TArray<string>) : string; overload;
-  //returns a string CRLF from array of string
-  function ArrayToString(aArray : TArray<string>) : string;
+  //returns a string CRLF separated from array of string
+  function ArrayToString(aArray : TArray<string>) : string; overload;
+  //returns a string with separator from array of string
+  function ArrayToString(aArray : TArray<string>; aSeparator : string) : string; overload;
   //converts TStrings to array
-  function StringsToArray(aStrings : TStrings) : TArray<string>;
+  function StringsToArray(aStrings : TStrings) : TArray<string>; overload;
+  //converts string comma or semicolon separated to array
+  function StringsToArray(const aString : string) : TArray<string>; overload;
   {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
@@ -1667,6 +1671,7 @@ var
   value : string;
   sb : TStringBuilder;
 begin
+  Result := '';
   if High(aArray) < 0 then Exit;
   sb := TStringBuilder.Create;
   try
@@ -1675,6 +1680,30 @@ begin
       sb.Append(value);
       sb.Append(#10#13);
     end;
+    Result := sb.ToString;
+  finally
+    sb.Free;
+  end;
+end;
+
+function ArrayToString(aArray : TArray<string>; aSeparator : string) : string;
+var
+  value : string;
+  sb : TStringBuilder;
+  isfirst : Boolean;
+begin
+  Result := '';
+  if High(aArray) < 0 then Exit;
+  isfirst := True;
+  sb := TStringBuilder.Create;
+  try
+    for value in aArray do
+    begin
+      if isfirst then isfirst := False
+        else sb.Append(aSeparator);
+      sb.Append(value);
+    end;
+    Result := sb.ToString;
   finally
     sb.Free;
   end;
@@ -1690,6 +1719,13 @@ begin
   begin
     Result[i] := aStrings[i];
   end;
+end;
+
+function StringsToArray(const aString : string) : TArray<string>;
+var
+  item : string;
+begin
+  for item in aString.Split([';',',']) do Result := Result + [item.Trim];
 end;
 
 { TCounter }
