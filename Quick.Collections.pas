@@ -296,7 +296,8 @@ end;
 
 function TxList<T>.First: T;
 begin
-  if fList.Count > 0 then Result := fList.First;
+  if fList.Count > 0 then Result := fList.First
+    else Result := default(T);
 end;
 
 procedure TxList<T>.FromList(const aList: TList<T>);
@@ -377,7 +378,8 @@ end;
 
 function TxList<T>.Last: T;
 begin
-  if fList.Count > 0 then Result := fList.Last;
+  if fList.Count > 0 then Result := fList.Last
+    else Result := default(T)
 end;
 
 function TxList<T>.LastIndexOf(const Value: T): Integer;
