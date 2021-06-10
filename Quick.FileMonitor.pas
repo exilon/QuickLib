@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.FileMonitor
   Description : Watch for single file changes
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 11/09/2017
-  Modified    : 29/01/2019
+  Modified    : 10/05/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -65,6 +65,7 @@ type
     fModifedDate : TDateTime;
     fCurrentMonitorNotify : TMonitorNotify;
     fOnChangeNotify : TFileChangeNotify;
+    fIsThreadStarted : Boolean;
     procedure SetEnabled(Status : Boolean);
     procedure NotifyEvent;
   protected
@@ -86,6 +87,8 @@ implementation
 constructor TFileMonitor.Create;
 begin
   inherited Create(True);
+  fIsThreadStarted := False;
+  fEnabled := False;
   Self.FreeOnTerminate := False;
   fInterval := 1000;
   fExists := False;
@@ -166,17 +169,23 @@ end;
 
 procedure TFileMonitor.SetEnabled(Status : Boolean);
 begin
-  if (Status) and {$IFNDEF FPC}(not Started){$ELSE}(Suspended){$ENDIF} then Start;
-
   if fEnabled <> Status then
   begin
-    fEnabled := Status;
-    //gets current values
-    if TFile.Exists(fFileName) then
+    if Status then
     begin
-      fExists := True;
-      fModifedDate := TFile.GetLastWriteTime(fFileName);
+      //gets current values
+      if TFile.Exists(fFileName) then
+      begin
+        fExists := True;
+        fModifedDate := TFile.GetLastWriteTime(fFileName);
+      end;
     end;
+    if not fIsThreadStarted then
+    begin
+      fIsThreadStarted := True;
+      if (Status) and {$IFNDEF FPC}(Started = False){$ELSE}(Suspended){$ENDIF} then Start;
+    end;
+    fEnabled := Status;
   end;
 end;
 
