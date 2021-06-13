@@ -359,6 +359,7 @@ function TLinqQuery<T>.Select: TxArray<T>;
 var
   obj : T;
 begin
+  Result := [];
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for obj in fList do
   begin
@@ -402,6 +403,7 @@ var
   obj : T;
   i : Integer;
 begin
+  Result := [];
   DoOrderBy(fList);
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   i := 0;
@@ -631,6 +633,7 @@ function TLinqArray<T>.Select: TArray<T>;
 var
   value : T;
 begin
+  Result := [];
   //DoOrderBy(fList);
   if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for value in fArray do
@@ -670,6 +673,7 @@ var
   i : Integer;
   limit : Integer;
 begin
+  Result := [];
   if aLimit > High(fArray) then limit := High(fArray)
     else limit := aLimit;
   SetLength(Result,limit);
