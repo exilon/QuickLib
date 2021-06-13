@@ -164,8 +164,8 @@ type
     //serialize methods
     function SerializeValue(const aValue : TValue) : TJSONValue;
     function SerializeObject(aObject : TObject) : TJSONObject; overload;
-    function SerializeStream(aObject : TObject) : TJSONValue;
     {$IFNDEF FPC}
+    function SerializeStream(aObject : TObject) : TJSONValue;
     function SerializeDynArray(const aValue: TValue; aMaxElements : Integer = -1) : TJsonArray;
     function SerializeRecord(const aValue : TValue) : TJSONValue;
     {$ELSE}
@@ -213,7 +213,9 @@ type
     property UseNullStringsAsEmpty : Boolean read fUseNullStringsAsEmpty write fUseNullStringsAsEmpty;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
+    {$IFNDEF FPC}
     function JsonStreamToObject(aObject : TObject; aJsonStream : TStream) : TObject;
+    {$ENDIF}
     function ObjectToJson(aObject : TObject; aIndent : Boolean = False): string;
     function ObjectToJsonString(aObject : TObject; aIndent : Boolean = False): string;
     procedure ObjectToJsonStream(aObject : TObject; aStream : TStream);
@@ -450,20 +452,20 @@ begin
   end;
   Result := aRecord;
 end;
+{$ENDIF}
+
 function TRTTIJson.DeserializeStream(aObject: TObject; const aJson: TJSONValue): TObject;
 var
  stream : TStringStream;
 begin
   if fUseBase64Stream then stream := TStringStream.Create(Base64Decode(aJson.Value),TEncoding.Ansi)
-    else stream := TStringStream.Create(aJson.Value,TEncoding.Ansi);
+    else stream := TStringStream.Create(String(aJson.Value),TEncoding.Ansi);
   try
     TStream(aObject).CopyFrom(stream,stream.Size);
   finally
     stream.Free;
   end;
 end;
-
-{$ENDIF}
 
 constructor TRTTIJson.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
 begin
