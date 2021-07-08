@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Process
   Description : Process functions
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 15/12/2020
+  Modified    : 08/07/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,8 +34,10 @@ unit Quick.Process;
 interface
 
 uses
+  {$IFDEF MSWINDOWS}
   Windows,
-  Classes,
+  ShellAPI,
+  Quick.Console,
   {$IFNDEF CONSOLE}
   Controls,
     {$IFNDEF FPC}
@@ -43,23 +45,40 @@ uses
     Winapi.Messages,
     {$ENDIF}
   {$ENDIF}
-  DateUtils,
   {$IFNDEF FPC}
-  TlHelp32,
-  psapi,
+    TlHelp32,
+    psapi,
+    {$ELSE}
+    JwaTlHelp32,
+    Process,
+    {$ENDIF}
   {$ELSE}
-  JwaTlHelp32,
-  Process,
+  Posix.Base,
+  Posix.Fcntl,
   {$ENDIF}
+  Classes,
+  DateUtils,
   SysUtils,
-  ShellAPI,
   Quick.Commons;
+
+  {$IFDEF DELPHILINUX}
+  type
+    TStreamHandle = pointer;
+  function popen(const command: PAnsiChar; const _type: PAnsiChar): TStreamHandle; cdecl; external libc name _PU + 'popen';
+  function pclose(filehandle: TStreamHandle): int32; cdecl; external libc name _PU + 'pclose';
+  function fgets(buffer: pointer; size: int32; Stream: TStreamHAndle): pointer; cdecl; external libc name _PU + 'fgets';
+  {$ENDIF}
 
 
   //stop a running process
+  {$IFDEF MSWINDOWS}
   function KillProcess(const aFileName : string) : Integer; overload;
+  {$ELSE}
+  function KillProcess(const aProcessName : string) : Integer; overload;
+  {$ENDIF}
   function KillProcess(aProcessId : Cardinal) : Boolean; overload;
   //run process as Admin privilegies
+  {$IFDEF MSWINDOWS}
   function RunAsAdmin(hWnd: HWND; const aFilename, aParameters: string): Boolean;
   //impersonate logon
   function Impersonate(const aDomain, aUser, aPassword : string): Boolean;
@@ -79,6 +98,10 @@ uses
   //executes an aplication and wait for terminate
   function ExecuteAndWait(const aFilename, aCommandLine: string): Boolean;
   function ShellExecuteAndWait(const aOperation, aFileName, aParameter, aDirectory : string; aShowMode : Word; aWaitForTerminate: Boolean) : LongInt;
+  {$ENDIF}
+  //runs a command and gets console output
+  function RunCommand(const aFilename, aParameters : string) : TStringList;
+  {$IFDEF MSWINDOWS}
   {$IFNDEF FPC}
   //execute an application and return handle
   function ShellExecuteReturnHandle(const aOperation, aFileName, aParameters, aWorkingDir : string; aShowMode: Integer) : THandle;
@@ -93,10 +116,12 @@ uses
   //capture a window handle and show it into a wincontrol
   procedure CaptureWindowIntoControl(aWindowHandle: THandle; aContainer: TWinControl);
   {$ENDIF}
+  {$ENDIF}
 
 
 implementation
 
+{$IFDEF MSWINDOWS}
 const
   DNLEN = 15;
   UNLEN = 256;
@@ -202,7 +227,9 @@ begin
   end;
 end;
 {$ENDIF}
+{$ENDIF}
 
+{$IFDEF MSWINDOWS}
 function KillProcess(const aFileName: string): Integer;
 const
   PROCESS_TERMINATE = $0001;
@@ -230,8 +257,22 @@ begin
   end;
   CloseHandle(FSnapshotHandle);
 end;
+{$ELSE}
+function KillProcess(const aProcessName: string): Integer;
+var
+  sl : TStringList;
+begin
+  sl := RunCommand('pkill',aProcessName);
+  try
+    Result := 1;
+  finally
+    sl.Free;
+  end;
+end;
+{$ENDIF}
 
 function KillProcess(aProcessId : Cardinal) : Boolean;
+{$IFDEF MSWINDOWS}
 var
   hProcess : THandle;
 begin
@@ -244,7 +285,20 @@ begin
     CloseHandle(hProcess);
   end;
 end;
+{$ELSE}
+var
+  sl : TStringList;
+begin
+  sl := RunCommand('kill',aProcessId.ToString);
+  try
+    Result := True;
+  finally
+    sl.Free;
+  end;
+end;
+{$ENDIF}
 
+{$IFDEF MSWINDOWS}
 function RunAsAdmin(hWnd: HWND; const aFilename, aParameters: string): Boolean;
 var
   shinfo: TShellExecuteInfo;
@@ -435,7 +489,38 @@ begin
     SetLastError(dwExitCode);
   end;
 end;
+{$ENDIF}
 
+function RunCommand(const aFilename, aParameters : string) : TStringList;
+{$IFDEF MSWINDOWS}
+begin
+  Result := TStringList.Create;
+  RunConsoleCommand(aFilename,aParameters,nil,Result);
+end;
+{$ELSE}
+var
+  Handle: TStreamHandle;
+  Data: array[0..511] of uint8;
+  command : PAnsiChar;
+begin
+  Result := TStringList.Create;
+  try
+    if aParameters.IsEmpty then command := PAnsiChar(AnsiString(aFilename))
+      else command := PAnsiChar(AnsiString(aFilename + ' ' + aParameters));
+    Handle := popen(command, 'r');
+    try
+      while fgets(@Data[0], Sizeof(Data), Handle) <> nil do Result.Add(Utf8ToString(@Data[0]));
+    finally
+      pclose(Handle);
+    end;
+  except
+    on E: Exception do Exception.CreateFmt('RunCommand: %s',[e.Message]);
+  end;
+end;
+
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
 function ShellExecuteAndWait(const aOperation, aFileName, aParameter, aDirectory: string; aShowMode : Word; aWaitForTerminate: Boolean) : LongInt;
 var
   done: Boolean;
@@ -561,6 +646,7 @@ begin
   SetWindowPos(aWindowHandle,0,0,0,aContainer.ClientWidth,aContainer.ClientHeight,SWP_NOOWNERZORDER);
   SetForegroundWindow(aWindowHandle);
 end;
+{$ENDIF}
 {$ENDIF}
 
 end.
