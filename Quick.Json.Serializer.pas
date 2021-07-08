@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.12
   Created     : 21/05/2018
-  Modified    : 07/02/2021
+  Modified    : 07/07/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -450,20 +450,20 @@ begin
   end;
   Result := aRecord;
 end;
+{$ENDIF}
+
 function TRTTIJson.DeserializeStream(aObject: TObject; const aJson: TJSONValue): TObject;
 var
  stream : TStringStream;
 begin
   if fUseBase64Stream then stream := TStringStream.Create(Base64Decode(aJson.Value),TEncoding.Ansi)
-    else stream := TStringStream.Create(aJson.Value,TEncoding.Ansi);
+    else stream := TStringStream.Create({$IFNDEF FPC}aJson.Value{$ELSE}string(aJson.Value){$ENDIF},TEncoding.Ansi);
   try
     TStream(aObject).CopyFrom(stream,stream.Size);
   finally
     stream.Free;
   end;
 end;
-
-{$ENDIF}
 
 constructor TRTTIJson.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
 begin
@@ -1444,6 +1444,24 @@ begin
   if Result = nil then Result := TJSONNull.Create;
 end;
 
+function TRTTIJson.SerializeStream(aObject: TObject): TJSONValue;
+var
+  stream : TStream;
+  json : string;
+begin
+  Result := nil;
+  try
+     stream := TStream(aObject);
+    if fUseBase64Stream then Result := TJSONString.Create(Base64Encode(StreamToString(stream,TEncoding.Ansi)))
+      else Result := TJSONString.Create(StreamToString(stream,TEncoding.Ansi));
+  except
+    on E : Exception do
+    begin
+      EJsonSerializeError.CreateFmt('Serialize Error -> Stream (%s)',[e.Message]);
+    end;
+  end;
+end;
+
 {$IFNDEF FPC}
 function TRTTIJson.SerializeDynArray(const aValue: TValue; aMaxElements : Integer = -1) : TJsonArray;
 var
@@ -1514,24 +1532,6 @@ begin
     begin
       if rField <> nil then raise EJsonSerializeError.CreateFmt('Serialize Error -> Record property "%s" (%s)',[rField.Name,e.Message])
        else raise EJsonSerializeError.CreateFmt('Serialize Error -> Record (%s)',[e.Message]);
-    end;
-  end;
-end;
-
-function TRTTIJson.SerializeStream(aObject: TObject): TJSONValue;
-var
-  stream : TStream;
-  json : string;
-begin
-  Result := nil;
-  try
-     stream := TStream(aObject);
-    if fUseBase64Stream then Result := TJSONString.Create(Base64Encode(StreamToString(stream,TEncoding.Ansi)))
-      else Result := TJSONString.Create(StreamToString(stream,TEncoding.Ansi));
-  except
-    on E : Exception do
-    begin
-      EJsonSerializeError.CreateFmt('Serialize Error -> Stream (%s)',[e.Message]);
     end;
   end;
 end;
@@ -1891,7 +1891,6 @@ begin
   end;
 end;
 
-{$IFNDEF FPC}
 function TJsonSerializer.JsonStreamToObject(aObject: TObject; aJsonStream: TStream): TObject;
 var
   json : string;
@@ -1904,6 +1903,8 @@ begin
   json := StreamToString(aJsonStream,TEncoding.UTF8);
   Result := JsonToObject(aObject,json);
 end;
+
+{$IFNDEF FPC}
 
 function TJsonSerializer.JsonToArray<T>(const aJson: string): TArray<T>;
 var
