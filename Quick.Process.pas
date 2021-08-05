@@ -514,7 +514,11 @@ begin
       pclose(Handle);
     end;
   except
-    on E: Exception do Exception.CreateFmt('RunCommand: %s',[e.Message]);
+    on E: Exception do
+    begin
+      Result.Free;
+      Exception.CreateFmt('RunCommand: %s',[e.Message]);
+    end;
   end;
 end;
 
