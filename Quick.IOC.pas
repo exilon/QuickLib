@@ -409,15 +409,18 @@ end;
 
 destructor TIocRegistrator.Destroy;
 var
-  reg : TIocRegistration;
+  i : Integer;
+  regs : TArray<TIocRegistration>;
 begin
-  for reg in fDependencies.Values do
+  //for reg in fDependencies.Values do
+  regs := fDependencies.Values.ToArray;
+  for i := High(regs) downto Low(regs) do
   begin
-    if reg <> nil then
+    if regs[i]<> nil then
     begin
       //free singleton instances not interfaced
-      if (reg is TIocRegistrationInstance) and (TIocRegistrationInstance(reg).IsSingleton) then TIocRegistrationInstance(reg).Instance.Free;
-      reg.Free;
+      if (regs[i] is TIocRegistrationInstance) and (TIocRegistrationInstance(regs[i]).IsSingleton) then TIocRegistrationInstance(regs[i]).Instance.Free;
+      regs[i].Free;
     end;
   end;
   fDependencies.Free;
@@ -670,15 +673,12 @@ function TIocResolver.ResolveAll<T>(const aName : string = '') : TList<T>;
 var
   pInfo : PTypeInfo;
   reg : TIocRegistration;
-  pair : TPair<string,TIocRegistration>;
 begin
   Result := TList<T>.Create;
   pInfo := TypeInfo(T);
 
-  for pair in fRegistrator.Dependencies.ToArray do
+  for reg in fRegistrator.Dependencies.Values do
   begin
-    reg := pair.Value;
-    //var a := pair.Key;
     if reg.IntfInfo = pInfo then Self.Resolve(pInfo,aName);
   end;
 end;
