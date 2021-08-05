@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Parameters
   Description : Map comandline to class
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 12/07/2020
-  Modified    : 29/07/2020
+  Modified    : 01/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -156,6 +156,7 @@ type
       property IsPresent : Boolean read fIsPresent write fIsPresent;
       function IsSwitch : Boolean;
       function IsCommand : Boolean;
+      function ValueIsSwitch : Boolean;
     end;
   private
     fParams : TObjectList<TParam>;
@@ -164,7 +165,7 @@ type
     {$IFDEF CONSOLE}
     fColorizeHelp: TColorizeHelp;
     {$ENDIF}
-    function ExistParam(aParameter : TParam; const aParam : string) : Boolean;
+    function ExistParam(aParameter : TParam; const aParam : string) : Boolean; overload;
     function GetParamName(aParameter : TParam; const aParam : string) : string;
     function GetParamValue(aParameter : TParam; const aParam : string) : string;
     function ValueType(const aProp : TRttiProperty) : TValueType;
@@ -176,7 +177,7 @@ type
   {$ENDIF}
     procedure Validate; virtual;
   public
-    constructor Create; virtual;
+    constructor Create(aAutoHelp : Boolean = True); virtual;
     destructor Destroy; override;
     property Description : string read fDescription write fDescription;
     {$IFDEF CONSOLE}
@@ -185,6 +186,7 @@ type
     {$ENDIF}
     function GetHelp : TStringList;
     property Help : Boolean read fHelp write fHelp;
+    function ExistsParam(const aParam : string): Boolean; overload;
   end;
 
   TServiceParameters = class(TParameters)
@@ -216,7 +218,7 @@ implementation
 
 { TParameter }
 
-constructor TParameters.Create;
+constructor TParameters.Create(aAutoHelp : Boolean = True);
 begin
   {$IFDEF CONSOLE}
   fColorizeHelp := TColorizeHelp.Create;
@@ -225,7 +227,7 @@ begin
   fParams := TObjectList<TParam>.Create(True);
   ParseParams;
   {$IFDEF CONSOLE}
-  if fHelp then
+  if (aAutoHelp) and (fHelp) then
   begin
     ShowHelp;
     Halt;
@@ -238,7 +240,8 @@ destructor TParameters.Destroy;
 begin
   fParams.Free;
   {$IFDEF CONSOLE}
-  fColorizeHelp.Free;
+  if Assigned(fColorizeHelp) then fColorizeHelp.Free;
+  fColorizeHelp := nil;
   {$ENDIF}
   inherited;
 end;
@@ -310,6 +313,20 @@ begin
   end;
 end;
 
+function TParameters.ExistsParam(const aParam : string): Boolean;
+var
+  param : TParam;
+begin
+  param := TParam.Create;
+  param.Name := aParam;
+  param.Alias := '';
+  try
+    Result := ExistParam(param,param.Name);
+  finally
+    param.Free;
+  end;
+end;
+
 procedure TParameters.ParseParams;
 var
   param : TParam;
@@ -360,10 +377,11 @@ begin
     begin
       found := ParamCount >= param.PrecisePosition;
       param.SwitchChar := '  ';
+      if param.ValueIsSwitch then found := False;
     end
     else found := (ExistParam(param,param.Name)) or (ExistParam(param,param.Alias));
     value := nil;
-    if found then    
+    if found then
     begin
       if param.IsSwitch then
       begin
@@ -679,6 +697,11 @@ end;
 function TParameters.TParam.IsSwitch: Boolean;
 begin
   Result := fParamType = TValueType.vtBoolean;
+end;
+
+function TParameters.TParam.ValueIsSwitch: Boolean;
+begin
+  Result := (fValue.StartsWith('/')) or (fValue.StartsWith('-')) or (fValue.StartsWith(fSwitchChar));
 end;
 
 { ParamSwitchChar }
