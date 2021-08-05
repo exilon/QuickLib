@@ -359,7 +359,11 @@ function TLinqQuery<T>.Select: TxArray<T>;
 var
   obj : T;
 begin
+  {$If Defined(FPC) OR Defined(DELPHIRX102_UP)}
   Result := [];
+  {$ELSE}
+  Result := nil;
+  {$ENDIF}
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for obj in fList do
   begin
@@ -403,7 +407,11 @@ var
   obj : T;
   i : Integer;
 begin
+  {$If Defined(FPC) OR Defined(DELPHIRX102_UP)}
   Result := [];
+  {$ELSE}
+  Result := nil;
+  {$ENDIF}
   DoOrderBy(fList);
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   i := 0;
