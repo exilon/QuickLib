@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.YAML.Serializer
   Description : YAML Serializer
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 12/04/2019
-  Modified    : 07/04/20120
+  Modified    : 05/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -43,7 +43,7 @@ uses
    strUtils,
    Generics.Collections,
   {$ELSE}
-    {$IFDEF DELPHIRX103_UP}
+    {$IFDEF DELPHIRX10_UP}
     System.Generics.Collections,
     {$ENDIF}
   {$ENDIF}
@@ -375,7 +375,7 @@ begin
           {$IFNDEF FPC}
           //avoid return unicode escaped chars if string
           if rField.FieldType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
-            {$IFDEF DELPHIRX103_UP}
+            {$IFDEF DELPHIRX10_UP}
             rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.Value.AsString)
             {$ELSE}
             rValue := DeserializeType(aObject,rField.FieldType.TypeKind,rField.FieldType.Handle,member.YamlString.ToString)
@@ -650,7 +650,7 @@ begin
           {$IFNDEF FPC}
           //avoid return unicode escaped chars if string
           if aProperty.PropertyType.TypeKind in [tkString, tkLString, tkWString, tkUString] then
-            {$IFDEF DELPHIRX103_UP}
+            {$IFDEF DELPHIRX10_UP}
             rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.Value.AsString)
             {$ELSE}
             rValue := DeserializeType(aObject,aProperty.PropertyType.TypeKind,aProperty.GetValue(aObject).TypeInfo,member.YamlString.ToString)

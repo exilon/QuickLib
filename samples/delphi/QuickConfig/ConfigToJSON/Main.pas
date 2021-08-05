@@ -178,6 +178,7 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
+  ReportMemoryLeaksOnShutdown := True;
   ConfigJson := TMyConfig.Create('.\config.json');
   ConfigJson.Provider.OnFileModified := OnFileModified;
   ConfigJson.Provider.ReloadIfFileChanged := True;
