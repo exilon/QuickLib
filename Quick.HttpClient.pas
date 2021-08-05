@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.HttpClient
   Description : Json Http Client
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 22/05/2018
-  Modified    : 02/05/2020
+  Modified    : 02/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -323,7 +323,9 @@ procedure TJsonHttpClient.SetConnectionTimeout(const aValue: Integer);
 begin
   fConnectionTimeout := aValue;
   {$IFDEF DELPHIXE8_UP}
-  fHTTPClient.ConnectionTimeout := aValue;
+    {$IFDEF DELPHIRX102_UP} //in previous versions don't exists ConnectionTimeout property
+    fHTTPClient.ConnectionTimeout := aValue;
+    {$ENDIF}
   {$ELSE}
   fHTTPClient.ConnectTimeout := aValue;
   {$ENDIF}
@@ -353,7 +355,9 @@ procedure TJsonHttpClient.SetResponseTimeout(const aValue: Integer);
 begin
   fResponseTimeout := aValue;
   {$IFDEF DELPHIXE8_UP}
-  fHTTPClient.ResponseTimeout := aValue;
+    {$IFDEF DELPHIRX102_UP} //in previous versions don't exist ResponseTimeout property
+    fHTTPClient.ResponseTimeout := aValue;
+    {$ENDIF}
   {$ELSE}
   fHTTPClient.ReadTimeout := aValue;
   {$ENDIF}
