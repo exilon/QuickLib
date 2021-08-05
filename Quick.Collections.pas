@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Collections
   Description : Generic Collections
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 07/03/2020
-  Modified    : 07/04/2020
+  Modified    : 05/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -286,7 +286,11 @@ end;
 
 function TxList<T>.ExtractAt(Index: Integer): T;
 begin
+  {$If Defined(FPC) OR Defined(DELPHIRX102_UP)}
   Result := fList.ExtractAt(Index);
+  {$ELSE}
+  Result := fList.Extract(fList[Index]);
+  {$ENDIF}
 end;
 
 function TxList<T>.ExtractItem(const Value: T; Direction: TDirection): T;
@@ -368,7 +372,11 @@ end;
 
 procedure TxList<T>.InsertRange(Index: Integer; const Values: array of T; Count: Integer);
 begin
+  {$If Defined(FPC) OR Defined(DELPHIRX102_UP)}
   fList.InsertRange(Index,Values,Count);
+  {$ELSE}
+  fList.InsertRange(Index,Values);
+  {$ENDIF}
 end;
 
 procedure TxList<T>.InsertRange(Index: Integer; const Values: array of T);
