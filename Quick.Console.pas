@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 05/06/2020
+  Modified    : 05/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -338,7 +338,7 @@ begin
     begin
       TextColor(cColor);
       {$I-}
-      Write(cMsg{$IFDEF LINUX} +#13{$ENDIF});
+      Write(cMsg);//{$IFDEF LINUX} +#13{$ENDIF});
       {$I+}
       TextColor(LastMode);
     end;
