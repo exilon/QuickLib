@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 02/06/2021
+  Modified    : 22/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -86,9 +86,9 @@ const
   LOG_ALL = [etInfo, etSuccess, etWarning, etError, etDebug, etDone, etTrace, etCritical, etException];
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
   {$IFDEF DELPHIXE7_UP}
-  EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','TRACE'];
+  EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION'];
   {$ELSE}
-  EventStr : array[0..5] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','TRACE');
+  EventStr : array[0..8] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION');
   {$ENDIF}
 type
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
