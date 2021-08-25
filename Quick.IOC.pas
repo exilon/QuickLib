@@ -157,6 +157,28 @@ type
     procedure DoInvoke(Method: TRttiMethod;  const Args: TArray<TValue>; out Result: TValue);
   end;
 
+  IFactory<T> = interface
+  ['{92D7AB4F-4C0A-4069-A821-B057E193DE65}']
+    function New : T;
+  end;
+
+  TSimpleFactory<T : class, constructor> = class(TInterfacedObject,IFactory<T>)
+  private
+    fResolver : TIocResolver;
+  public
+    constructor Create(aResolver : TIocResolver);
+    function New : T;
+  end;
+
+  TSimpleFactory<TInterface : IInterface; TImplementation : class, constructor> = class(TInterfacedObject,IFactory<TInterface>)
+  private
+    fResolver : TIocResolver;
+  public
+    constructor Create(aResolver : TIocResolver);
+    function New : TInterface;
+  end;
+
+
   TIocContainer = class(TInterfacedObject,IIocContainer)
   private
     fRegistrator : TIocRegistrator;
@@ -187,6 +209,7 @@ type
     function AbstractFactory<T : class, constructor>(aClass : TClass) : T; overload;
     function AbstractFactory<T : class, constructor> : T; overload;
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
+    function RegisterSimpleFactory<TInterface : IInterface; TImplementation : class, constructor>(const aName : string = '') : TIocRegistration;
     procedure Build;
   end;
 
@@ -383,6 +406,11 @@ begin
   options := T.Create;
   aOptions(options);
   Result := Self.RegisterOptions<T>(options);
+end;
+
+function TIocContainer.RegisterSimpleFactory<TInterface, TImplementation>(const aName: string): TIocRegistration;
+begin
+  Result := fRegistrator.RegisterInstance<IFactory<TInterface>>(TSimpleFactory<TInterface,TImplementation>.Create(fResolver),aName).AsSingleton;
 end;
 
 function TIocContainer.Resolve(aServiceType: PTypeInfo; const aName: string): TValue;
@@ -742,6 +770,30 @@ class function TIocServiceLocator.TryToGetService<T>(aService : T) : Boolean;
 begin
   Result := GlobalContainer.IsRegistered<T>('');
   if Result then aService := GlobalContainer.Resolve<T>;
+end;
+
+{ TSimpleFactory<T> }
+
+constructor TSimpleFactory<T>.Create(aResolver: TIocResolver);
+begin
+  fResolver := aResolver;
+end;
+
+function TSimpleFactory<T>.New: T;
+begin
+  Result := fResolver.CreateInstance(TClass(T)).AsType<T>;
+end;
+
+{ TSimpleFactory<TInterface, TImplementation> }
+
+constructor TSimpleFactory<TInterface, TImplementation>.Create(aResolver: TIocResolver);
+begin
+  fResolver := aResolver;
+end;
+
+function TSimpleFactory<TInterface, TImplementation>.New: TInterface;
+begin
+  Result := fResolver.CreateInstance(TClass(TImplementation)).AsType<TInterface>;
 end;
 
 end.
