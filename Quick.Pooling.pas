@@ -195,7 +195,7 @@ var
 begin
   Result := nil;
   {$IFDEF DEBUG_OBJPOOL}
-  TDebugger.Trace('Waiting for get idle Pool Item...');
+  TDebugger.Trace(Self,'Waiting for get idle Pool Item...');
   {$ENDIF}
   waitResult := fSemaphore.WaitFor(fWaitTimeoutMs);
   if waitResult <> TWaitResult.wrSignaled then raise Exception.Create('Connection Pool Timeout: Cannot obtain a connection');
@@ -208,7 +208,7 @@ begin
       begin
         fPool[i] := TPoolItem<T>.Create(fSemaphore,fLock,i,fDelegate);
         {$IFDEF DEBUG_OBJPOOL}
-        TDebugger.Trace('Create Pool Item: %d',[i]);
+        TDebugger.Trace(Self,'Create Pool Item: %d',[i]);
         {$ENDIF}
         Exit(fPool[i]);
       end;
@@ -216,13 +216,13 @@ begin
       begin
         //writeln('get ' + i.ToString);
         {$IFDEF DEBUG_OBJPOOL}
-        TDebugger.Trace('Get Idle Pool Item: %d',[i]);
+        TDebugger.Trace(Self,'Get Idle Pool Item: %d',[i]);
         {$ENDIF}
         Exit(fPool[i]);
       end
       {$IFDEF DEBUG_OBJPOOL}
       else
-      TDebugger.Trace('Pool Item: %d is busy (RefCount: %d)',[i,fPool[i].RefCount]);
+      TDebugger.Trace(Self,'Pool Item: %d is busy (RefCount: %d)',[i,fPool[i].RefCount]);
       {$ENDIF}
     end;
   finally
@@ -283,7 +283,7 @@ function TPoolItem<T>._AddRef: Integer;
 begin
   fLock.Enter;
   {$IFDEF DEBUG_OBJPOOL}
-  TDebugger.Trace('Got Pool item');
+  TDebugger.Trace(Self,'Got Pool item');
   {$ENDIF}
   try
     Inc(FRefCount);
@@ -297,7 +297,7 @@ function TPoolItem<T>._Release: Integer;
 begin
   fLock.Enter;
   {$IFDEF DEBUG_OBJPOOL}
-  TDebugger.Trace('Released Pool item');
+  TDebugger.Trace(Self,'Released Pool item');
   {$ENDIF}
   try
     Dec(fRefCount);
