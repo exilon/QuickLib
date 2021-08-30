@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.Options.Serializer.Json
   Description : Configuration groups Json Serializer
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 15/04/2020
+  Modified    : 30/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -101,7 +101,11 @@ begin
   aJsonObj := nil;
   if FileExists(aFilename) then
   begin
+    {$IFDEF DELPHIRX102_UP}
     fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
+    {$ELSE}
+    fileoptions := TFile.ReadAllText(aFilename);
+    {$ENDIF}
     aJsonObj := TJsonObject.ParseJSONValue(fileoptions) as TJsonObject;
     if aJsonObj = nil then raise EOptionLoadError.CreateFmt('Config file "%s" is damaged or not well-formed Json format!',[ExtractFileName(aFilename)]);
   end;

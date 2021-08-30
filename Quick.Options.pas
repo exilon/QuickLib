@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.Options
   Description : Configuration group settings
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 27/02/2020
+  Modified    : 30/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -72,9 +72,17 @@ type
     property MaxLength : Integer read fMaxLength write fMaxLength;
   end;
 
+  TOptionsBase = class(TInterfacedObject)
+
+  end;
+
+  {$IFDEF DELPHIRX102_UP}
   TOptions = class;
 
   TConfigureOptionsProc<T : TOptions> = reference to procedure(aOptions : T);
+  {$ELSE}
+  TConfigureOptionsProc<T> = reference to procedure(aOptions : T);
+  {$ENDIF}
 
   IOptionsValidator = interface
   ['{C6A09F78-8E34-4689-B943-83620437B9EF}']
@@ -91,7 +99,11 @@ type
     property Name : string read fName write fName;
     property HideOptions : Boolean read fHideOptions write fHideOptions;
     procedure DefaultValues; virtual;
+    {$IFDEF DELPHIRX102_UP}
     function ConfigureOptions<T : TOptions>(aOptionsFunc : TConfigureOptionsProc<T>) : IOptionsValidator;
+    {$ELSE}
+    function ConfigureOptions<T>(aOptionsFunc : TConfigureOptionsProc<T>) : IOptionsValidator;
+    {$ENDIF}
     procedure ValidateOptions;
   end;
 
