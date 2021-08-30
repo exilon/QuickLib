@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2021 Kike PÃ©rez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike Pérez
+  Author      : Kike PÃ©rez
   Version     : 2.0
   Created     : 14/07/2017
   Modified    : 02/06/2021
@@ -39,6 +39,7 @@ interface
     Types,
     {$IFDEF MSWINDOWS}
       Windows,
+      ActiveX,
       ShlObj,
     {$ENDIF MSWINDOWS}
     {$IFDEF FPC}
@@ -667,15 +668,25 @@ end;
 {$IFDEF MSWINDOWS}
 function GetSpecialFolderPath(folderID : Integer) : string;
 var
+  shellMalloc: IMalloc;
   ppidl: PItemIdList;
 begin
-  SHGetSpecialFolderLocation(0, folderID, ppidl);
-  SetLength(Result, MAX_PATH);
-  if not SHGetPathFromIDList(ppidl,{$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}) then
-  begin
-    raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
+  ppidl := nil;
+  try
+    if SHGetMalloc(shellMalloc) = NOERROR then
+    begin
+      SHGetSpecialFolderLocation(0, folderID, ppidl);
+      SetLength(Result, MAX_PATH);
+      if not SHGetPathFromIDList(ppidl,{$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}) then
+      begin
+        raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
+      end;
+      SetLength(Result, lStrLen({$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}));
+    end;
+  finally
+    if ppidl <> nil then
+      shellMalloc.Free(ppidl);
   end;
-  SetLength(Result, lStrLen({$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}));
 end;
 
 function Is64bitOS : Boolean;
