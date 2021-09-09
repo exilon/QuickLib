@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike PÃ©rez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike PÃ©rez
+  Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 22/08/2021
+  Modified    : 29/08/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -226,6 +226,37 @@ type
     procedure FromArray(aValue : TArray<TPairItem>);
     procedure Clear;
   end;
+
+  {$IFDEF DELPHIXE7_UP}
+  TDateTimeHelper = record helper for TDateTime
+  public
+    function ToSQLString : string;
+    procedure FromNow;
+    procedure FromUTC(const aUTCTime : TDateTime);
+    function IncDay(const aValue : Cardinal = 1) : TDateTime;
+    function DecDay(const aValue : Cardinal = 1) : TDateTime;
+    function IncMonth(const aValue : Cardinal = 1) : TDateTime;
+    function DecMonth(const aValue : Cardinal = 1) : TDateTime;
+    function IncYear(const aValue : Cardinal = 1) : TDateTime;
+    function DecYear(const aValue : Cardinal = 1) : TDateTime;
+    function IsEqualTo(const aDateTime : TDateTime) : Boolean;
+    function IsAfter(const aDateTime : TDateTime) : Boolean;
+    function IsBefore(const aDateTime : TDateTime) : Boolean;
+    function IsSameDay(const aDateTime : TDateTime) : Boolean;
+    function IsSameTime(const aTime : TTime) : Boolean;
+    function DayOfTheWeek : Word;
+    function ToJsonFormat : string;
+    function ToGMTFormat: string;
+    function ToTimeStamp : TTimeStamp;
+    function ToUTC : TDateTime;
+    function ToMilliseconds : Int64;
+    function ToString : string;
+    function Date : TDate;
+    function Time : TTime;
+    function IsAM : Boolean;
+    function IsPM : Boolean;
+  end;
+  {$ENDIF}
 
   EEnvironmentPath = class(Exception);
   EShellError = class(Exception);
@@ -2034,7 +2065,7 @@ end;
 
 function DateTimeToSQL(aDateTime : TDateTime) : string;
 begin
-  Result := FormatDateTime('YYYYMMDD hh:mm:ss',aDateTime);
+  Result := FormatDateTime('YYYY-MM-DD hh:mm:ss',aDateTime);
 end;
 
 function IsInteger(const aValue : string) : Boolean;
@@ -2147,6 +2178,135 @@ end;
   {$ENDIF}
 {$ENDIF}
 
+{ TDateTimeHelper }
+
+{$IFDEF DELPHIXE7_UP}
+function TDateTimeHelper.ToSQLString : string;
+begin
+  Result := DateTimeToSQL(Self);
+end;
+
+procedure TDateTimeHelper.FromNow;
+begin
+  Self := Now;
+end;
+
+procedure TDateTimeHelper.FromUTC(const aUTCTime: TDateTime);
+begin
+  Self := UTCToLocalTime(aUTCTime);
+end;
+
+function TDateTimeHelper.IncDay(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,aValue);
+end;
+
+function TDateTimeHelper.DecDay(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+end;
+
+function TDateTimeHelper.IncMonth(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,aValue);
+end;
+
+function TDateTimeHelper.DecMonth(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+end;
+
+function TDateTimeHelper.IncYear(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,aValue);
+end;
+
+function TDateTimeHelper.DecYear(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+end;
+
+function TDateTimeHelper.IsEqualTo(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := Self = aDateTime;
+end;
+
+function TDateTimeHelper.IsAfter(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := Self > aDateTime;
+end;
+
+function TDateTimeHelper.IsBefore(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := Self < aDateTime;
+end;
+
+function TDateTimeHelper.IsSameDay(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := System.DateUtils.SameDate(Self,aDateTime);
+end;
+
+function TDateTimeHelper.IsSameTime(const aTime : TTime) : Boolean;
+begin
+  Result := System.DateUtils.SameTime(Self,aTime);
+end;
+
+function TDateTimeHelper.DayOfTheWeek : Word;
+begin
+  Result := System.DateUtils.NthDayOfWeek(Self);
+end;
+
+function TDateTimeHelper.ToJsonFormat : string;
+begin
+  Result := DateTimeToJsonDate(Self);
+end;
+
+function TDateTimeHelper.ToGMTFormat : string;
+begin
+  Result := DateTimeToGMT(Self);
+end;
+
+function TDateTimeHelper.ToTimeStamp : TTimeStamp;
+begin
+  Result := DateTimeToTimeStamp(Self);
+end;
+
+function TDateTimeHelper.ToUTC : TDateTime;
+begin
+  Result := LocalTimeToUTC(Self);
+end;
+
+function TDateTimeHelper.ToMilliseconds : Int64;
+begin
+  Result := System.DateUtils.DateTimeToMilliseconds(Self);
+end;
+
+function TDateTimeHelper.ToString : string;
+begin
+  Result := DateTimeToStr(Self);
+end;
+
+function TDateTimeHelper.Date : TDate;
+begin
+  Result := System.DateUtils.DateOf(Self);
+end;
+
+function TDateTimeHelper.Time : TTime;
+begin
+  Result := System.DateUtils.TimeOf(Self);
+end;
+
+function TDateTimeHelper.IsAM : Boolean;
+begin
+  Result := System.DateUtils.IsAM(Self);
+end;
+
+function TDateTimeHelper.IsPM : Boolean;
+begin
+  Result := System.DateUtils.IsPM(Self);
+end;
+{$ENDIF}
+
 {$IFNDEF NEXTGEN}
 initialization
   try
@@ -2164,6 +2324,7 @@ initialization
     {$ENDIF}
   end;
 {$ENDIF}
+
 
 end.
 
