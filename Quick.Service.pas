@@ -34,10 +34,12 @@ interface
 
 uses
   SysUtils,
+  {$IFDEF MSWINDOWS}
   Windows,
-  {$IFNDEF FPC}
   Messages,
   WinSvc,
+  {$ENDIF}
+  {$IFNDEF FPC}
   System.IOUtils,
   {$ELSE}
   Quick.Files,
@@ -45,6 +47,7 @@ uses
   Quick.Commons,
   Quick.Process;
 
+{$IFDEF MSWINDOWS}
 type
   TServiceState = (ssUnknow = -1,
                    ssStopped = SERVICE_STOPPED,
@@ -54,17 +57,63 @@ type
                    ssContinuePending = SERVICE_CONTINUE_PENDING,
                    ssPausePending = SERVICE_PAUSE_PENDING,
                    ssPaused = SERVICE_PAUSED);
+{$ENDIF}
 
-  function ServiceIsPresent(const aMachine, aServiceName : string): Boolean;
+  {$IFDEF MSWINDOWS}
+  function ServiceIsPresent(const aServiceName : string): Boolean; overload;
+  function ServiceIsPresent(const aMachine, aServiceName : string): Boolean; overload;
   function GetServicePath : string;
   function GetServiceState(const aServer, aServiceName : string) : TServiceState;
-  function ServiceStart(const aMachine, aServiceName : string) : Boolean;
-  function ServiceStop(const aMachine, aServiceName : string ) : Boolean;
+  function ServiceStart(const aServiceName : string) : Boolean; overload;
+  function ServiceStop(const aServiceName : string ) : Boolean; overload;
+  function ServiceStart(const aMachine, aServiceName : string) : Boolean; overload;
+  function ServiceStop(const aMachine, aServiceName : string ) : Boolean; overload;
+  {$ELSE}
+  function ServiceIsPresent(const aServiceName : string): Boolean;
+  function ServiceStart(const aServiceName : string) : Boolean;
+  function ServiceStop(const aServiceName : string ) : Boolean;
+  {$ENDIF}
   function ServiceUninstall(const aServiceName : string): Boolean;
+  {$IFDEF MSWINDOWS}
   function DeleteServiceEx(svcName : string) : Boolean;
+  {$ENDIF}
 
 implementation
 
+function ServiceIsPresent(const aServiceName : string) : Boolean;
+{$IFDEF MSWINDOWS}
+begin
+  Result := ServiceIsPresent('localhost',aServiceName);
+end;
+{$ELSE}
+begin
+
+end;
+{$ENDIF}
+
+function ServiceStart(const aServiceName : string) : Boolean;
+{$IFDEF MSWINDOWS}
+begin
+  Result := ServiceStart('localhost',aServiceName);
+end;
+{$ELSE}
+begin
+
+end;
+{$ENDIF}
+
+function ServiceStop(const aServiceName : string) : Boolean;
+{$IFDEF MSWINDOWS}
+begin
+  Result := ServiceStop('localhost',aServiceName);
+end;
+{$ELSE}
+begin
+
+end;
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
 function ServiceIsPresent(const aMachine, aServiceName : string): Boolean;
 var
   smanHnd : SC_Handle;
@@ -202,8 +251,10 @@ begin
   end;
   Result := SERVICE_STOPPED = svcStatus.dwCurrentState;
 end;
+{$ENDIF}
 
 function ServiceUninstall(const aServiceName : string): Boolean;
+{$IFDEF MSWINDOWS}
 var
   smanHnd : SC_Handle;
   svchnd : SC_Handle;
@@ -236,7 +287,13 @@ begin
     end;
   end;
 end;
+{$ELSE}
+begin
 
+end;
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
 function DeleteServiceEx(svcName : string) : Boolean;
 begin
   Result := False;
@@ -245,5 +302,6 @@ begin
     Result := ShellExecuteAndWait('open','sc','delete '+svcName,'',0,True) = 0;
   end;
 end;
+{$ENDIF}
 
 end.
