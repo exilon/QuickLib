@@ -2144,7 +2144,7 @@ end;
 
 function UnQuotedStr(const str : string; const aQuote : Char) : string;
 begin
-  if (str.Length > 0) and (str[Low(str)] = aQuote) and (str[High(str)] = aQuote) then Result := Copy(str, Low(str)+1, High(str) - 1)
+  if (str.Length > 0) and (str[Low(str)] = aQuote) and (str[High(str)] = aQuote) then Result := Copy(str, Low(str)+1, High(str) - 2)
     else Result := str;
 end;
 
