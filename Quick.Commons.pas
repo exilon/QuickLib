@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 29/08/2021
+  Modified    : 03/10/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -432,6 +432,7 @@ type
   //get simple quoted or dequoted string
   function SpQuotedStr(const str : string): string;
   function UnSpQuotedStr(const str : string): string;
+  function UnQuotedStr(const str : string; const aQuote : Char) : string;
   //ternary operator
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : string) : string; overload;
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Integer) : Integer; overload;
@@ -2139,6 +2140,12 @@ begin
   begin
     if Result.StartsWith('''') then Result := Copy(Result, 2, Result.Length - 2);
   end;
+end;
+
+function UnQuotedStr(const str : string; const aQuote : Char) : string;
+begin
+  if (str.Length > 0) and (str[Low(str)] = aQuote) and (str[High(str)] = aQuote) then Result := Copy(str, Low(str)+1, High(str) - 1)
+    else Result := str;
 end;
 
 function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : string) : string;
