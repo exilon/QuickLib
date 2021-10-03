@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.12
   Created     : 21/05/2018
-  Modified    : 07/07/2021
+  Modified    : 03/10/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -716,6 +716,12 @@ begin
 end;
 {$ENDIF}
 
+function StringToGUIDEx(const aGUID : string) : TGUID;
+begin
+  if not aGUID.StartsWith('{') then Result := System.SysUtils.StringToGUID('{' + aGUID + '}')
+    else Result := System.SysUtils.StringToGUID(aGUID);
+end;
+
 function TRTTIJson.DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject;
 var
   rValue : TValue;
@@ -793,7 +799,7 @@ begin
           begin
             if aProperty.GetValue(aObject).TypeInfo = System.TypeInfo(TGUID) then
             begin
-              rValue:=TValue.From<TGUID>(StringToGUID(member.ToJSON.DeQuotedString('"')));
+              rValue:=TValue.From<TGUID>(StringToGUID(UnQuotedStr(member.ToJSON,'"')));
             end
             else
             begin
@@ -837,7 +843,7 @@ var
   fsettings : TFormatSettings;
 begin
   try
-    value := AnsiDequotedStr(aValue,'"');
+    value := UnQuotedStr(aValue,'"');
     case aType of
       tkString, tkLString, tkWString, tkUString :
         begin
@@ -917,7 +923,7 @@ var
   fsettings : TFormatSettings;
 begin
   try
-    value := AnsiDequotedStr(aValue,'"');
+    value := UnQuotedStr(aValue,'"');
 
     if value = '' then
     begin
