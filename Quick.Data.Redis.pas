@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 22/02/2020
-  Modified    : 03/03/2021
+  Modified    : 06/10/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -229,6 +229,7 @@ begin
     begin
       if not RedisSELECT(fDataBaseNumber) then raise ERedisConnectionError.CreateFmt('Can''t select Redis Database "%d"',[fDataBaseNumber]);
     end;
+    fTCPClient.IOHandler.MaxLineLength := MaxInt;
     fConnected := True;
   except
     on E : Exception do raise ERedisConnectionError.CreateFmt('Can''t connect to Redis service %s:%d (%s)',[Self.Host,Self.Port,e.Message]);
