@@ -2212,27 +2212,27 @@ end;
 
 function TDateTimeHelper.DecDay(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+  Result := System.DateUtils.IncDay(Self,-aValue);
 end;
 
 function TDateTimeHelper.IncMonth(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue);
+  Result := SysUtils.IncMonth(Self,aValue);
 end;
 
 function TDateTimeHelper.DecMonth(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+  Result := SysUtils.IncMonth(Self,-aValue);
 end;
 
 function TDateTimeHelper.IncYear(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue);
+  Result := System.DateUtils.IncYear(Self,aValue);
 end;
 
 function TDateTimeHelper.DecYear(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+  Result := System.DateUtils.IncYear(Self,-aValue);
 end;
 
 function TDateTimeHelper.IsEqualTo(const aDateTime : TDateTime) : Boolean;
