@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pï¿½rez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 2.0
   Created     : 14/07/2017
   Modified    : 03/10/2021
@@ -629,7 +629,6 @@ function UrlGetPath(const aUrl : string) : string;
 var
   url : string;
   len : Integer;
-  query : Integer;
 begin
   url := UrlRemoveProtocol(aUrl);
   if not url.Contains('/') then Exit('');
@@ -747,7 +746,10 @@ function HasConsoleOutput : Boolean;
   begin
     try
       stout := GetStdHandle(Std_Output_Handle);
-      Win32Check(stout <> Invalid_Handle_Value);
+      {$WARN SYMBOL_PLATFORM OFF}
+      //Allready checked that we are on a windows platform
+        Win32Check(stout <> Invalid_Handle_Value);
+      {$WARN SYMBOL_PLATFORM ON}
       Result := stout <> 0;
     except
       Result := False;
@@ -2210,27 +2212,27 @@ end;
 
 function TDateTimeHelper.DecDay(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+  Result := System.DateUtils.IncDay(Self,-aValue);
 end;
 
 function TDateTimeHelper.IncMonth(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue);
+  Result := SysUtils.IncMonth(Self,aValue);
 end;
 
 function TDateTimeHelper.DecMonth(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+  Result := SysUtils.IncMonth(Self,-aValue);
 end;
 
 function TDateTimeHelper.IncYear(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue);
+  Result := System.DateUtils.IncYear(Self,aValue);
 end;
 
 function TDateTimeHelper.DecYear(const aValue : Cardinal = 1) : TDateTime;
 begin
-  Result := System.DateUtils.IncDay(Self,aValue * - 1);
+  Result := System.DateUtils.IncYear(Self,-aValue);
 end;
 
 function TDateTimeHelper.IsEqualTo(const aDateTime : TDateTime) : Boolean;
