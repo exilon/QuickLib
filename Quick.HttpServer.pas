@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 11/06/2020
+  Modified    : 12/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -292,6 +292,11 @@ begin
   //fHTTPServer.OnExecute := DoConnect;
   fHTTPServer.OnQuerySSLPort := DoOnQuerySSLPort;
   fHTTPServer.ServerSoftware := 'Quick.HttpServer';
+  fHTTPServer.MaxConnections := 0;
+  fHTTPServer.AutoStartSession := False;
+  fHTTPServer.KeepAlive := True;
+  fHTTPServer.SessionState := False;
+  fHTTPServer.ParseParams := False;
 end;
 
 destructor THTTPServer.Destroy;
