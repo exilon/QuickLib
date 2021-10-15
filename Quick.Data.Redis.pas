@@ -61,6 +61,7 @@ type
     procedure SetIsDone(const Value: Boolean);
     procedure SetResponse(const Value: string);
   public
+    constructor Create;
     property IsDone : Boolean read GetIsDone write SetIsDone;
     property Response : string read GetResponse write SetResponse;
   end;
@@ -81,6 +82,7 @@ type
     fConnectionTimeout : Integer;
     fReadTimeout : Integer;
     fConnected : Boolean;
+    fRaiseErrorIfCommandFails : Boolean;
     procedure SetConnectionTimeout(const Value: Integer);
     procedure SetReadTimeout(const Value: Integer);
     function Command(const aCommand : string; const aArguments : string = '') : IRedisResponse; overload;
@@ -96,6 +98,7 @@ type
     property Password : string read fPassword write fPassword;
     property ConnectionTimeout : Integer read fConnectionTimeout write SetConnectionTimeout;
     property ReadTimeout : Integer read fReadTimeout write SetReadTimeout;
+    property RaiseErrorIfCommandFails : Boolean read fRaiseErrorIfCommandFails write fRaiseErrorIfCommandFails;
     property Connected : Boolean read fConnected;
     function RedisSELECT(dbIndex : Integer) : Boolean;
     function RedisSET(const aKey, aValue : string; aTTLMs : Integer = -1) : Boolean;
@@ -142,6 +145,12 @@ const
 
 { TRedisResponse }
 
+constructor TRedisResponse.Create;
+begin
+  fIsDone := False;
+  fResponse := '';
+end;
+
 function TRedisResponse.GetIsDone: Boolean;
 begin
   Result := fIsDone;
@@ -175,6 +184,7 @@ begin
   fPassword := '';
   fConnectionTimeout := DEF_CONNECTIONTIMEOUT;
   fReadTimeout := DEF_READTIMETOUT;
+  fRaiseErrorIfCommandFails := False;
   fTCPClient := TIdTCPClient.Create;
 end;
 
@@ -316,6 +326,7 @@ begin
         else Result.Response := TrimResponse(res);
       end;
     end;
+    if (fRaiseErrorIfCommandFails) and (not Result.IsDone) then raise ERedisCommandError.CreateFmt('Command fail (%s)',[Result.Response]);
   except
     on E : Exception do raise ERedisCommandError.CreateFmt('%s error: %s',[aCommand,e.message]);
   end;
