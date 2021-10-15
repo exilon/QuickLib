@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 22/02/2020
-  Modified    : 06/10/2021
+  Modified    : 15/10/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -181,11 +181,11 @@ end;
 destructor TRedisClient.Destroy;
 begin
   try
-    if fTCPClient.Connected then RedisQUIT;
-    fTCPClient.IOHandler.InputBuffer.Clear;
-    fTCPClient.IOHandler.WriteBufferFlush;
-    if fTCPClient.Connected then fTCPClient.Disconnect(False);
-    fTCPClient.Free;
+    try
+      Disconnect;
+    finally
+      fTCPClient.Free;
+    end;
   except
     //avoid closing errors
   end;
@@ -199,24 +199,21 @@ begin
     RedisQUIT;
     fTCPClient.IOHandler.InputBuffer.Clear;
     fTCPClient.IOHandler.WriteBufferFlush;
+    if fTCPClient.Connected then fTCPClient.Disconnect(False);
   end;
   fConnected := False;
 end;
 
 procedure TRedisClient.Connect;
 begin
-  if not fTCPClient.Connected then
-  begin
-    fTCPClient.Host := fHost;
-    fTCPClient.Port := fPort;
-    fTCPClient.ConnectTimeout := fConnectionTimeout;
-    fTCPClient.ReadTimeout := fConnectionTimeout;
-  end;
   try
-    fTCPClient.Connect; //first connection
     //connect password and database
     if not fTCPClient.Connected then
     begin
+      fTCPClient.Host := fHost;
+      fTCPClient.Port := fPort;
+      fTCPClient.ConnectTimeout := fConnectionTimeout;
+      fTCPClient.ReadTimeout := fConnectionTimeout;
       fTCPClient.Connect;
       if not fTCPClient.Connected then raise ERedisConnectionError.Create('Can''t connect to Redis Server!');
     end;
@@ -316,6 +313,7 @@ begin
             Result.Response := TrimResponse(res);
             Result.IsDone := True;
           end;
+        else Result.Response := TrimResponse(res);
       end;
     end;
   except
