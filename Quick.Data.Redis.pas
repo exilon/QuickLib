@@ -40,6 +40,7 @@ uses
   System.SysUtils,
   System.DateUtils,
   IdTCPClient,
+  IdGlobal,
   Quick.Commons;
 
 type
@@ -71,6 +72,26 @@ type
     Score : Int64;
   end;
 
+  IRedisCommand = interface
+  ['{13A978D1-C689-403F-8623-3489E4DEE060}']
+    function AddArgument(const aValue : string) : IRedisCommand; overload;
+    function AddArgument(const aValue : Int64) : IRedisCommand; overload;
+    function AddArgument(const aValue : Extended) : IRedisCommand; overload;
+    function ToCommand : string;
+  end;
+
+  TRedisCommand = class(TInterfacedObject,IRedisCommand)
+  private
+    fCommand : string;
+    fArguments : array of string;
+  public
+    constructor Create(const aCommand : string);
+    function AddArgument(const aValue : string) : IRedisCommand; overload;
+    function AddArgument(const aValue : Int64) : IRedisCommand; overload;
+    function AddArgument(const aValue : Extended) : IRedisCommand; overload;
+    function ToCommand : string;
+  end;
+
   TRedisClient = class
   private
     fTCPClient : TIdTCPClient;
@@ -85,9 +106,11 @@ type
     fRaiseErrorIfCommandFails : Boolean;
     procedure SetConnectionTimeout(const Value: Integer);
     procedure SetReadTimeout(const Value: Integer);
-    function Command(const aCommand : string; const aArguments : string = '') : IRedisResponse; overload;
+    function Command(const aCommand : string; const aArguments : string) : IRedisResponse; overload;
     function Command(const aCommand, aArgumentsFormat : string; aValues : array of const) : IRedisResponse; overload;
+    function Command(const aCommand : string) : IRedisResponse; overload;
     function EscapeString(const json: string) : string;
+    function BulkString(const aValue : string) : string;
   public
     constructor Create;
     destructor Destroy; override;
@@ -138,7 +161,7 @@ implementation
 const
 
   DEF_REDIS_PORT = 6379;
-  CRLF = #10#13;
+  CRLF = #13#10;
   DEF_CONNECTIONTIMEOUT = 30000;
   DEF_READTIMETOUT = 10000;
 
@@ -252,6 +275,11 @@ begin
   //Result := StringReplace(Result,'/','\/"',[rfReplaceAll]);
 end;
 
+function TRedisClient.BulkString(const aValue : string) : string;
+begin
+  Result := Format('$%d%s%s%s',[aValue.Length,CRLF,aValue,CRLF]);
+end;
+
 procedure TRedisClient.SetConnectionTimeout(const Value: Integer);
 begin
   if fConnectionTimeout <> Value then
@@ -275,7 +303,12 @@ begin
   Result := Command(aCommand,Format(aArgumentsFormat,aValues));
 end;
 
-function TRedisclient.Command(const aCommand : string; const aArguments : string = '') : IRedisResponse;
+function TRedisclient.Command(const aCommand : string; const aArguments : string) : IRedisResponse;
+begin
+  Result := Command(aCommand + ' ' + aArguments + CRLF);
+end;
+
+function TRedisClient.Command(const aCommand : string) : IRedisResponse;
   function TrimResponse(const aResponse : string) : string;
   begin
     Result := Copy(aResponse,Low(aResponse) + 1, aResponse.Length);
@@ -286,7 +319,8 @@ begin
   Result := TRedisResponse.Create;
   try
     if not fTCPClient.Connected then Connect;
-    fTCPClient.IOHandler.Write(aCommand + ' ' + aArguments + CRLF);
+    //Writeln('*'+ (aArguments.CountChar('$') + 1).ToString + CRLF + BulkString(aCommand) + aArguments);
+    fTCPClient.IOHandler.Write(aCommand);
     if fTCPClient.IOHandler.CheckForDataOnSource(fReadTimeout) then
     begin
       res := fTCPClient.IOHandler.ReadLn;
@@ -343,26 +377,41 @@ begin
 end;
 
 function TRedisClient.RedisSET(const aKey, aValue: string; aTTLMs: Integer = -1): Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
-  Result := Command('SET','%s "%s" PX %d',[aKey,EscapeString(aValue),aTTLMs]).IsDone;
+  rediscmd := TRedisCommand.Create('SET')
+               .AddArgument(aKey)
+               .AddArgument(aValue)
+               .AddArgument('PX')
+               .AddArgument(aTTLMs);
+  Result := Command(rediscmd.ToCommand).IsDone;
 end;
 
 function TRedisClient.RedisRPOP(const aKey: string; out oValue: string): Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
-  Result := False;
-  if Command('RPOP','%s',[aKey]).IsDone then
+  rediscmd := TRedisCommand.Create('RPOP')
+               .AddArgument(aKey);
+  if Command(rediscmd.ToCommand).IsDone then
   begin
     oValue := fTCPClient.IOHandler.ReadLn;
     Result := True;
-  end;
+  end
+  else Result := False;
 end;
 
 function TRedisClient.RedisBRPOP(const aKey: string; out oValue: string; aWaitTimeoutSecs : Integer): Boolean;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
 begin
   Result := False;
-  response := Command('BRPOP','%s %d',[aKey,aWaitTimeoutSecs]);
+  rediscmd := TRedisCommand.Create('BRPOP')
+               .AddArgument(aKey)
+               .AddArgument(aWaitTimeoutSecs);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     //if response.Response = '-1' then Exit;
@@ -380,10 +429,15 @@ end;
 
 function TRedisClient.RedisBRPOPLPUSH(const aKey, aKeyToMove: string; out oValue: string; aWaitTimeoutSecs: Integer): Boolean;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
 begin
   Result := False;
-  response := Command('BRPOPLPUSH','%s %s %d',[aKey,aKeyToMove,aWaitTimeoutSecs]);
+  rediscmd := TRedisCommand.Create('BRPOPLPUSH')
+               .AddArgument(aKey)
+               .AddArgument(aKeyToMove)
+               .AddArgument(aWaitTimeoutSecs);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     oValue := fTCPClient.IOHandler.ReadLn; //value
@@ -393,16 +447,23 @@ begin
 end;
 
 function TRedisClient.RedisDEL(const aKey: string): Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
-  Result := Command('DEL',aKey).IsDone;
+  rediscmd := TRedisCommand.Create('DEL')
+               .AddArgument(aKey);
+  Result := Command(rediscmd.ToCommand).IsDone;
 end;
 
 function TRedisClient.RedisLLEN(const aKey : string): Integer;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
 begin
   Result := 0;
-  response := Command('LLEN',aKey);
+  rediscmd := TRedisCommand.Create('LLEN')
+               .AddArgument(aKey);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     Result := response.Response.ToInteger;
@@ -411,10 +472,14 @@ end;
 
 function TRedisClient.RedisTTL(const aKey, aValue : string): Integer;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
 begin
   Result := 0;
-  response := Command('TTL','%s "%s"',[aKey,EscapeString(aValue)]);
+  rediscmd := TRedisCommand.Create('TTL')
+               .AddArgument(aKey)
+               .AddArgument(aValue);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     Result := response.Response.ToInteger;
@@ -423,9 +488,14 @@ end;
 
 function TRedisClient.RedisZADD(const aKey, aValue: string; aScore: Int64): Boolean;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
 begin
-  response := Command('ZADD','%s %d "%s"',[aKey,aScore,EscapeString(aValue)]);
+  rediscmd := TRedisCommand.Create('ZADD')
+               .AddArgument(aKey)
+               .AddArgument(aScore)
+               .AddArgument(aValue);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     Result := response.Response.ToInteger = 1;
@@ -435,12 +505,17 @@ end;
 
 function TRedisClient.RedisZRANGE(const aKey: string; aStartPosition, aEndPosition: Int64): TArray<string>;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
   value : string;
   i : Integer;
 begin
   Result := [];
-  response := Command('ZRANGE','%s %d %d',[aKey,aStartPosition,aEndPosition]);
+  rediscmd := TRedisCommand.Create('ZRANGE')
+               .AddArgument(aKey)
+               .AddArgument(aStartPosition)
+               .AddArgument(aEndPosition);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     for i := 1 to (response.Response.ToInteger) do
@@ -455,6 +530,7 @@ end;
 
 function TRedisClient.RedisZRANGEBYSCORE(const aKey: string; aMinScore, aMaxScore: Int64): TArray<TRedisSortedItem>;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
   item : TRedisSortedItem;
   i : Integer;
@@ -462,7 +538,12 @@ var
   score : string;
 begin
   Result := [];
-  response := Command('ZRANGEBYSCORE','%s %d %d WITHSCORES',[aKey,aMinScore,aMaxScore]);
+  rediscmd := TRedisCommand.Create('ZRANGEBYSCORE')
+               .AddArgument(aKey)
+               .AddArgument(aMinScore)
+               .AddArgument(aMaxScore)
+               .AddArgument('WITHSCORES');
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     for i := 1 to (response.Response.ToInteger Div 2) do
@@ -481,10 +562,14 @@ end;
 
 function TRedisClient.RedisZREM(const aKey, aValue: string): Boolean;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
 begin
   Result := False;
-  response := Command('ZREM','%s "%s"',[aKey,EscapeString(aValue)]);
+  rediscmd := TRedisCommand.Create('ZREM')
+               .AddArgument(aKey)
+               .AddArgument(aValue);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     Result := response.Response.ToInteger = 1;
@@ -492,9 +577,13 @@ begin
 end;
 
 function TRedisClient.RedisLPOP(const aKey: string; out oValue: string): Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
   Result := False;
-  if Command('LPOP','%s',[aKey]).IsDone then
+  rediscmd := TRedisCommand.Create('LPOP')
+               .AddArgument(aKey);
+  if Command(rediscmd.ToCommand).IsDone then
   begin
     oValue := fTCPClient.IOHandler.ReadLn;
     Result := True;
@@ -503,9 +592,13 @@ end;
 
 function TRedisClient.RedisBLPOP(const aKey: string; out oValue: string; aWaitTimeoutSecs : Integer): Boolean;
 var
+  rediscmd : IRedisCommand;
   response : IRedisResponse;
 begin
-  response := Command('BLPOP','%s %d',[aKey,aWaitTimeoutSecs]);
+  rediscmd := TRedisCommand.Create('BLPOP')
+               .AddArgument(aKey)
+               .AddArgument(aWaitTimeoutSecs);
+  response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
     fTCPClient.IOHandler.ReadLn; //$int
@@ -518,18 +611,35 @@ begin
 end;
 
 function TRedisClient.RedisLPUSH(const aKey, aValue : string) : Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
-  Result := Command('LPUSH','%s "%s"',[aKey,EscapeString(aValue)]).IsDone;
+  rediscmd := TRedisCommand.Create('LPUSH')
+               .AddArgument(aKey)
+               .AddArgument(aValue);
+  Result := Command(rediscmd.ToCommand).IsDone;
 end;
 
 function TRedisClient.RedisLREM(const aKey, aValue: string; aNumOccurrences: Integer): Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
-  Result := Command('LREM','%s %d "%s"',[aKey,aNumOccurrences * -1,EscapeString(aValue)]).IsDone;
+  rediscmd := TRedisCommand.Create('LREM')
+               .AddArgument(aKey)
+               .AddArgument(aNumOccurrences * -1)
+               .AddArgument(aValue);
+  Result := Command(rediscmd.ToCommand).IsDone;
 end;
 
 function TRedisClient.RedisLTRIM(const aKey : string; aFirstElement, aMaxSize : Int64) : Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
-  Result := Command('LTRIM','%s %d %d',[aKey,aFirstElement,fMaxSize]).IsDone;
+  rediscmd := TRedisCommand.Create('LTRIM')
+               .AddArgument(aKey)
+               .AddArgument(aFirstElement)
+               .AddArgument(fMaxSize);
+  Result := Command(rediscmd.ToCommand).IsDone;
 end;
 
 function TRedisClient.RedisAUTH(const aPassword : string) : Boolean;
@@ -561,9 +671,13 @@ begin
 end;
 
 function TRedisClient.RedisGET(const aKey: string; out oValue: string): Boolean;
+var
+  rediscmd : IRedisCommand;
 begin
   Result := False;
-  if Command('GET','%s',[aKey]).IsDone then
+  rediscmd := TRedisCommand.Create('GET')
+               .AddArgument(aKey);
+  if Command(rediscmd.ToCommand).IsDone then
   begin
     oValue := fTCPClient.IOHandler.ReadLn;
     Result := True;
@@ -573,7 +687,7 @@ end;
 function TRedisClient.RedisPING : Boolean;
 begin
   Result := False;
-  if Command('PING').IsDone then
+  if Command('PING'+ CRLF).IsDone then
   begin
     Result := fTCPClient.IOHandler.ReadLn = 'PONG';
   end;
@@ -582,9 +696,46 @@ end;
 function TRedisClient.RedisQUIT : Boolean;
 begin
   try
-    Result := Command('QUIT').IsDone;
+    Result := Command('QUIT' + CRLF).IsDone;
   except
     Result := False;
+  end;
+end;
+
+{ TRedisCommand }
+
+constructor TRedisCommand.Create(const aCommand: string);
+begin
+  fCommand := aCommand;
+  fArguments := fArguments + [fCommand];
+end;
+
+function TRedisCommand.AddArgument(const aValue: string) : IRedisCommand;
+begin
+  Result := Self;
+  fArguments := fArguments + [aValue];
+end;
+
+function TRedisCommand.AddArgument(const aValue: Extended): IRedisCommand;
+begin
+  Result := Self;
+  fArguments := fArguments + [aValue.ToString];
+end;
+
+function TRedisCommand.AddArgument(const aValue: Int64): IRedisCommand;
+begin
+  Result := Self;
+  fArguments := fArguments + [aValue.ToString];
+end;
+
+function TRedisCommand.ToCommand: string;
+var
+  arg : string;
+begin
+  Result := '*' + (High(fArguments) + 1).ToString + CRLF;
+  for arg in fArguments do
+  begin
+    Result := Result + '$' + arg.Length.ToString + CRLF + arg + CRLF;
   end;
 end;
 
