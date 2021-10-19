@@ -638,7 +638,7 @@ begin
   rediscmd := TRedisCommand.Create('LTRIM')
                .AddArgument(aKey)
                .AddArgument(aFirstElement)
-               .AddArgument(fMaxSize);
+               .AddArgument(aMaxSize);
   Result := Command(rediscmd.ToCommand).IsDone;
 end;
 
