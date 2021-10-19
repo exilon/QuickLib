@@ -360,9 +360,9 @@ begin
         else Result.Response := TrimResponse(res);
       end;
     end;
-    if (fRaiseErrorIfCommandFails) and (not Result.IsDone) then raise ERedisCommandError.CreateFmt('Command fail (%s)',[Result.Response]);
+    if (fRaiseErrorIfCommandFails) and (not Result.IsDone) then raise ERedisCommandError.CreateFmt('command fail (%s)',[Result.Response]);
   except
-    on E : Exception do raise ERedisCommandError.CreateFmt('%s error: %s',[aCommand,e.message]);
+    on E : Exception do raise ERedisCommandError.CreateFmt('Redis error: %s [%s...]',[e.message,aCommand.Substring(0,20)]);
   end;
 end;
 
