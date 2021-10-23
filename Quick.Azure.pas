@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.Azure
   Description : Azure blobs operations
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 05/11/2020
+  Modified    : 21/10/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -594,6 +594,7 @@ var
   xmlresp : string;
   folder : string;
   prop : TPair<string,string>;
+  previousMaker : string;
 begin
   Result := TBlobList.Create(True);
   cNextMarker := '';
@@ -606,7 +607,8 @@ begin
     repeat
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
-        azBlobList := BlobService.ListBlobs(azContainer,azBlobsStartWith,'/',cNextMarker,100,[],cNextMarker,blobprefix,xmlresp,CloudResponseInfo);
+        previousMaker := cNextMarker;
+        azBlobList := BlobService.ListBlobs(azContainer,azBlobsStartWith,'/',previousMaker,100,[],cNextMarker,blobprefix,xmlresp,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
         if Assigned(azBlobList) then Result.Capacity := High(azBlobList);
         //get folders (prefix)
@@ -654,6 +656,8 @@ var
   cNextMarker : string;
   AzParams : TStrings;
   container : string;
+  xmlresp : string;
+  previousMarker : string;
 begin
   Result := TBlobList.Create(True);
   cNextMarker := '';
@@ -702,6 +706,63 @@ begin
 end;
 {$ENDIF}
 
+{$IFDEF DELPHITOKYO_UP}
+function TQuickAzure.ListBlobsNames(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
+var
+  BlobService : TAzureBlobService;
+  azBlob : TAzureBlobItem;
+  azBlobList : TArray<TAzureBlobItem>;
+  Blob : TAzureBlobObject;
+  CloudResponseInfo : TCloudResponseInfo;
+  cNextMarker : string;
+  container : string;
+  prefix : string;
+  blobprefix : TArray<string>;
+  xmlresp : string;
+  folder : string;
+  prop : TPair<string,string>;
+  previousMaker : string;
+begin
+  Result := TStringList.Create;
+  cNextMarker := '';
+  container := CheckContainer(azContainer);
+  BlobService := TAzureBlobService.Create(fconAzure);
+  try
+    if Recursive then prefix := ''
+      else prefix := '/';
+    BlobService.Timeout := fTimeout;
+    repeat
+      CloudResponseInfo := TCloudResponseInfo.Create;
+      try
+        previousMaker := cNextMarker;
+        azBlobList := BlobService.ListBlobs(azContainer,azBlobsStartWith,'/',previousMaker,100,[],cNextMarker,blobprefix,xmlresp,CloudResponseInfo);
+        azResponseInfo := GetResponseInfo(CloudResponseInfo);
+        if Assigned(azBlobList) then Result.Capacity := High(azBlobList);
+        //get folders (prefix)
+        for folder in blobprefix do
+        begin
+          Blob := TAzureBlobObject.Create;
+          if folder.EndsWith('/') then Blob.Name := RemoveLastChar(folder)
+            else Blob.Name := folder;
+          Result.Add(Copy(Blob.Name,Blob.Name.LastDelimiter('/')+2,Blob.Name.Length));
+        end;
+        //get files (blobs)
+        if Assigned(azBlobList) then
+        begin
+          for azBlob in azBlobList do
+          begin
+            Result.Add(azBlob.Name);
+          end;
+        end;
+      finally
+        CloudResponseInfo.Free;
+      end;
+    until (cNextMarker = '') or (azResponseInfo.StatusCode <> 200);
+  finally
+    BlobService.Free;
+  end;
+end;
+{$ELSE}
 function TQuickAzure.ListBlobsNames(const azContainer, azBlobsStartWith : string; Recursive : Boolean; out azResponseInfo : TAzureResponseInfo) : TStrings;
 var
   BlobService : TAzureBlobService;
@@ -750,6 +811,7 @@ begin
     CloudResponseInfo.Free;
   end;
 end;
+{$ENDIF}
 
 function TQuickAzure.ExistsContainer(const azContainer : string) : Boolean;
 var
