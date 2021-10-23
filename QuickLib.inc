@@ -21,14 +21,6 @@
      ***************************************************************************
 }
 
-{$ifdef QUICK_WARNOFF}
-	{$WARNINGS OFF}
-{$endif}
-
-{$ifdef QUICK_HINTSOFF}
-	{$HINTS OFF}
-{$endif}
-
 {$ifdef FPC}
   {$MODE DELPHI}
 
@@ -143,6 +135,13 @@
         {$define NEXTGEN} //compatibility with older delphis
       {$endif}
     {$ifend}
+    {$if CompilerVersion >= 35.0} //Delphi RX11 Alexandria
+      {$define DELPHIRX11_UP}
+	    {$define DELPHIALEXANDRIA_UP}
+      {$if defined(ANDROID) OR defined(IOS)}
+        {$define NEXTGEN} //compatibility with older delphis
+      {$endif}
+    {$ifend}
   {$else}
     //Delphi 5 or older
     {$define DELPHI6OROLDER}
@@ -173,6 +172,7 @@
   {.$DEFINE DEBUG_HTTPSERVER}
   {.$DEFINE DEBUG_OBJPOOL}
   {.$DEFINE DEBUG_PARAMETERS}
+  {.$DEFINE DEBUG_REDIS}
 {$ENDIF}
 
 
