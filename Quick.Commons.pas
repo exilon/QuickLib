@@ -1,4 +1,4 @@
-{ ***************************************************************************
+﻿{ ***************************************************************************
 
   Copyright (c) 2016-2021 Kike P�rez
 
@@ -255,6 +255,16 @@ type
     function Time : TTime;
     function IsAM : Boolean;
     function IsPM : Boolean;
+  end;
+
+  TDateHelper = record helper for TDate
+  public
+    function ToString : string;
+  end;
+
+  TTimeHelper = record helper for TTime
+  public
+    function ToString : string;
   end;
   {$ENDIF}
 
@@ -2313,6 +2323,18 @@ end;
 function TDateTimeHelper.IsPM : Boolean;
 begin
   Result := System.DateUtils.IsPM(Self);
+end;
+
+{ TDateHelper }
+function TDateHelper.ToString : string;
+begin
+  Result := DateToStr(Self);
+end;
+
+{ TTimeHelper }
+function TTimeHelper.ToString : string;
+begin
+  Result := TimeToStr(Self);
 end;
 {$ENDIF}
 
