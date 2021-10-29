@@ -21,6 +21,14 @@
      ***************************************************************************
 }
 
+{$ifdef QUICK_WARNOFF}
+	{$WARNINGS OFF}
+{$endif}
+
+{$ifdef QUICK_HINTSOFF}
+	{$HINTS OFF}
+{$endif}
+
 {$ifdef FPC}
   {$MODE DELPHI}
 
