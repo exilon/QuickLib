@@ -75,6 +75,7 @@ type
     {$IFNDEF FPC}
     class function FindClass(const aClassName: string): TClass;
     class function CreateInstance<T>: T; overload;
+    class function CreateInstance<T>(const Args: array of TValue): T; overload;
     class function CreateInstance(aBaseClass : TClass): TObject; overload;
     class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue;
     {$ENDIF}
@@ -98,6 +99,11 @@ begin
 end;
 
 class function TRTTI.CreateInstance<T>: T;
+begin
+  CreateInstance<T>([]);
+end;
+
+class function TRTTI.CreateInstance<T>(const Args: array of TValue): T;
 var
   value: TValue;
   rtype: TRttiType;
@@ -107,10 +113,11 @@ begin
   rtype := fCtx.GetType(TypeInfo(T));
   for rmethod in rtype.GetMethods do
   begin
-    if (rmethod.IsConstructor) and (Length(rmethod.GetParameters) = 0) then
+
+    if (rmethod.IsConstructor) and (Length(rmethod.GetParameters) = Length(Args) ) then
     begin
       rinstype := rtype.AsInstance;
-      value := rmethod.Invoke(rinstype.MetaclassType,[]);
+      value := rmethod.Invoke(rinstype.MetaclassType,Args);
       Result := value.AsType<T>;
       Exit;
     end;
