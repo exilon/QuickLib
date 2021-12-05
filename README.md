@@ -4,7 +4,7 @@
 **QuickLib**
 --------
 
-Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 10.4 Sydney supported.
+Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 11 Alexandria supported.
 
 **Areas of functionality:**
   
@@ -65,6 +65,7 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 
 **Updates:**
 
+* NEW: RAD Studio 11 supported
 * NEW: Condition checks
 * NEW: Commonly used RegEx validations
 * NEW: Url manipulation utils
