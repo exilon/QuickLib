@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.Amazon
   Description : Amazon object operations
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 18/11/2016
-  Modified    : 09/03/2021
+  Modified    : 18/11/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -261,7 +261,7 @@ begin
     if amObjectName.StartsWith('/') then amObjectName := Copy(amObjectName,2,Length(amObjectName));
     CloudResponseInfo := TCloudResponseInfo.Create;
     try
-      Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
+      Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo{$IFDEF DELPHIRX11_UP},fAWSRegion{$ENDIF});
       amResponseInfo := GetResponseInfo(CloudResponseInfo);
     finally
       CloudResponseInfo.Free;
@@ -288,7 +288,7 @@ begin
       try
         //CloudResponseInfo.Headers.AddPair();
         Content := ByteContent(cStream);
-        Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo);
+        Result := AmazonS3.UploadObject(amBucket,amObjectName,Content,False,nil,nil,amACLType,CloudResponseInfo{$IFDEF DELPHIRX11_UP},fAWSRegion{$ENDIF});
         amResponseInfo := GetResponseInfo(CloudResponseInfo);
       finally
         CloudResponseInfo.Free;
@@ -321,7 +321,7 @@ begin
       else fs := TFileStream.Create(cFilenameTo,fmCreate);
     try
       try
-        AmazonS3.GetObject(amBucket,amObjectName,fs,CloudResponseInfo);
+        AmazonS3.GetObject(amBucket,amObjectName,fs,CloudResponseInfo{$IFDEF DELPHIRX11_UP},fAWSRegion{$ENDIF});
         amResponseInfo := GetResponseInfo(CloudResponseInfo);
         if amResponseInfo.StatusCode = 200 then Result := True;
       except
@@ -350,7 +350,7 @@ begin
     CloudResponseInfo := TCloudResponseInfo.Create;
     try
       try
-        AmazonS3.GetObject(amBucket,amObjectName,Result,CloudResponseInfo);
+        AmazonS3.GetObject(amBucket,amObjectName,Result,CloudResponseInfo{$IFDEF DELPHIRX11_UP},fAWSRegion{$ENDIF});
         amResponseInfo := GetResponseInfo(CloudResponseInfo);
       except
         Result := nil;
