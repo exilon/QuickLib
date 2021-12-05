@@ -2297,7 +2297,11 @@ end;
 
 function TDateTimeHelper.ToMilliseconds : Int64;
 begin
+  {$IFDEF DELPHIRX104_ANDUP}
   Result := System.DateUtils.DateTimeToMilliseconds(Self);
+  {$ELSE}
+  Result := System.DateUtils.MilliSecondOf(Self);
+  {$ENDIF}
 end;
 
 function TDateTimeHelper.ToString : string;
@@ -2358,5 +2362,6 @@ initialization
 
 
 end.
+
 
 
