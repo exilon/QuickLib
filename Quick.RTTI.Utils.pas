@@ -1,48 +1,33 @@
 { ***************************************************************************
-
   Copyright (c) 2016-2020 Kike Pérez
-
   Unit        : Quick.RTTI.Utils
   Description : Files functions
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 09/03/2018
   Modified    : 05/11/2020
-
   This file is part of QuickLib: https://github.com/exilon/QuickLib
-
  ***************************************************************************
-
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
-
   http://www.apache.org/licenses/LICENSE-2.0
-
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
-
  *************************************************************************** }
-
 unit Quick.RTTI.Utils;
-
 {$i QuickLib.inc}
-
 interface
-
 uses
   SysUtils,
   Quick.Commons,
   TypInfo,
   Rtti;
-
 type
-
   TRttiPropertyOrder = (roFirstBase, roFirstInherited);
-
   TRTTI = class
   private class var
     fCtx : TRttiContext;
@@ -80,29 +65,22 @@ type
     class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue;
     {$ENDIF}
   end;
-
   ERTTIError = class(Exception);
-
   TArrayHelper<T> = class
   public
     class function Concat(const Args: array of TArray<T>): TArray<T>; static;
   end;
-
 implementation
-
 { TRTTIUtils }
-
 {$IFNDEF FPC}
 class constructor TRTTI.Create;
 begin
   fCtx := TRttiContext.Create;
 end;
-
 class function TRTTI.CreateInstance<T>: T;
 begin
-  CreateInstance<T>([]);
+  Result := CreateInstance<T>([]);
 end;
-
 class function TRTTI.CreateInstance<T>(const Args: array of TValue): T;
 var
   value: TValue;
@@ -113,7 +91,6 @@ begin
   rtype := fCtx.GetType(TypeInfo(T));
   for rmethod in rtype.GetMethods do
   begin
-
     if (rmethod.IsConstructor) and (Length(rmethod.GetParameters) = Length(Args) ) then
     begin
       rinstype := rtype.AsInstance;
@@ -123,7 +100,6 @@ begin
     end;
   end;
 end;
-
 class function TRTTI.CreateInstance(aBaseClass : TClass): TObject;
 var
   value: TValue;
@@ -159,15 +135,12 @@ begin
       rinstype := rtype.AsInstance;
       Result := rmethod.Invoke(rinstype.MetaclassType,aParams);
     end;
-
   end;
 end;
-
 class destructor TRTTI.Destroy;
 begin
   fCtx.Free;
 end;
-
 class function TRTTI.FieldExists(aTypeInfo: Pointer; const aFieldName: string): Boolean;
 var
   rtype : TRttiType;
@@ -175,7 +148,6 @@ begin
   rtype := fCtx.GetType(aTypeInfo);
   Result := rtype.GetField(aFieldName) <> nil;
 end;
-
 class function TRTTI.GetField(aInstance: TObject; const aFieldName: string): TRttiField;
 var
   rtype : TRttiType;
@@ -187,7 +159,6 @@ begin
     Result := rtype.GetField(aFieldName);
   end;
 end;
-
 class function TRTTI.GetField(aTypeInfo: Pointer; const aFieldName: string): TRttiField;
 var
   rtype : TRttiType;
@@ -199,7 +170,6 @@ begin
     Result := rtype.GetField(aFieldName);
   end;
 end;
-
 class function TRTTI.GetFieldValue(aInstance : TObject; const aFieldName: string): TValue;
 var
   rfield: TRttiField;
@@ -207,7 +177,6 @@ begin
   rfield := GetField(aInstance,aFieldName);
   if rfield <> nil then Result := rfield.GetValue(aInstance);
 end;
-
 class function TRTTI.GetFieldValue(aTypeInfo : Pointer; const aFieldName: string): TValue;
 var
   rfield: TRttiField;
@@ -216,7 +185,6 @@ begin
   if rfield <> nil then rfield.GetValue(aTypeInfo);
 end;
 {$ENDIF}
-
 class function TRTTI.GetProperty(aInstance: TObject; const aPropertyName: string): TRttiProperty;
 var
   rtype : TRttiType;
@@ -225,7 +193,6 @@ begin
   rtype := fCtx.GetType(aInstance.ClassInfo);
   if rtype <> nil then Result := rtype.GetProperty(aPropertyName);
 end;
-
 class function TArrayHelper<T>.Concat(const Args: array of TArray<T>): TArray<T>;
 var
   i, j, out, len: Integer;
@@ -242,7 +209,6 @@ begin
       Inc(out);
     end;
 end;
-
 class function TRTTI.GetProperties(aType: TRttiType; aOrder: TRttiPropertyOrder = roFirstBase): TArray<TRttiProperty>;
 var
   flat: TArray<TArray<TRttiProperty>>;
@@ -258,7 +224,6 @@ begin
       Inc(depth);
       t := t.BaseType;
     end;
-
     SetLength(flat, depth);
     t := aType;
     while t <> nil do
@@ -281,7 +246,6 @@ begin
       Inc(depth);
       t := t.BaseType;
     end;
-
     SetLength(flat, depth);
     t := aType;
     depth := 0;
@@ -296,10 +260,8 @@ begin
       t := t.BaseType;
     end;
   end;
-
   Result := TArrayHelper<TRttiProperty>.Concat(flat);
 end;
-
 class function TRTTI.GetProperty(aTypeInfo: Pointer; const aPropertyName: string): TRttiProperty;
 var
   rtype : TRttiType;
@@ -308,7 +270,6 @@ begin
   rtype := fCtx.GetType(aTypeInfo);
   if rtype <> nil then  Result := rtype.GetProperty(aPropertyName);
 end;
-
 class function TRTTI.GetPropertyPath(aInstance: TObject; const aPropertyPath: string): TRttiProperty;
 var
   prop : TRttiProperty;
@@ -362,7 +323,6 @@ begin
   until lastsegment;
   Result := nil;
 end;
-
 {$IFNDEF FPC}
 class function TRTTI.GetMemberPath(aInstance: TObject; const aPropertyPath: string): TRttiMember;
 var
@@ -421,7 +381,6 @@ begin
   until lastsegment;
 end;
 {$ENDIF}
-
 class function TRTTI.PathExists(aInstance: TObject; const aPropertyPath: string) : Boolean;
 var
   proppath : string;
@@ -483,7 +442,6 @@ begin
     end;
   until lastsegment;
 end;
-
 class function TRTTI.GetPathValue(aInstance: TObject; const aPropertyPath: string): TValue;
 var
   proppath : string;
@@ -499,7 +457,6 @@ var
 begin
   Result := nil;
   if not Assigned(aInstance) then Exit;
-
   lastsegment := False;
   proppath := aPropertyPath;
   rtype := fCtx.GetType(aInstance.ClassType);
@@ -550,7 +507,6 @@ begin
   until lastsegment;
   Result := value;
 end;
-
 class procedure TRTTI.SetPathValue(aInstance: TObject; const aPropertyPath: string; aValue : TValue);
 var
   proppath : string;
@@ -611,7 +567,6 @@ begin
     end;
   until lastsegment;
 end;
-
 class function TRTTI.GetPropertyValue(aInstance: TObject; const aPropertyName: string): TValue;
 var
   rprop : TRttiProperty;
@@ -627,7 +582,6 @@ begin
     {$ENDIF}
   end;
 end;
-
 class function TRTTI.GetPropertyValue(aTypeInfo: Pointer; const aPropertyName: string): TValue;
 var
   rprop : TRttiProperty;
@@ -643,7 +597,6 @@ begin
     {$ENDIF}
   end;
 end;
-
 class function TRTTI.GetPropertyValueEx(aInstance: TObject; const aPropertyName: string): TValue;
 var
   pinfo : PPropInfo;
@@ -686,12 +639,10 @@ begin
   end;
 end;
 
-
 class function TRTTI.GetType(aTypeInfo: Pointer): TRttiType;
 begin
   Result := fCtx.GetType(aTypeInfo);
 end;
-
 class function TRTTI.PropertyExists(aTypeInfo: Pointer; const aPropertyName: string) : Boolean;
 var
   rtype : TRttiType;
@@ -700,7 +651,6 @@ begin
   rtype := fCtx.GetType(aTypeInfo);
   if rtype <> nil then Result := rtype.GetProperty(aPropertyName) <> nil;
 end;
-
 class procedure TRTTI.SetPropertyValue(aInstance: TObject; const aPropertyName: string; aValue: TValue);
 var
   rprop : TRttiProperty;
@@ -708,7 +658,6 @@ begin
   rprop := GetProperty(aInstance,aPropertyName);
   if rprop <> nil then rprop.SetValue(aInstance,aValue);
 end;
-
 {$IFNDEF FPC}
 class function TRTTI.FindClass(const aClassName: string): TClass;
 var
@@ -727,6 +676,5 @@ begin
   end;
 end;
 {$ENDIF}
-
 
 end.
