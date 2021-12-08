@@ -1,10 +1,10 @@
-{ ***************************************************************************
+ï»¿{ ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pï¿½rez
 
   Unit        : Quick.YAML.Serializer
   Description : YAML Serializer
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.0
   Created     : 12/04/2019
   Modified    : 05/08/2021
@@ -102,6 +102,8 @@ type
     function GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
     {$IFNDEF FPC}
     function GetFieldValueFromRecord(aValue : TValue; const FieldName : string) : TValue;
+    function CreateInstance(aClass: TClass): TValue; overload;
+    function CreateInstance(aType: TRttiType): TValue; overload;
     {$ENDIF}
     procedure SetPropertyValue(Instance : TObject; aPropInfo : PPropInfo; aValue : TValue); overload;
     procedure SetPropertyValue(Instance : TObject; const PropertyName : string; aValue : TValue); overload;
@@ -403,13 +405,22 @@ begin
 end;
 
 function TRTTIYaml.DeserializeClass(aType: TClass; const aYaml: TYamlObject): TObject;
+var
+  Ctx: TRttiContext;
+  rType: TRttiType;
+  mType: TRTTIMethod;
+  metaClass: TClass;
 begin
   Result := nil;
   if (aYaml = nil) or ((aYaml as TYamlValue) is TYamlNull) or (aYaml.Count = 0) then Exit;
 
+  {$IFNDEF FPC}
+  Result := CreateInstance(aType).AsObject;
+  {$ELSE}
+  Result := aType.Create;
+  {$ENDIF}
   try
-    Result := aType.Create;
-    Result := DeserializeObject(Result,aYaml);
+    Result := DeserializeObject(Result, aYaml);
   except
     on E : Exception do
     begin
@@ -944,6 +955,40 @@ begin
   rfield := rec.GetField(FieldName);
   if rfield <> nil then Result := rField.GetValue(aValue.GetReferenceToRawData)
     else Result := nil;
+end;
+{$ENDIF}
+
+{$IFNDEF FPC}
+function TRTTIYaml.CreateInstance(aClass: TClass): TValue;
+var
+  ctx : TRttiContext;
+  rtype : TRttiType;
+begin
+  Result := nil;
+  rtype := ctx.GetType(aClass);
+  Result := CreateInstance(rtype);
+end;
+{$ENDIF}
+
+{$IFNDEF FPC}
+function TRTTIYaml.CreateInstance(aType: TRttiType): TValue;
+var
+  rmethod : TRttiMethod;
+begin
+  Result := nil;
+  if atype = nil then Exit;
+  for rmethod in TRttiInstanceType(atype).GetMethods do
+  begin
+    if rmethod.IsConstructor then
+    begin
+      //create if don't have parameters
+      if Length(rmethod.GetParameters) = 0 then
+      begin
+        Result := rmethod.Invoke(TRttiInstanceType(atype).MetaclassType,[]);
+        Break;
+      end;
+    end;
+  end;
 end;
 {$ENDIF}
 
