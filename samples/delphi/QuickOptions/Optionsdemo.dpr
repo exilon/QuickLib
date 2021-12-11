@@ -63,7 +63,7 @@ type
   end;
 
 var
-  Options : TOptionsContainer;
+  Options : TFileOptionsContainer;
   LoggingOptions : TLoggingOptions;
   GlobalOptions : TGlobalOptions;
   UIOptions : TUIOptions;
@@ -84,7 +84,7 @@ end;
 begin
   try
     ReportMemoryLeaksOnShutdown := True;
-    Options := TOptionsContainer.Create('.\options.conf',TJsonOptionsSerializer.Create,True);
+    Options := TFileOptionsContainer.Create(TJsonOptionsSerializer.Create('.\options.conf'),True);
     Options.OnFileModified := procedure
                               begin
                                 cout('Detected config file modification!',etWarning);

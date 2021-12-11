@@ -44,25 +44,32 @@ uses
 
 type
 
-  TYamlOptionsSerializer = class(TOptionsSerializer)
+  TYamlOptionsSerializer = class(TOptionsFileSerializer)
   private
     fSerializer : TRTTIYaml;
-    function ParseFile(const aFilename : string; out aYamlObj : TYamlObject) : Boolean;
+    function ParseFile(out aYamlObj : TYamlObject) : Boolean;
   public
-    constructor Create;
+    constructor Create(const aFilename : string);
     destructor Destroy; override;
-    function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
-    function LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean; override;
-    procedure Save(const aFilename : string; aSections : TSectionList); override;
-    function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; override;
+    function Load(aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; override;
+    function LoadSection(aSections : TSectionList; aOptions: TOptions) : Boolean; override;
+    procedure Save(aSections : TSectionList); override;
+    function GetFileSectionNames(out oSections : TArray<string>) : Boolean; override;
+    function ConfigExists : Boolean; override;
   end;
 
 implementation
 
 { TYamlOptionsSerializer }
 
-constructor TYamlOptionsSerializer.Create;
+function TYamlOptionsSerializer.ConfigExists: Boolean;
 begin
+  Result := FileExists(Filename);
+end;
+
+constructor TYamlOptionsSerializer.Create(const aFilename : string);
+begin
+  Filename := aFilename;
   fSerializer := TRTTIYaml.Create(TSerializeLevel.slPublishedProperty,True);
 end;
 
@@ -72,14 +79,14 @@ begin
   inherited;
 end;
 
-function TYamlOptionsSerializer.GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean;
+function TYamlOptionsSerializer.GetFileSectionNames(out oSections : TArray<string>) : Boolean;
 var
   yaml : TYamlObject;
   i : Integer;
 begin
   Result := False;
   yaml := nil;
-  if ParseFile(aFilename,yaml) then
+  if ParseFile(yaml) then
   begin
     try
       for i := 0 to yaml.Count - 1 do
@@ -93,23 +100,23 @@ begin
   end;
 end;
 
-function TYamlOptionsSerializer.ParseFile(const aFilename : string; out aYamlObj : TYamlObject) : Boolean;
+function TYamlOptionsSerializer.ParseFile(out aYamlObj : TYamlObject) : Boolean;
 var
   fileoptions : string;
 begin
   aYamlObj := nil;
-  if FileExists(aFilename) then
+  if FileExists(Filename) then
   begin
-    fileoptions := TFile.ReadAllText(aFilename,TEncoding.UTF8);
-    if fileoptions.IsEmpty then EOptionLoadError.CreateFmt('Config file "%s" is empty!',[ExtractFileName(aFilename)]);
+    fileoptions := TFile.ReadAllText(Filename,TEncoding.UTF8);
+    if fileoptions.IsEmpty then EOptionLoadError.CreateFmt('Config file "%s" is empty!',[ExtractFileName(Filename)]);
 
     aYamlObj := TYamlObject.ParseYAMLValue(fileoptions) as TYamlObject;
-    if aYamlObj = nil then raise EOptionLoadError.CreateFmt('Config file "%s" is damaged or not well-formed Yaml format!',[ExtractFileName(aFilename)]);
+    if aYamlObj = nil then raise EOptionLoadError.CreateFmt('Config file "%s" is damaged or not well-formed Yaml format!',[ExtractFileName(Filename)]);
   end;
   Result := aYamlObj <> nil;
 end;
 
-function TYamlOptionsSerializer.Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
+function TYamlOptionsSerializer.Load(aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
 var
   option : TOptions;
   yaml : TYamlObject;
@@ -118,7 +125,7 @@ var
 begin
   Result := False;
   //read option file
-  if ParseFile(aFilename,yaml) then
+  if ParseFile(yaml) then
   begin
     found := 0;
     try
@@ -152,14 +159,14 @@ begin
   end;
 end;
 
-function TYamlOptionsSerializer.LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean;
+function TYamlOptionsSerializer.LoadSection(aSections : TSectionList; aOptions: TOptions) : Boolean;
 var
   yaml : TYamlObject;
   ypair : TYamlPair;
 begin
   Result := False;
   //read option file
-  if ParseFile(aFilename,yaml) then
+  if ParseFile(yaml) then
   begin
     try
       ypair := fSerializer.GetYamlPairByName(yaml,aOptions.Name);
@@ -177,7 +184,7 @@ begin
   end;
 end;
 
-procedure TYamlOptionsSerializer.Save(const aFilename : string; aSections : TSectionList);
+procedure TYamlOptionsSerializer.Save(aSections : TSectionList);
 var
   option : TOptions;
   fileoptions : string;
@@ -198,7 +205,7 @@ begin
       end;
     end;
     fileoptions := yaml.ToYaml;
-    if not fileoptions.IsEmpty then TFile.WriteAllText(aFilename,fileoptions);
+    if not fileoptions.IsEmpty then TFile.WriteAllText(Filename,fileoptions);
   finally
     yaml.Free;
   end;

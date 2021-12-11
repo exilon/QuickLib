@@ -149,18 +149,36 @@ type
 
   IOptionsSerializer = interface
   ['{7DECE203-4AAE-4C9D-86C8-B3D583DF7C8B}']
-    function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
-    function LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean;
-    procedure Save(const aFilename : string; aSections : TSectionList);
-    function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean;
+    function Load(aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean;
+    function LoadSection(aSections : TSectionList; aOptions: TOptions) : Boolean;
+    procedure Save(aSections : TSectionList);
+    function GetFileSectionNames(out oSections : TArray<string>) : Boolean;
+    function ConfigExists : Boolean;
+  end;
+
+  IFileOptionsSerializer = interface(IOptionsSerializer)
+  ['{3417B142-2879-4DA6-86CA-19F0F427A92C}']
+    function GetFileName : string;
+    procedure SetFileName(const aFilename : string);
+    property Filename : string read GetFilename write SetFilename;
   end;
 
   TOptionsSerializer = class(TInterfacedObject,IOptionsSerializer)
   public
-    function Load(const aFilename : string; aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; virtual; abstract;
-    function LoadSection(const aFilename : string; aSections : TSectionList; aOptions: TOptions) : Boolean; virtual; abstract;
-    procedure Save(const aFilename : string; aSections : TSectionList); virtual; abstract;
-    function GetFileSectionNames(const aFilename : string; out oSections : TArray<string>) : Boolean; virtual; abstract;
+    function Load(aSections : TSectionList; aFailOnSectionNotExists : Boolean) : Boolean; virtual; abstract;
+    function LoadSection(aSections : TSectionList; aOptions: TOptions) : Boolean; virtual; abstract;
+    procedure Save(aSections : TSectionList); virtual; abstract;
+    function GetFileSectionNames(out oSections : TArray<string>) : Boolean; virtual; abstract;
+    function ConfigExists : Boolean; virtual; abstract;
+  end;
+
+  TOptionsFileSerializer = class(TOptionsSerializer,IFileOptionsSerializer)
+  private
+    fFilename : string;
+    function GetFileName : string;
+    procedure SetFileName(const aFilename : string);
+  public
+    property Filename : string read GetFilename write SetFilename;
   end;
 
   TFileModifiedEvent = reference to procedure;
@@ -177,34 +195,24 @@ type
 
   TOptionsContainer = class(TInterfacedObject,IOptionsContainer)
   private
-    fFilename : string;
     fSerializer : IOptionsSerializer;
     fSections : TSectionList;
-    fFileMonitor : TFileMonitor;
-    fOnFileModified : TFileModifiedEvent;
     fLoaded : Boolean;
-    fReloadIfFileChanged : Boolean;
     fOnConfigLoaded : TLoadConfigEvent;
     fOnConfigReloaded : TLoadConfigEvent;
-    procedure CreateFileMonitor;
-    procedure FileModifiedNotify(MonitorNotify : TMonitorNotify);
-    procedure SetReloadIfFileChanged(const Value: Boolean);
     function GetOptions(aOptionClass : TOptionsClass): TOptions; overload;
     function GetOptions(aIndex : Integer) : TOptions; overload;
     function GetSection(aOptionsSection : TOptionsClass; var vOptions : TOptions) : Boolean; overload;
   public
-    constructor Create(const aFilename : string; aOptionsSerializer : IOptionsSerializer; aReloadIfFileChanged : Boolean = False);
+    constructor Create(aOptionsSerializer : IOptionsSerializer);
     destructor Destroy; override;
-    property FileName : string read fFilename write fFilename;
-    property ReloadIfFileChanged : Boolean read fReloadIfFileChanged write SetReloadIfFileChanged;
     property IsLoaded : Boolean read fLoaded;
     function ExistsSection(aOption : TOptionsClass; const aSectionName : string = '') : Boolean; overload;
     function ExistsSection<T : TOptions>(const aSectionName : string = '') : Boolean; overload;
-    property OnFileModified : TFileModifiedEvent read fOnFileModified write fOnFileModified;
-    property OnConfigLoaded : TLoadConfigEvent read fOnConfigLoaded write fOnConfigLoaded;
-    property OnConfigReloaded : TLoadConfigEvent read fOnConfigReloaded write fOnConfigReloaded;
     property Items[aOptionClass : TOptionsClass] : TOptions read GetOptions; default;
     property Items[aIndex : Integer] : TOptions read GetOptions; default;
+    property OnConfigLoaded : TLoadConfigEvent read fOnConfigLoaded write fOnConfigLoaded;
+    property OnConfigReloaded : TLoadConfigEvent read fOnConfigReloaded write fOnConfigReloaded;
     function AddSection(aOption : TOptionsClass; const aSectionName : string = '') : TOptions; overload;
     function AddSection<T : TOptions>(const aSectionName : string = '') : TOptions<T>; overload;
     procedure AddOption(aOption : TOptions);
@@ -212,9 +220,28 @@ type
     function GetSection<T : TOptions>(const aSectionName : string = '') : T; overload;
     function GetFileSectionNames(out oSections : TArray<string>) : Boolean;
     function Count : Integer;
-    procedure Load(aFailOnSectionNotExists : Boolean = False);
+    procedure Load(aFailOnSectionNotExists : Boolean = False); virtual;
     procedure LoadSection(aOptions : TOptions);
-    procedure Save;
+    procedure Save; virtual;
+  end;
+
+  TFileOptionsContainer = class(TOptionsContainer)
+  private
+    fFilename : string;
+    fFileMonitor : TFileMonitor;
+    fOnFileModified : TFileModifiedEvent;
+    fReloadIfFileChanged : Boolean;
+    procedure CreateFileMonitor;
+    procedure FileModifiedNotify(MonitorNotify : TMonitorNotify);
+    procedure SetReloadIfFileChanged(const Value: Boolean);
+    function GetFileSectionNames(out oSections: TArray<string>): Boolean;
+  public
+    constructor Create(aOptionsSerializer : IFileOptionsSerializer; aReloadIfFileChanged : Boolean = False);
+    destructor Destroy; override;
+    property FileName : string read fFilename;
+    property ReloadIfFileChanged : Boolean read fReloadIfFileChanged write SetReloadIfFileChanged;
+    property OnFileModified : TFileModifiedEvent read fOnFileModified write fOnFileModified;
+    procedure Save; override;
   end;
 
   IOptionsBuilder<T : TOptions> = interface
@@ -237,41 +264,7 @@ type
 
 implementation
 
-{ TOptionsContainer }
-
-constructor TOptionsContainer.Create(const aFilename : string; aOptionsSerializer : IOptionsSerializer; aReloadIfFileChanged : Boolean = False);
-begin
-  fSerializer := aOptionsSerializer;
-  fSections := TSectionList.Create(False);
-  fFilename := aFilename;
-  fLoaded := False;
-  fReloadIfFileChanged := aReloadIfFileChanged;
-  if aReloadIfFileChanged then CreateFileMonitor;
-end;
-
-procedure TOptionsContainer.CreateFileMonitor;
-begin
-  fFileMonitor := TQuickFileMonitor.Create;
-  fFileMonitor.FileName := fFilename;
-  fFileMonitor.Interval := 2000;
-  fFileMonitor.Notifies := [TMonitorNotify.mnFileModified];
-  fFileMonitor.OnFileChange := FileModifiedNotify;
-  fFileMonitor.Enabled := True;
-end;
-
-destructor TOptionsContainer.Destroy;
-var
-  option : TOptions;
-begin
-  if Assigned(fFileMonitor) then fFileMonitor.Free;
-  fSerializer := nil;
-  for option in fSections do
-  begin
-    if option.RefCount = 0 then option.Free;
-  end;
-  fSections.Free;
-  inherited;
-end;
+{ TCustomOptionsContainer}
 
 function TOptionsContainer.ExistsSection(aOption: TOptionsClass;const aSectionName: string): Boolean;
 var
@@ -290,18 +283,6 @@ end;
 function TOptionsContainer.ExistsSection<T>(const aSectionName: string): Boolean;
 begin
   Result := GetSection<T>(aSectionName) <> nil;
-end;
-
-procedure TOptionsContainer.FileModifiedNotify(MonitorNotify: TMonitorNotify);
-begin
-  if MonitorNotify = TMonitorNotify.mnFileModified then
-  begin
-    if Assigned(fOnFileModified) then fOnFileModified;
-    if fReloadIfFileChanged then
-    begin
-      Load(False);
-    end;
-  end;
 end;
 
 procedure TOptionsContainer.AddOption(aOption: TOptions);
@@ -344,9 +325,29 @@ begin
   Result := fSections.Count;
 end;
 
-function TOptionsContainer.GetFileSectionNames(out oSections : TArray<string>) : Boolean;
+constructor TOptionsContainer.Create(aOptionsSerializer: IOptionsSerializer);
 begin
-  Result := fSerializer.GetFileSectionNames(fFilename,oSections);
+  fSerializer := aOptionsSerializer;
+  fSections := TSectionList.Create(False);
+  fLoaded := False;
+end;
+
+destructor TOptionsContainer.Destroy;
+var
+  option : TOptions;
+begin
+  fSerializer := nil;
+  for option in fSections do
+  begin
+    if option.RefCount = 0 then option.Free;
+  end;
+  fSections.Free;
+  inherited;
+end;
+
+function TOptionsContainer.GetFileSectionNames(out oSections: TArray<string>): Boolean;
+begin
+
 end;
 
 function TOptionsContainer.GetOptions(aIndex: Integer): TOptions;
@@ -407,9 +408,9 @@ procedure TOptionsContainer.Load(aFailOnSectionNotExists : Boolean = False);
 var
   option : TOptions;
 begin
-  if FileExists(fFilename) then
+  if fSerializer.ConfigExists then
   begin
-    if not fSerializer.Load(fFilename,fSections,aFailOnSectionNotExists) then Save;
+    if not fSerializer.Load(fSections,aFailOnSectionNotExists) then Save;
     if not fLoaded then
     begin
       fLoaded := True;
@@ -428,13 +429,27 @@ end;
 
 procedure TOptionsContainer.LoadSection(aOptions : TOptions);
 begin
-  if FileExists(fFilename) then
+  if fSerializer.ConfigExists then
   begin
-    if not fSerializer.LoadSection(fFilename,fSections,aOptions) then Save;
+    if not fSerializer.LoadSection(fSections,aOptions) then Save;
   end;
 end;
 
 procedure TOptionsContainer.Save;
+begin
+  fSerializer.Save(fSections);
+end;
+
+{ TOptionsContainer }
+
+constructor TFileOptionsContainer.Create(aOptionsSerializer : IFileOptionsSerializer; aReloadIfFileChanged : Boolean = False);
+begin
+  inherited Create(aOptionsSerializer);
+  fFilename := aOptionsSerializer.Filename;
+  if aReloadIfFileChanged then CreateFileMonitor;
+end;
+
+procedure TFileOptionsContainer.Save;
 var
   laststate : Boolean;
 begin
@@ -445,22 +460,55 @@ begin
     fFileMonitor.Enabled := False;
     try
       //save config file
-      fSerializer.Save(fFilename,fSections);
+      inherited;
     finally
       //set last state
       Sleep(0);
       fFileMonitor.Enabled := laststate;
     end;
   end
-  else fSerializer.Save(fFilename,fSections);
+  else inherited;
 end;
 
-procedure TOptionsContainer.SetReloadIfFileChanged(const Value: Boolean);
+procedure TFileOptionsContainer.SetReloadIfFileChanged(const Value: Boolean);
 begin
   if Value = fReloadIfFileChanged then Exit;
   fReloadIfFileChanged := Value;
   if Assigned(fFileMonitor) then fFileMonitor.Free;
   if fReloadIfFileChanged then CreateFileMonitor;
+end;
+
+procedure TFileOptionsContainer.CreateFileMonitor;
+begin
+  fFileMonitor := TQuickFileMonitor.Create;
+  fFileMonitor.FileName := fFilename;
+  fFileMonitor.Interval := 2000;
+  fFileMonitor.Notifies := [TMonitorNotify.mnFileModified];
+  fFileMonitor.OnFileChange := FileModifiedNotify;
+  fFileMonitor.Enabled := True;
+end;
+
+destructor TFileOptionsContainer.Destroy;
+begin
+  if Assigned(fFileMonitor) then fFileMonitor.Free;
+  inherited;
+end;
+
+procedure TFileOptionsContainer.FileModifiedNotify(MonitorNotify: TMonitorNotify);
+begin
+  if MonitorNotify = TMonitorNotify.mnFileModified then
+  begin
+    if Assigned(fOnFileModified) then fOnFileModified;
+    if fReloadIfFileChanged then
+    begin
+      Load(False);
+    end;
+  end;
+end;
+
+function TFileOptionsContainer.GetFileSectionNames(out oSections : TArray<string>) : Boolean;
+begin
+  Result := fSerializer.GetFileSectionNames(oSections);
 end;
 
 { TOptions }
@@ -685,6 +733,18 @@ end;
 function TOptionsBuilder<T>.Options: T;
 begin
   Result := fOptions;
+end;
+
+{ TOptionsFileSerializer }
+
+function TOptionsFileSerializer.GetFileName: string;
+begin
+  Result := fFilename;
+end;
+
+procedure TOptionsFileSerializer.SetFileName(const aFilename: string);
+begin
+  fFilename := aFilename;
 end;
 
 end.
