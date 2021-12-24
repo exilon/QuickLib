@@ -1118,7 +1118,7 @@ begin
     {$ELSE}
     tkEnumeration :
       begin
-        if fUseEnumNames then Result := GetEnumName(@pinfo.PropType,GetOrdProp(Instance,PropertyName))
+        if fUseEnumNames then Result := GetEnumName(PTypeInfo(pinfo.PropType),GetOrdProp(Instance,PropertyName))
           else Result := GetOrdProp(Instance,PropertyName);
       end;
     {$ENDIF}
