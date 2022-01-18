@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 30/08/2021
+  Modified    : 15/12/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -234,7 +234,6 @@ type
     procedure CreateFileMonitor;
     procedure FileModifiedNotify(MonitorNotify : TMonitorNotify);
     procedure SetReloadIfFileChanged(const Value: Boolean);
-    function GetFileSectionNames(out oSections: TArray<string>): Boolean;
   public
     constructor Create(aOptionsSerializer : IFileOptionsSerializer; aReloadIfFileChanged : Boolean = False);
     destructor Destroy; override;
@@ -242,6 +241,7 @@ type
     property ReloadIfFileChanged : Boolean read fReloadIfFileChanged write SetReloadIfFileChanged;
     property OnFileModified : TFileModifiedEvent read fOnFileModified write fOnFileModified;
     procedure Save; override;
+    function GetFileSectionNames(out oSections: TArray<string>): Boolean;
   end;
 
   IOptionsBuilder<T : TOptions> = interface
@@ -347,7 +347,7 @@ end;
 
 function TOptionsContainer.GetFileSectionNames(out oSections: TArray<string>): Boolean;
 begin
-
+  Result := fSerializer.GetFileSectionNames(oSections);
 end;
 
 function TOptionsContainer.GetOptions(aIndex: Integer): TOptions;
@@ -420,9 +420,9 @@ begin
   end
   else
   begin
-    //if not exists file get default values
+    //if config not exists get default values
     for option in fSections do option.DefaultValues;
-    //creates default file
+    //saves default
     Save;
   end;
 end;
