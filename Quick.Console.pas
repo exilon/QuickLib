@@ -876,7 +876,7 @@ begin
                 pBuffer[dRead] := #0;
                 OemToCharA(pBuffer,dBuffer);
                 if Assigned(CallBack) then CallBack(dBuffer);
-                if Assigned(OutputLines) then OutputLines.Add(dBuffer);
+                if Assigned(OutputLines) then OutputLines.Add(string(dBuffer));
               until (dRead < CReadBuffer);
             end;
             //Application.ProcessMessages;

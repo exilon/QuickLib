@@ -36,7 +36,23 @@ interface
 uses
   Classes,
   SysUtils,
-  Math;
+  Math,
+  IdDNSResolver;
+
+type
+  TDNSResolve = class
+  private
+    fHost : string;
+    fPort : Integer;
+    function ResolveDNS(const aDNS : string; aRegType: TQueryRecordTypes): string;
+  public
+    constructor Create(const aNameServer : string = '8.8.8.8'; aServerPort : Integer = 53);
+    function ResolveA(const aDNS : string): string;
+    function ResolveAAAA(const aDNS : string): string;
+    function ResolveCNAME(const aDNS : string): string;
+    function ResolveNS(const aDNS : string): string;
+    function ResolveTXT(const aDNS : string): string;
+  end;
 
   function IntToIPv4(IPv4: LongWord): string;
   function IPv4ToInt(const IPv4: string) : LongWord;
@@ -128,6 +144,72 @@ begin
   except
     on E : Exception do raise Exception.Create(Format('GetIPRange error: %s',[e.Message]));
   end;
+end;
+
+{ TDNSResolve }
+
+constructor TDNSResolve.Create(const aNameServer : string = '8.8.8.8'; aServerPort : Integer = 53);
+begin
+  fHost := aNameServer;
+  fPort := aServerPort;
+end;
+
+function TDNSResolve.ResolveDNS(const aDNS : string; aRegType: TQueryRecordTypes): string;
+var
+  dnsresolver : TIdDNSResolver;
+begin
+  Result := '';
+  dnsresolver := TIdDNSResolver.Create(nil);
+  try
+    dnsresolver.Host := fHost;
+    dnsresolver.Port := fPort;
+    dnsresolver.QueryResult.Clear;
+    dnsresolver.QueryType := [aRegType];
+    dnsresolver.Resolve(aDNS);
+    if dnsresolver.QueryResult.Count > 0 then
+    begin
+      if dnsresolver.QueryResult[0].RecType = aRegType then
+      begin
+        case aRegType of
+          qtNS : Result := TNSRecord(dnsresolver.QueryResult.Items[0]).HostName;
+          qtA : Result := TARecord(dnsresolver.QueryResult.Items[0]).IPAddress;
+          qtAAAA : Result := TAAAARecord(dnsresolver.QueryResult.Items[0]).Address;
+          qtNAME : Result := TCNRecord(dnsresolver.QueryResult.Items[0]).HostName;
+          qtTXT : Result := TTextRecord(dnsresolver.QueryResult.Items[0]).Text.Text;
+          else raise Exception.Create('Not implemented yet!');
+        end;
+
+      end;
+    end;
+  finally
+    dnsresolver.Free;
+  end;
+end;
+
+function TDNSResolve.ResolveNS(const aDNS : string): string;
+begin
+  Result := ResolveDNS(aDNS,qtNS);
+end;
+
+function TDNSResolve.ResolveA(const aDNS : string): string;
+begin
+  Result := ResolveDNS(aDNS,qtA);
+end;
+
+function TDNSResolve.ResolveAAAA(const aDNS : string): string;
+begin
+  Result := ResolveDNS(aDNS,qtAAAA);
+end;
+
+
+function TDNSResolve.ResolveCNAME(const aDNS : string): string;
+begin
+  Result := ResolveDNS(aDNS,qtName);
+end;
+
+function TDNSResolve.ResolveTXT(const aDNS : string): string;
+begin
+  Result := ResolveDNS(aDNS,qtTXT);
 end;
 
 end.
