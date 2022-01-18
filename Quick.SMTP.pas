@@ -244,11 +244,11 @@ begin
   Result := False;
   SSLHandler := TIdSSLIOHandlerSocketOpenSSL.Create(nil);
   try
+    idattach := nil;
+    mBody := nil;
     msg := TIdMessage.Create(nil);
     try
       //create mail msg
-      idattach := nil;
-      mBody := nil;
       msg.From.Address := aMail.From;
       if aMail.SenderName <> '' then msg.From.Name := aMail.SenderName;
       msg.Subject := aMail.Subject;

@@ -21,14 +21,6 @@
      ***************************************************************************
 }
 
-{$ifdef QUICK_WARNOFF}
-	{$WARNINGS OFF}
-{$endif}
-
-{$ifdef QUICK_HINTSOFF}
-	{$HINTS OFF}
-{$endif}
-
 {$ifdef FPC}
   {$MODE DELPHI}
 
@@ -182,5 +174,16 @@
   {.$DEFINE DEBUG_PARAMETERS}
   {.$DEFINE DEBUG_REDIS}
 {$ENDIF}
+
+{.$DEFINE QUICK_HINTSOFF}
+{.$DEFINE QUICK_WARNOFF}
+
+{$ifdef QUICK_HINTSOFF}
+	{$HINTS OFF}
+{$endif}
+
+{$ifdef QUICK_WARNOFF}
+	{$WARNINGS OFF}
+{$endif}
 
 

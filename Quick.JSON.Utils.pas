@@ -99,7 +99,7 @@ begin
         '{','[' :
           begin
             LIndent := LIndent + INDENT;
-            if json[i+1] in ['}',']'] then Result := Result + c
+            if (json[i+1] = '}') or (json[i+1] = ']') then Result := Result + c
               else Result := Result + c + sLineBreak  + LIndent;
             isEOL := True;
           end;
@@ -113,7 +113,7 @@ begin
             Delete(LIndent, 1, Length(INDENT));
             if not isEOL then Result := Result + sLineBreak ;
             if (i<json.Length) and (json[i+1] = ',') then Result := Result + LIndent + c
-              else if json[i-1] in ['{','['] then Result := Result + c + sLineBreak
+              else if (json[i-1] = '}') or (json[i-1] = ']') then Result := Result + c + sLineBreak
                 else Result := Result + LIndent + c + sLineBreak ;
             isEOL := True;
           end;
