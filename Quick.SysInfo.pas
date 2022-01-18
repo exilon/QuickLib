@@ -48,6 +48,11 @@ uses
     System.IOUtils,
       {$IFDEF ANDROID}
       Androidapi.Helpers,
+        {$IFDEF DELPHIRX103_UP}
+        Androidapi.JNI.GraphicsContentViewText,
+        Androidapi.JNI.JavaTypes,
+        Androidapi.JNI.App,
+        {$ENDIF}
       {$ENDIF}
       {$IFDEF IOS}
       Macapi.CoreFoundation,
@@ -96,7 +101,11 @@ begin
     else fAppName := ExtractFilenameWithoutExt(ParamStr(0));
   {$ELSE}
     {$IFDEF ANDROID}
-    fAppName := JStringToString(SharedActivityContext.getPackageName);
+      {$IFDEF DELPHIRX103_UP}
+      fAppName := JStringToString(TAndroidHelper.Context.getPackageName);
+      {$ELSE}
+      fAppName := JStringToString(SharedActivityContext.getPackageName);
+      {$ENDIF}
     {$ELSE}
     fAppName := TNSString.Wrap(CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle, kCFBundleIdentifierKey)).UTF8String;
     {$ENDIF}

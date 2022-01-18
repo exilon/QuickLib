@@ -55,6 +55,9 @@ interface
     Androidapi.Helpers,
     Androidapi.JNI.JavaTypes,
     Androidapi.JNI.GraphicsContentViewText,
+    {$IFDEF DELPHIRX103_UP}
+      Androidapi.JNI.App,
+    {$ENDIF}
     {$ENDIF}
     {$IFDEF IOS}
     iOSapi.UIKit,
@@ -1359,7 +1362,11 @@ end;
       var
         PkgInfo : JPackageInfo;
       begin
+        {$IFDEF DELPHIRX103_UP}
+        PkgInfo := TAndroidHelper.Activity.getPackageManager.getPackageInfo(TAndroidHelper.Activity.getPackageName,0);
+        {$ELSE}
         PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        {$ENDIF}
         Result := IntToStr(PkgInfo.VersionCode);
       end;
       {$ELSE} //IOS
@@ -1463,7 +1470,11 @@ end;
       var
         PkgInfo : JPackageInfo;
       begin
+        {$IFDEF DELPHIRX103_UP}
+        PkgInfo := TAndroidHelper.Activity.getPackageManager.getPackageInfo(TAndroidHelper.Activity.getPackageName,0);
+        {$ELSE}
         PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        {$ENDIF}
         Result := JStringToString(PkgInfo.versionName);
       end;
       {$ELSE} //IOS
