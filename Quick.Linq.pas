@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pérez
 
   Unit        : Quick.Linq
   Description : Arrays and Generic Lists Linq functions
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/04/2019
-  Modified    : 22/03/20120
+  Modified    : 19/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -499,9 +499,9 @@ begin
       vtAnsiString : Result := StringReplace(Result,'?',string(aWhereParams[i].VAnsiString),[]);
       vtWideString : Result := StringReplace(Result,'?',string(aWhereParams[i].VWideString^),[]);
       {$IFNDEF NEXTGEN}
-      vtString : Result := StringReplace(Result,'?',aWhereParams[i].VString^,[]);
+      vtString : Result := StringReplace(Result,'?',string(aWhereParams[i].VString^),[]);
       {$ENDIF}
-      vtChar : Result := StringReplace(Result,'?',aWhereParams[i].VChar,[]);
+      vtChar : Result := StringReplace(Result,'?',string(aWhereParams[i].VChar),[]);
       vtPChar : Result := StringReplace(Result,'?',string(aWhereParams[i].VPChar),[]);
     else Result := StringReplace(Result,'?', DbQuotedStr(string(aWhereParams[i].VUnicodeString)),[]);
     end;

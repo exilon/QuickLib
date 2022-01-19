@@ -70,78 +70,78 @@
     {$endif LINUX}
     {$if CompilerVersion >= 17}
       {$define DELPHI2005_UP} //Delphi 2005 or newer
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 18}
       {$define DELPHI2006_UP} //Delphi 2006 or newer
       {$define HASINLINE}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion > 18}
       {$define DELPHI2007_UP} //Delphi 2007 or newer
-    {$ifend}
+    {$endif}
     {$if CompilerVersion = 20}
       {$define DELPHI2009_UP} //Delphi 2009
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 21.0} //Delphi 2010
       {$define DELPHI2010_UP}
       {$define FPC_OR_UNICODE}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 22.0} //Delphi XE
       {$define DELPHIXE_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 23.0} //Delphi XE2
       {$define DELPHIXE2_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 24.0} //Delphi XE3
       {$define DELPHIXE3_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 25.0} //Delphi XE4
       {$define DELPHIXE4_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 26.0} //Delphi XE5
       {$define DELPHIXE5_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 27.0} //Delphi XE6
       {$define DELPHIXE6_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 28.0} //Delphi XE7
       {$define DELPHIXE7_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 29.0} //Delphi XE8
       {$define DELPHIXE8_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 30.0} //Delphi XE10 Seattle
       {$define DELPHIRX10_UP}
 	  {$define DELPHISEATTLE_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 31.0} //Delphi RX10.1 Berlin
       {$define DELPHIRX101_UP}
 	    {$define DELPHIBERLIN_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 32.0} //Delphi RX10.2 Tokyo
       {$define DELPHIRX102_UP}
 	    {$define DELPHITOKYO_UP}
       {$ifdef LINUX}
         {$define DELPHILINUX}
-      {$ifend}
-    {$ifend}
+      {$endif}
+    {$endif}
     {$if CompilerVersion >= 33.0} //Delphi RX10.3 Rio
       {$define DELPHIRX103_UP}
 	    {$define DELPHIRIO_UP}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 34.0} //Delphi RX10.4 Sydney
       {$define DELPHIRX104_UP}
 	    {$define DELPHISYDNEY_UP}
       {$if defined(ANDROID) OR defined(IOS)}
         {$define NEXTGEN} //compatibility with older delphis
       {$endif}
-    {$ifend}
+    {$endif}
     {$if CompilerVersion >= 35.0} //Delphi RX11 Alexandria
       {$define DELPHIRX11_UP}
 	    {$define DELPHIALEXANDRIA_UP}
       {$if defined(ANDROID) OR defined(IOS)}
         {$define NEXTGEN} //compatibility with older delphis
       {$endif}
-    {$ifend}
+    {$endif}
   {$else}
     //Delphi 5 or older
     {$define DELPHI6OROLDER}

@@ -84,6 +84,7 @@ type
     procedure &Except(const aMsg : string; aValues : array of const); overload;
     procedure &Except(const aMsg, aException, aStackTrace : string); overload;
     procedure &Except(const aMsg : string; aValues: array of const; const aException, aStackTrace: string); overload;
+    procedure &Except(MsgObject : TObject); overload;
   end;
 
 implementation
@@ -147,6 +148,11 @@ begin
 end;
 
 procedure TNullLogger.Critical(const aMsg: string);
+begin
+
+end;
+
+procedure TNullLogger.&Except(MsgObject: TObject);
 begin
 
 end;

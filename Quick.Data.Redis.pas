@@ -110,7 +110,7 @@ type
     function Command(const aCommand, aArgumentsFormat : string; aValues : array of const) : IRedisResponse; overload;
     function Command(const aCommand : string) : IRedisResponse; overload;
     function EscapeString(const json: string) : string;
-    function BulkString(const aValue : string) : string;
+    //function BulkString(const aValue : string) : string;
   public
     constructor Create;
     destructor Destroy; override;
@@ -275,10 +275,10 @@ begin
   //Result := StringReplace(Result,'/','\/"',[rfReplaceAll]);
 end;
 
-function TRedisClient.BulkString(const aValue : string) : string;
-begin
-  Result := Format('$%d%s%s%s',[aValue.Length,CRLF,aValue,CRLF]);
-end;
+//function TRedisClient.BulkString(const aValue : string) : string;
+//begin
+//  Result := Format('$%d%s%s%s',[aValue.Length,CRLF,aValue,CRLF]);
+//end;
 
 procedure TRedisClient.SetConnectionTimeout(const Value: Integer);
 begin

@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike P�rez
+  Copyright (c) 2016-2022 Kike P�rez
 
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike P�rez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 03/10/2021
+  Modified    : 19/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -1042,7 +1042,11 @@ function GetLoggedUserName : string;
     {$IFDEF POSIX}
     try
       plogin := getlogin;
+      {$IFDEF NEXTGEN}
+      Result := string(plogin);
+      {$ELSE}
       Result := Copy(plogin,1,Length(Trim(plogin)));
+      {$ENDIF}
     except
       Result := 'N/A';
     end;

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pérez
 
   Unit        : Quick.IoC
   Description : IoC Dependency Injector
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 07/02/2021
+  Modified    : 19/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -185,7 +185,6 @@ type
     fResolver : TIocResolver;
     fInjector : TIocInjector;
     fLogger : ILogger;
-    function InterfaceTypeInfo(const AGUID : TGUID) : PTypeInfo;
   class var
     GlobalInstance: TIocContainer;
   protected
@@ -332,23 +331,6 @@ begin
   fRegistrator.Free;
   fLogger := nil;
   inherited;
-end;
-
-function TIocContainer.InterfaceTypeInfo(const AGUID : TGUID) : PTypeInfo;
-var
-  ctx : TRttiContext;
-  rtype : TRttiType;
-  rtypei : TRttiInterfaceType;
-begin
-  for rtype in ctx.GetTypes do
-  begin
-    if rtype.TypeKind = TTypeKind.tkInterface then
-    begin
-      rtypei := (rtype as TRttiInterfaceType);
-      if IsEqualGUID(rtypei.GUID,AGUID) then Exit(rtypei.Handle);
-    end;
-  end;
-  Result := nil;
 end;
 
 function TIocContainer.IsRegistered<TInterface, TImplementation>(const aName: string): Boolean;

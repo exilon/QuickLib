@@ -106,7 +106,7 @@ begin
       dtBoolean : Result := AsBoolean;
       dtString : Result := AsString;
       {$IFDEF MSWINDOWS}
-      dtAnsiString : Result := AsAnsiString;
+      dtAnsiString : Result := string(AsAnsiString);
       dtWideString : Result := AsWideString;
       {$ENDIF}
       dtInteger,

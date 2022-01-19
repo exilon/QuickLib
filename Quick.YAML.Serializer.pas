@@ -1,4 +1,4 @@
-{ ***************************************************************************
+﻿{ ***************************************************************************
   Copyright (c) 2015-2021 Kike P�rez
   Unit        : Quick.YAML.Serializer
   Description : YAML Serializer
@@ -86,20 +86,20 @@ type
     fUseEnumNames : Boolean;
     fUseYamlCaseSense : Boolean;
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
-    function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
+    //function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
     function IsAllowedProperty(aObject : TObject; const aPropertyName : string) : Boolean;
     function IsGenericList(aObject : TObject) : Boolean;
     function IsGenericXArray(const aClassName : string) : Boolean;
-    function GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
+    //function GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
     function GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
     {$IFNDEF FPC}
     function GetFieldValueFromRecord(aValue : TValue; const FieldName : string) : TValue;
     function CreateInstance(aClass: TClass): TValue; overload;
     function CreateInstance(aType: TRttiType): TValue; overload;
     {$ENDIF}
+    {$IFDEF FPC}
     procedure SetPropertyValue(Instance : TObject; aPropInfo : PPropInfo; aValue : TValue); overload;
     procedure SetPropertyValue(Instance : TObject; const PropertyName : string; aValue : TValue); overload;
-    {$IFDEF FPC}
     function FloatProperty(aObject : TObject; aPropInfo: PPropInfo): string;
     function GetPropType(aPropInfo: PPropInfo): PTypeInfo;
     procedure LoadSetProperty(aInstance : TObject; aPropInfo: PPropInfo; const aValue: string);
@@ -397,11 +397,6 @@ begin
 end;
 
 function TRTTIYaml.DeserializeClass(aType: TClass; const aYaml: TYamlObject): TObject;
-var
-  Ctx: TRttiContext;
-  rType: TRttiType;
-  mType: TRTTIMethod;
-  metaClass: TClass;
 begin
   Result := nil;
   if (aYaml = nil) or ((aYaml as TYamlValue) is TYamlNull) or (aYaml.Count = 0) then Exit;
@@ -459,7 +454,7 @@ begin
             begin
               DeserializeList(rProp.GetValue(aObject).AsObject,'List',TYamlObject(aYaml.GetValue(propertyname)));
             end
-            else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+            else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(string(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF}))) then
             begin
               DeserializeXArray(Result,rProp.GetValue(aObject),rProp,propertyname,aYaml);
             end
@@ -864,6 +859,7 @@ var
   yvalue : TYamlValue;
   i : Integer;
 begin
+  Result := nil;
   if fUseYamlCaseSense then
   begin
     yvalue := aYaml.GetValue(aName);
@@ -884,48 +880,48 @@ begin
   Result := nil;
 end;
 
-function TRTTIYaml.GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
-var
-  pinfo : PPropInfo;
-begin
-  Result := nil;
-  pinfo := GetPropInfo(Instance,PropertyName);
-  case pinfo.PropType^.Kind of
-    tkInteger : Result := GetOrdProp(Instance,pinfo);
-    tkInt64 : Result := GetInt64Prop(Instance,PropertyName);
-    tkFloat : Result := GetFloatProp(Instance,PropertyName);
-    tkChar : Result := Char(GetOrdProp(Instance,PropertyName));
-    {$IFDEF FPC}
-    tkWString : Result := GetWideStrProp(Instance,PropertyName);
-    tkSString,
-    tkAString,
-    {$ELSE}
-    tkWString,
-    {$ENDIF}
-    tkLString : Result := GetStrProp(Instance,pinfo);
-    {$IFDEF FPC}
-    tkEnumeration :
-      begin
-        if fUseEnumNames then Result := GetEnumName(pinfo.PropType,GetOrdProp(Instance,PropertyName))
-          else Result := GetOrdProp(Instance,PropertyName);
-      end;
-    {$ELSE}
-    tkEnumeration :
-      begin
-        if fUseEnumNames then Result := GetEnumName(@pinfo.PropType,GetOrdProp(Instance,PropertyName))
-          else Result := GetOrdProp(Instance,PropertyName);
-      end;
-    {$ENDIF}
-    tkSet : Result := GetSetProp(Instance,pinfo,True);
-    {$IFNDEF FPC}
-    tkClass :
-    {$ELSE}
-    tkBool : Result := Boolean(GetOrdProp(Instance,pinfo));
-    tkObject :
-    {$ENDIF} Result := GetObjectProp(Instance,pinfo);
-    tkDynArray : Result := GetDynArrayProp(Instance,pinfo);
-  end;
-end;
+//function TRTTIYaml.GetPropertyValue(Instance : TObject; const PropertyName : string) : TValue;
+//var
+//  pinfo : PPropInfo;
+//begin
+//  Result := nil;
+//  pinfo := GetPropInfo(Instance,PropertyName);
+//  case pinfo.PropType^.Kind of
+//    tkInteger : Result := GetOrdProp(Instance,pinfo);
+//    tkInt64 : Result := GetInt64Prop(Instance,PropertyName);
+//    tkFloat : Result := GetFloatProp(Instance,PropertyName);
+//    tkChar : Result := Char(GetOrdProp(Instance,PropertyName));
+//    {$IFDEF FPC}
+//    tkWString : Result := GetWideStrProp(Instance,PropertyName);
+//    tkSString,
+//    tkAString,
+//    {$ELSE}
+//    tkWString,
+//    {$ENDIF}
+//    tkLString : Result := GetStrProp(Instance,pinfo);
+//    {$IFDEF FPC}
+//    tkEnumeration :
+//      begin
+//        if fUseEnumNames then Result := GetEnumName(pinfo.PropType,GetOrdProp(Instance,PropertyName))
+//          else Result := GetOrdProp(Instance,PropertyName);
+//      end;
+//    {$ELSE}
+//    tkEnumeration :
+//      begin
+//        if fUseEnumNames then Result := GetEnumName(@pinfo.PropType,GetOrdProp(Instance,PropertyName))
+//          else Result := GetOrdProp(Instance,PropertyName);
+//      end;
+//    {$ENDIF}
+//    tkSet : Result := GetSetProp(Instance,pinfo,True);
+//    {$IFNDEF FPC}
+//    tkClass :
+//    {$ELSE}
+//    tkBool : Result := Boolean(GetOrdProp(Instance,pinfo));
+//    tkObject :
+//    {$ENDIF} Result := GetObjectProp(Instance,pinfo);
+//    tkDynArray : Result := GetDynArrayProp(Instance,pinfo);
+//  end;
+//end;
 
 function TRTTIYaml.GetPropertyValueFromObject(Instance : TObject; const PropertyName : string) : TValue;
 var
@@ -984,6 +980,7 @@ begin
 end;
 {$ENDIF}
 
+{$IFDEF FPC}
 procedure TRTTIYaml.SetPropertyValue(Instance : TObject; const PropertyName : string; aValue : TValue);
 var
   pinfo : PPropInfo;
@@ -1020,7 +1017,6 @@ begin
   end;
 end;
 
-{$IFDEF FPC}
 procedure TRTTIYaml.LoadSetProperty(aInstance : TObject; aPropInfo: PPropInfo; const aValue: string);
 type
   TCardinalSet = set of 0..SizeOf(Cardinal) * 8 - 1;
@@ -1101,7 +1097,7 @@ begin
                 ypair := Serialize(propertyname,GetPropertyValueFromObject(rProp.GetValue(aObject).AsObject,'List'));
               end
               {$IFNDEF FPC}
-              else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF})) then
+              else if (not rProp.GetValue(aObject).IsObject) and (IsGenericXArray(string(rProp.GetValue(aObject){$IFNDEF NEXTGEN}.TypeInfo.Name{$ELSE}.TypeInfo.NameFld.ToString{$ENDIF}))) then
               begin
                 ypair := Serialize(propertyname,GetFieldValueFromRecord(rProp.GetValue(aObject),'fArray'));
               end
@@ -1143,10 +1139,10 @@ begin
   TValue.Make(aAddr,aType.Handle,Result);
 end;
 
-function TRTTIYaml.GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue;
-begin
-  TValue.Make(aAddr,aTypeInfo,Result);
-end;
+//function TRTTIYaml.GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue;
+//begin
+//  TValue.Make(aAddr,aTypeInfo,Result);
+//end;
 
 {$IFNDEF FPC}
 function TRTTIYaml.Serialize(const aName : string; aValue : TValue) : TYamlPair;
