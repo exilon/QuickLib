@@ -77,7 +77,9 @@ type
   end;
 
   {$IFDEF DELPHIRX102_UP}
+  {$M+}
   TOptions = class;
+  {$M-}
 
   TConfigureOptionsProc<T : TOptions> = reference to procedure(aOptions : T);
   {$ELSE}
@@ -89,6 +91,7 @@ type
     procedure ValidateOptions;
   end;
 
+  {$M+}
   TOptions = class(TInterfacedObject,IOptionsValidator)
   private
     fName : string;
@@ -106,6 +109,7 @@ type
     {$ENDIF}
     procedure ValidateOptions;
   end;
+  {$M-}
 
   TOptionsValidator = class(TInterfacedObject,IOptionsValidator)
   private
