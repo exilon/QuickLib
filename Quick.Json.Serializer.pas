@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2022 Kike Pérez
 
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
   Author      : Kike Pérez
   Version     : 1.12
   Created     : 21/05/2018
-  Modified    : 27/12/2021
+  Modified    : 26/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -861,11 +861,13 @@ begin
         end;
       tkInteger :
         begin
-          Result := StrToInt(value);
+          if CompareText(value,'null') <> 0 then Result := StrToIntDef(value,0)
+            else Result := 0;
         end;
       tkInt64 :
         begin
-          Result := StrToInt64(value);
+          if CompareText(value,'null') <> 0 then Result := StrToInt64Def(value,0)
+           else Result := 0;
         end;
       tkFloat :
         begin
@@ -947,11 +949,13 @@ begin
         end;
       tkInteger :
         begin
-          Result := StrToInt(value);
+          if CompareText(value,'null') <> 0 then Result := StrToInt(value)
+            else Result := 0;
         end;
       tkInt64 :
         begin
-          Result := StrToInt64(value);
+          if CompareText(value,'null') <> 0 then Result := StrToInt64(value)
+            else Result := 0;
         end;
       tkFloat :
         begin
