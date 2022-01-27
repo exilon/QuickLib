@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/04/2019
-  Modified    : 19/01/2022
+  Modified    : 27/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -145,12 +145,14 @@ type
   TLinqQuery<T : class> = class(TInterfacedObject,ILinqQuery<T>)
   private type
     arrayOfT = array of T;
+    TArrType = (atArray, atXArray, atList, atObjectList);
   private
     fWhereClause : TExpression;
     fOrderBy : TArray<string>;
     fOrderDirection : TOrderDirection;
-    //fPList : Pointer;
+    fPList : Pointer;
     fList : arrayOfT;
+    fArrType : TArrType;
     function FormatParams(const aWhereClause : string; aWhereParams : array of const) : string;
     procedure DoOrderBy(vArray : ArrayOfT);
     function Compare(const aPropertyName : string; L, R : T) : Integer;
@@ -205,30 +207,43 @@ end;
 constructor TLinqQuery<T>.Create(aArray: TArray<T>);
 begin
   Clear;
+  fPList := Pointer(aArray);
   fList := aArray;
+  fArrType := TArrType.atArray;
 end;
 
 {$IFNDEF FPC}
 constructor TLinqQuery<T>.Create(aObjectList: TObjectList<T>);
 begin
   Clear;
-  //Create(aObjectList.List);
-  //fPList := Pointer(aObjectList.List);
-  //fList := arrayOfT(fPList);
+  fPList := Pointer(aObjectList);
+  {$IFDEF DELPHIRX104_UP}
+  fList := aObjectList.PList^;
+  {$ELSE}
   fList := aObjectList.List;
+  {$ENDIF}
+  fArrType := TArrType.atObjectList;
 end;
 {$ENDIF}
 
 constructor TLinqQuery<T>.Create(aXArray: TxArray<T>);
 begin
   Clear;
-  fList := aXArray;
+  fPList := Pointer(aXArray);
+  fList := aXArray.PArray^;
+  fArrType := TArrType.atXArray;
 end;
 
 constructor TLinqQuery<T>.Create(aList: TList<T>);
 begin
   Clear;
+  fPList := Pointer(aList);
+  {$IFDEF DELPHIRX104_UP}
+  fList := aList.PList^;
+  {$ELSE}
   fList := aList.ToArray;
+  {$ENDIF}
+  fArrType := TArrType.atList;
 end;
 
 function TLinqQuery<T>.Compare(const aPropertyName: string; L, R: T): Integer;
@@ -285,8 +300,22 @@ begin
   begin
     if fWhereClause.Validate(fList[i]) then
     begin
-      TObject(fList[i]).Free;
-      //System.Delete(fList,i,1);
+      case fArrType of
+        TArrType.atArray, TArrType.atXArray :
+          begin
+            TObject(fList[i]).Free;
+            System.Delete(fList,i,1);
+            //fPList := Pointer(fList);
+          end;
+        TArrType.atList :
+          begin
+            TList<T>(fPList).Delete(i);
+          end;
+        TArrType.atObjectList :
+          begin
+            TObjectList<T>(fPList).Delete(i);
+          end;
+      end;
       Inc(Result);
     end;
   end;
@@ -588,7 +617,11 @@ end;
 
 constructor TLinqArray<T>.Create(aArray: TArray<T>);
 begin
+  {$IFDEF DELPHIRX104_UP}
+  Pointer(fArray) := aArray;
+  {$ELSE}
   fArray := aArray;
+  {$ENDIF}
 end;
 
 function TLinqArray<T>.Delete: Integer;

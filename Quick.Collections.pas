@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pérez
 
   Unit        : Quick.Collections
   Description : Generic Collections
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 07/03/2020
-  Modified    : 05/08/2021
+  Modified    : 27/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -461,7 +461,11 @@ end;
 
 function TxList<T>.Where(const aMatchString: string; aUseRegEx: Boolean): ILinqArray<T>;
 begin
+  {$IFDEF DELPHIRX104_UP}
+  Result := TLinqArray<T>.Create(fList.PList^);
+  {$ELSE}
   Result := TLinqArray<T>.Create(fList.ToArray);
+  {$ENDIF}
   Result.Where(aMatchString, aUseRegEx);
 end;
 
