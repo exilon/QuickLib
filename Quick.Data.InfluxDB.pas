@@ -59,6 +59,7 @@ type
     fCreateDataBaseIfNotExists : Boolean;
     procedure CreateDataBase;
     function GenerateWriteQuery(const aMeasurement : string; aTagPairs : IList<TPair>; aFieldPairs : IList<TFlexPair>; aTime : TDateTime): string;
+    procedure EscapeData(var aTags : string);
     procedure SetWriteURL;
     procedure SetPassword(const Value: string);
     procedure SetUserName(const Value: string);
@@ -147,6 +148,7 @@ procedure TInfluxDBData.Write(const aMeasurement: string; const aFieldKey : stri
 var
   fields : IList<TFlexPair>;
 begin
+  fields := TxList<TFlexPair>.Create;
   fields.Add(TFlexPair.Create(aFieldKey,aFieldValue));
   if atime <> 0 then Write(GenerateWriteQuery(aMeasurement,nil,fields,aTime))
     else Write(GenerateWriteQuery(aMeasurement,nil,fields,Now()));
@@ -187,6 +189,11 @@ begin
     raise EInfluxDBData.Create(Format('[TInfluxDBData] : Response %d : %s trying to create database',[resp.StatusCode,resp.StatusText]));
 end;
 
+procedure TInfluxDBData.EscapeData(var aTags : string);
+begin
+  aTags := StringReplace(aTags,' ','\ ',[rfReplaceAll]);
+end;
+
 function TInfluxDBData.GenerateWriteQuery(const aMeasurement : string; aTagPairs : IList<TPair>; aFieldPairs : IList<TFlexPair>; aTime : TDateTime): string;
 var
   incinfo : TStringList;
@@ -200,14 +207,18 @@ begin
     //add global tags
     for tagpair in fTags do
     begin
-      incinfo.Add(Format('%s=%s',[tagpair.Name,tagpair.Value]));
+      if not tagpair.Value.IsEmpty then incinfo.Add(Format('%s=%s',[tagpair.Name,tagpair.Value]));
     end;
     //add current query tags
-    for tagpair in aTagPairs do
+    if aTagPairs <> nil then
     begin
-      incinfo.Add(Format('%s=%s',[tagpair.Name,tagpair.Value]));
+      for tagpair in aTagPairs do
+      begin
+        if not tagpair.Value.IsEmpty then incinfo.Add(Format('%s=%s',[tagpair.Name,tagpair.Value]));
+      end;
     end;
     tags := CommaText(incinfo);
+    EscapeData(tags);
 
     incinfo.Clear;
 
@@ -232,7 +243,7 @@ var
 begin
   if not fInitiated then Init;
 
-  stream := TStringStream.Create(aLine);
+  stream := TStringStream.Create(aLine,TEncoding.UTF8);
   var a := aline;
   try
     try

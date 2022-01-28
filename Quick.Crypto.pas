@@ -30,10 +30,8 @@ unit Quick.Crypto;
 
 interface
 
-uses
-
-function AES128_Encrypt(Value, Password: string): string;
-function AES128_Decrypt(Value, Password: string): string;
+function AES128_Encrypt(const Value, Password: string): string;
+function AES128_Decrypt(const Value, Password: string): string;
 
 implementation
 
@@ -130,7 +128,7 @@ begin
   end;
 end;
 
-function AES128_Encrypt(Value, Password: string): string;
+function AES128_Encrypt(const Value, Password: string): string;
 var
   hCProv: HCRYPTPROV;
   hKey: HCRYPTKEY;
@@ -164,7 +162,7 @@ begin
   end;
 end;
 
-function AES128_Decrypt(Value, Password: string): string;
+function AES128_Decrypt(const Value, Password: string): string;
 var
   hCProv: HCRYPTPROV;
   hKey: HCRYPTKEY;

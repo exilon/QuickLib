@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Threads
   Description : Thread safe collections
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 27/06/2020
+  Modified    : 08/09/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -149,6 +149,17 @@ type
 
   TThreadWorkStatus = (wsRunning, wsDone, wsException);
 
+  TSimpleThread = class(TThread)
+  private
+    fExecuteProc : TProc;
+    fTimeoutFlag : TLightweightEvent;
+  public
+    constructor Create(aProc: TProc; aCreateSuspended, aFreeOnTerminate : Boolean);
+    destructor Destroy; override;
+    procedure Execute; override;
+    function WaitFor(const aTimeout : Cardinal) : TWaitResult; overload;
+  end;
+
   TAdvThread = class(TThread)
   private
     fExecuteProc : TProc;
@@ -233,6 +244,8 @@ type
     procedure DoExecute;
     procedure DoException(aException : Exception);
     procedure DoTerminate;
+    procedure Enable;
+    procedure Disable;
     {$IFNDEF FPC}
     property Param[index : Integer] : TFlexValue read GetParam write SetParam; default;
     property Param[const Name : string] : TFlexValue read GetParam write SetParam; default;
@@ -381,6 +394,8 @@ type
     function MaxRetries : Integer;
     function LastException : Exception;
     function CircuitBreaked : Boolean;
+    procedure Disable;
+    procedure Enable;
   end;
 
   TWorkTask = class(TTask,IWorkTask)
@@ -481,8 +496,10 @@ type
   end;
 
   TSimpleWorker = class(TWorker)
+  private
+    fRunOnce : Boolean;
   public
-    constructor Create(aTask : ITask);
+    constructor Create(aTask : ITask; aRunOnce : Boolean = True);
     procedure Execute; override;
   end;
 
@@ -513,6 +530,42 @@ type
     class function Execute(aParamArray: array of const; aOwnedParams: Boolean; aTaskProc: TTaskProc): IWorkTask; overload;
     class function Execute_Sync(aTaskProc: TTaskProc): IWorkTask; overload;
     class function Execute_Sync(aParamArray: array of const; aOwnedParams: Boolean; aTaskProc: TTaskProc): IWorkTask; overload;
+  end;
+
+  IAsyncTask = interface
+  ['{90A27D06-6FCD-493C-8AA0-C52C5105ED8B}']
+    procedure Wait; overload;
+    procedure Wait(const aTimeout : Cardinal); overload;
+  end;
+
+  TAsyncTask = class(TInterfacedObject,IAsyncTask)
+  private
+    fProcess : TSimpleThread;
+    constructor Create(aAction : TProc);
+  public
+    class function Run(const aAction : TProc) : IAsyncTask; virtual;
+    procedure Wait; overload;
+    procedure Wait(const aTimeout : Cardinal); overload;
+    destructor Destroy; override;
+  end;
+
+  IAsyncTask<T> = interface
+  ['{8529BBD4-B5AD-4674-8E42-3C74F5156A97}']
+    function Result : T; overload;
+    function Result(const aTimeout : Cardinal) : T; overload;
+  end;
+
+  TAsyncTask<T> = class(TInterfacedObject,IAsyncTask<T>)
+  private
+    fProcess : TSimpleThread;
+    fTaskResult : T;
+    fWaitForResult : Boolean;
+    function Result : T; overload;
+    function Result(const aTimeout : Cardinal) : T; overload;
+    constructor Create(aAction : TFunc<T>);
+  public
+    class function Run(const aAction : TFunc<T>) : IAsyncTask<T>; virtual;
+    destructor Destroy; override;
   end;
 
   TBackgroundTasks = class
@@ -581,6 +634,35 @@ type
     function AddTask_Sync(const aTaskName : string; aParamArray : array of const; aOwnedParams : Boolean; aTaskProc : TTaskProc) : IScheduledTask; overload;
     function GetTask(aIdTask : Int64) : IScheduledTask; overload;
     function GetTask(const aTaskName : string) : IScheduledTask; overload;
+    procedure Start;
+    procedure Stop;
+  end;
+
+  TBackgroundWorkers = class
+  private
+    fWorkerPool : TWorkerPool;
+    fConcurrentWorkers : Integer;
+    fWorkerInitProc : TTaskProc;
+    fWorkerExecuteProc : TTaskProc;
+    fWorkerRetryProc : TTaskRetryProc;
+    fWorkerExceptionProc : TTaskExceptionProc;
+    fWorkerTerminateProc : TTaskProc;
+    fFaultPolicy : TFaultPolicy;
+    procedure SetRetryPolicy(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor: Double);
+  public
+    constructor Create(aConcurrentWorkers : Integer; aWorkerProc : TTaskProc);
+    destructor Destroy; override;
+    property ConcurrentWorkers : Integer read fConcurrentWorkers;
+    function OnInitialize(aTaskProc : TTaskProc) : TBackgroundWorkers;
+    function OnException(aTaskProc : TTaskExceptionProc) : TBackgroundWorkers;
+    function OnRetry(aTaskProc : TTaskRetryProc) : TBackgroundWorkers;
+    function OnTerminated(aTaskProc : TTaskProc) : TBackgroundWorkers;
+    function Retry(aMaxRetries : Integer) : TBackgroundWorkers;
+    function RetryForever : TBackgroundWorkers;
+    function WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer) : TBackgroundWorkers; overload;
+    function WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : TBackgroundWorkers; overload;
+    function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer) : TBackgroundWorkers; overload;
+    function WaitAndRetryForever(aWaitTimeBetweenRetriesMS : Integer; aWaitTimeMultiplierFactor : Double) : TBackgroundWorkers; overload;
     procedure Start;
     procedure Stop;
   end;
@@ -789,8 +871,9 @@ end;
 destructor TThreadedQueueList<T>.Destroy;
 begin
   DoShutDown;
-  fQueueLock.Free;
   fQueueCondVar.Free;
+  fQueueLock.Free;
+  //fQueueCondVar.Free;
   fQueue.Free;
   inherited;
 end;
@@ -1133,6 +1216,11 @@ begin
   inherited;
 end;
 
+procedure TTask.Disable;
+begin
+  fEnabled := False;
+end;
+
 procedure TTask.DoException(aException : Exception);
 begin
   fTaskStatus := TWorkTaskStatus.wtsException;
@@ -1219,6 +1307,11 @@ end;
 procedure TTask.DoTerminate;
 begin
   if Assigned(fTerminateProc) then fTerminateProc(Self);
+end;
+
+procedure TTask.Enable;
+begin
+  fEnabled := True;
 end;
 
 function TTask.GetIdTask: Int64;
@@ -1557,9 +1650,10 @@ end;
 
 { TSimpleWorker }
 
-constructor TSimpleWorker.Create(aTask : ITask);
+constructor TSimpleWorker.Create(aTask : ITask; aRunOnce : Boolean = True);
 begin
   inherited Create;
+  fRunOnce := aRunOnce;
   fCurrentTask := aTask;
   FreeOnTerminate := True;
 end;
@@ -1573,6 +1667,7 @@ begin
     try
       fStatus := TWorkerStatus.wsWorking;
       try
+        SetFaultPolicy(TTask(fCurrentTask));
         if TTask(fCurrentTask).ExecuteWithSync then Synchronize(ExecuteTask)
           else fCurrentTask.DoExecute;
       except
@@ -1583,10 +1678,14 @@ begin
         end;
       end;
     finally
-      if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
-        else fCurrentTask.DoTerminate;
       fStatus := TWorkerStatus.wsIdle;
-      Terminate;
+      try
+        if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
+          else fCurrentTask.DoTerminate;
+      except
+        on E : Exception do if fCurrentTask <> nil then fCurrentTask.DoException(E)
+      end;
+      if fRunOnce then Terminate;
     end;
   end;
   fStatus := TWorkerStatus.wsSuspended
@@ -1826,7 +1925,7 @@ begin
   Result := Self;
   ClearSchedule;
   fScheduleMode := TScheduleMode.smRunOnce;
-  fStartDate := ChangeDateOfADay(Now(),aHour,aMinute,aSecond);
+  fStartDate := ChangeTimeOfADay(Now(),aHour,aMinute,aSecond);
   fNextExecution := fStartDate;
 end;
 
@@ -2260,6 +2359,72 @@ begin
   worker.Start;
 end;
 
+{ TAsyncTask }
+
+constructor TAsyncTask.Create(aAction : TProc);
+begin
+  fProcess := TSimpleThread.Create(aAction,False,True);
+end;
+
+destructor TAsyncTask.Destroy;
+begin
+  inherited;
+end;
+
+class function TAsyncTask.Run(const aAction : TProc) : IAsyncTask;
+begin
+  Result := TAsyncTask.Create(aAction);
+end;
+
+procedure TAsyncTask.Wait(const aTimeout: Cardinal);
+begin
+  if aTimeout = 0 then fProcess.WaitFor
+    else fProcess.WaitFor(aTimeout);
+end;
+
+procedure TAsyncTask.Wait;
+begin
+  fProcess.WaitFor;
+end;
+
+{ TAsyncTask<T> }
+
+constructor TAsyncTask<T>.Create(aAction: TFunc<T>);
+begin
+  fWaitForResult := False;
+  fProcess := TSimpleThread.Create(procedure
+                                begin
+                                  fTaskResult := aAction();
+                                end,False,False);
+end;
+
+destructor TAsyncTask<T>.Destroy;
+begin
+  if not fWaitForResult then fProcess.FreeOnTerminate := True;
+  inherited;
+end;
+
+class function TAsyncTask<T>.Run(const aAction: TFunc<T>): IAsyncTask<T>;
+begin
+  Result := TAsyncTask<T>.Create(aAction);
+end;
+
+function TAsyncTask<T>.Result: T;
+begin
+  fWaitForResult := True;
+  fProcess.WaitFor;
+  Result := fTaskResult;
+  fProcess.Free;
+end;
+
+function TAsyncTask<T>.Result(const aTimeout: Cardinal): T;
+begin
+  fWaitForResult := True;
+  fProcess.WaitFor(aTimeout);
+  Result := fTaskResult;
+  fProcess.Free;
+end;
+
 { TParamValue }
 
 constructor TParamValue.Create(const aName: string; aValue: TFlexValue; aOwnedValue: Boolean);
@@ -2291,6 +2456,155 @@ begin
   {$ENDIF}
   if (fOwned) and (fValue.IsObject) and (fValue.AsObject <> nil) then fValue.AsObject.Free;
   inherited;
+end;
+
+{ TBackgroundWorkers }
+
+constructor TBackgroundWorkers.Create(aConcurrentWorkers : Integer; aWorkerProc : TTaskProc);
+begin
+  fConcurrentWorkers := aConcurrentWorkers;
+  fWorkerExecuteProc := aWorkerProc;
+  fWorkerPool := TWorkerPool.Create(True);
+end;
+
+destructor TBackgroundWorkers.Destroy;
+begin
+  fWorkerPool.Free;
+  inherited;
+end;
+
+procedure TBackgroundWorkers.Start;
+var
+  i : Integer;
+  worker : TWorker;
+  task : IWorkTask;
+begin
+  for i := 1 to fConcurrentWorkers do
+  begin
+    task := TWorkTask.Create([],False,fWorkerExecuteProc)
+            .OnInitialize(fWorkerInitProc)
+            .OnRetry(fWorkerRetryProc)
+            .OnException(fWorkerExceptionProc)
+            .OnTerminated(fWorkerTerminateProc);
+    task.NumWorker := i;
+    task.Run;
+    worker := TSimpleWorker.Create(task,False);
+    fWorkerPool.Add(worker);
+    worker.Start;
+  end;
+end;
+
+procedure TBackgroundWorkers.Stop;
+var
+  worker : TWorker;
+begin
+  for worker in fWorkerPool do
+  begin
+    worker.Terminate;
+    worker.WaitFor;
+    fWorkerPool.Remove(worker);
+  end;
+end;
+
+function TBackgroundWorkers.OnException(aTaskProc: TTaskExceptionProc): TBackgroundWorkers;
+begin
+  Result := Self;
+  fWorkerExceptionProc := aTaskProc;
+end;
+
+function TBackgroundWorkers.OnInitialize(aTaskProc: TTaskProc): TBackgroundWorkers;
+begin
+  Result := Self;
+  fWorkerInitProc := aTaskProc;
+end;
+
+function TBackgroundWorkers.OnRetry(aTaskProc: TTaskRetryProc): TBackgroundWorkers;
+begin
+  Result := Self;
+  fWorkerRetryProc := aTaskProc;
+end;
+
+function TBackgroundWorkers.OnTerminated(aTaskProc: TTaskProc): TBackgroundWorkers;
+begin
+  Result := Self;
+  fWorkerTerminateProc := aTaskProc;
+end;
+
+function TBackgroundWorkers.Retry(aMaxRetries: Integer): TBackgroundWorkers;
+begin
+  Result := Self;
+  SetRetryPolicy(aMaxRetries,0,1);
+end;
+
+function TBackgroundWorkers.RetryForever: TBackgroundWorkers;
+begin
+  Result := Self;
+  SetRetryPolicy(-1,0,1);
+end;
+
+procedure TBackgroundWorkers.SetRetryPolicy(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor: Double);
+begin
+  fFaultPolicy.MaxRetries := aMaxRetries;
+  fFaultPolicy.WaitTimeBetweenRetries := aWaitTimeBetweenRetriesMS;
+  fFaultPolicy.WaitTimeMultiplierFactor := aWaitTimeMultiplierFactor;
+end;
+
+function TBackgroundWorkers.WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor: Double): TBackgroundWorkers;
+begin
+  Result := Self;
+  SetRetryPolicy(aMaxRetries,aWaitTimeBetweenRetriesMS,aWaitTimeMultiplierFactor);
+end;
+
+function TBackgroundWorkers.WaitAndRetry(aMaxRetries, aWaitTimeBetweenRetriesMS: Integer): TBackgroundWorkers;
+begin
+  Result := Self;
+  SetRetryPolicy(aMaxRetries,aWaitTimeBetweenRetriesMS,1);
+end;
+
+function TBackgroundWorkers.WaitAndRetryForever(aWaitTimeBetweenRetriesMS: Integer): TBackgroundWorkers;
+begin
+  Result := Self;
+  SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,1);
+end;
+
+function TBackgroundWorkers.WaitAndRetryForever(aWaitTimeBetweenRetriesMS: Integer; aWaitTimeMultiplierFactor: Double): TBackgroundWorkers;
+begin
+  Result := Self;
+  SetRetryPolicy(-1,aWaitTimeBetweenRetriesMS,aWaitTimeMultiplierFactor);
+end;
+
+{ TSimpleThread }
+
+constructor TSimpleThread.Create(aProc: TProc; aCreateSuspended, aFreeOnTerminate : Boolean);
+begin
+  if not Assigned(aProc) then raise EArgumentNilException.Create('param cannot be nil!');
+  fTimeoutFlag := TLightweightEvent.Create;
+  fTimeoutFlag.ResetEvent;
+  fExecuteProc := aProc;
+  inherited Create(aCreateSuspended);
+  Self.FreeOnTerminate := aFreeOnTerminate;
+end;
+
+destructor TSimpleThread.Destroy;
+begin
+  if Assigned(fTimeoutFlag) then
+  begin
+    fTimeoutFlag.Release;
+    fTimeoutFlag.Free;
+  end;
+  inherited;
+end;
+
+procedure TSimpleThread.Execute;
+begin
+  fExecuteProc;
+  fTimeoutFlag.SetEvent;
+end;
+
+function TSimpleThread.WaitFor(const aTimeout: Cardinal) : TWaitResult;
+begin
+  Result := fTimeoutFlag.WaitFor(aTimeout);
+  if Result = TWaitResult.wrTimeout then raise Exception.Create('Timeout');
 end;
 
 end.

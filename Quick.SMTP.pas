@@ -1,13 +1,13 @@
-{ ***************************************************************************
+﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike P�rez
+  Copyright (c) 2016-2021 Kike P�rez
 
   Unit        : Quick.SMTP
   Description : Send Emails
   Author      : Kike P�rez
-  Version     : 1.4
+  Version     : 1.5
   Created     : 12/10/2017
-  Modified    : 29/07/2020
+  Modified    : 08/09/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -35,6 +35,7 @@ interface
 
 uses
   Classes,
+  Generics.Collections,
   SysUtils,
   IdGlobal,
   IdSMTP,
@@ -44,10 +45,21 @@ uses
   IdText,
   IdAttachment,
   IdAttachmentFile,
+  IdAttachmentMemory,
   IdExplicitTLSClientServerBase,
   IdHTTP;
 
 type
+  TAttachment = class
+  private
+    fFilename : string;
+    fContent : TStream;
+  public
+    constructor Create(const aFilename : string; const aContent : TStream);
+    destructor Destroy; override;
+    property Filename : string read fFilename;
+    property Content : TStream read fContent;
+  end;
 
   TMailMessage = class
   private
@@ -61,7 +73,9 @@ type
     fReplyTo : string;
     fBodyFromFile : Boolean;
     fAttachments : TStringList;
+    fAttachmentFiles : TObjectList<TAttachment>;
     procedure SetBody(aValue : string);
+    procedure SetAttachments(const Value: TStringList);
   public
     constructor Create;
     destructor Destroy; override;
@@ -73,7 +87,10 @@ type
     property CC : string read fCC write fCC;
     property BCC : string read fBCC write fBCC;
     property ReplyTo : string read fReplyTo write fReplyTo;
-    property Attachments : TStringList read fAttachments write fAttachments;
+    property Attachments : TStringList read fAttachments write SetAttachments;
+    property AttachmentFiles : TObjectList<TAttachment> read fAttachmentFiles;
+    procedure AddAttachment(const aFilename : string; aStream : TStream); overload;
+    procedure AddAttachment(const aFilename, aFilePath : string); overload;
     procedure AddBodyFromFile(const cFileName : string);
   end;
 
@@ -93,6 +110,7 @@ type
     function SendMail(aMail : TMailMessage) : Boolean; overload;
     function SendEmail(const aFromEmail,aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean; overload;
     function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean; overload;
+    function SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string; const aAttachments : TStringList) : Boolean; overload;
   end;
 
 implementation
@@ -106,18 +124,41 @@ begin
   fBCC := '';
   fBody := '';
   fAttachments := TStringList.Create;
+  fAttachmentFiles := TObjectList<TAttachment>.Create(True);
 end;
 
 destructor TMailMessage.Destroy;
 begin
   if Assigned(fAttachments) then fAttachments.Free;
+  if Assigned(fAttachmentFiles) then fAttachmentFiles.Free;
   inherited;
+end;
+
+procedure TMailMessage.AddAttachment(const aFilename, aFilePath : string);
+var
+  fs : TFileStream;
+begin
+  if not FileExists(aFilePath) then raise Exception.CreateFmt('MailMessage: file "%s" not found!',[aFilename]);
+  fs := TFileStream.Create(aFilePath,fmOpenRead);
+  fAttachmentFiles.Add(TAttachment.Create(aFilename,fs));
+end;
+
+procedure TMailMessage.AddAttachment(const aFilename : string; aStream : TStream);
+begin
+  fAttachmentFiles.Add(TAttachment.Create(aFilename,aStream));
 end;
 
 procedure TMailMessage.AddBodyFromFile(const cFileName: string);
 begin
   fBodyFromFile := True;
   fBody := cFileName;
+end;
+
+procedure TMailMessage.SetAttachments(const Value: TStringList);
+begin
+  if Assigned(fAttachments) then fAttachments.Free;
+
+  fAttachments := Value;
 end;
 
 procedure TMailMessage.SetBody(aValue: string);
@@ -158,6 +199,11 @@ begin
 end;
 
 function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string) : Boolean;
+begin
+  Result := SendEmail(aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody,nil);
+end;
+
+function TSMTP.SendEmail(const aFromName,aSubject,aTo,aCC,aBC,aReplyTo,aBody : string; const aAttachments : TStringList) : Boolean;
 var
   mail : TMailMessage;
 begin
@@ -173,6 +219,7 @@ begin
     Mail.CC := aCC;
     Mail.BCC := aBC;
     Mail.ReplyTo := aReplyTo;
+    if aAttachments <> nil then Mail.Attachments := aAttachments;
     Result := Self.SendMail(mail);
   finally
     mail.Free;
@@ -191,16 +238,17 @@ var
   email : string;
   filename : string;
   mBody : TIdText;
-  idattach : TIdAttachmentFile;
+  idattach : TIdAttachment;
+  attach : TAttachment;
 begin
   Result := False;
   SSLHandler := TIdSSLIOHandlerSocketOpenSSL.Create(nil);
   try
+    idattach := nil;
+    mBody := nil;
     msg := TIdMessage.Create(nil);
     try
       //create mail msg
-      idattach := nil;
-      mBody := nil;
       msg.From.Address := aMail.From;
       if aMail.SenderName <> '' then msg.From.Name := aMail.SenderName;
       msg.Subject := aMail.Subject;
@@ -225,6 +273,17 @@ begin
         for filename in aMail.Attachments do
         begin
           idattach := TIdAttachmentFile.Create(msg.MessageParts,filename);
+        end;
+      end;
+      //add stream attachments if exists
+      if aMail.AttachmentFiles.Count > 0 then
+      begin
+        //mBody.ContentType := 'multipart/mixed';
+        //msg.ContentType := 'multipart/mixed';
+        for attach in aMail.AttachmentFiles do
+        begin
+          idattach := TIdAttachmentMemory.Create(msg.MessageParts,attach.Content);
+          idattach.Filename := attach.Filename;
         end;
       end;
 
@@ -270,5 +329,19 @@ begin
   end;
 end;
 
+
+{ TAttachment }
+
+constructor TAttachment.Create(const aFilename: string; const aContent: TStream);
+begin
+  fFilename := aFilename;
+  fContent := aContent;
+end;
+
+destructor TAttachment.Destroy;
+begin
+  if Assigned(fContent) then fContent.Free;
+  inherited;
+end;
 
 end.

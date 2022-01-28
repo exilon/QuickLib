@@ -77,7 +77,7 @@ type
     procedure Load(cConfig : TAppConfig); override;
     procedure Save(cConfig : TAppConfig); override;
   public
-    constructor Create(const aFilename : string; aReloadIfFileChanged : Boolean = False); virtual;
+    constructor Create(const aFilename : string; aReloadIfFileChanged : Boolean = False); overload;
     destructor Destroy; override;
     property Filename : string read fFilename write SetFileName;
     property ReloadIfFileChanged : Boolean read fReloadIfFileChanged write SetReloadIfFileChanged;
@@ -92,7 +92,7 @@ type
     function GetProvider : TAppConfigYMALProvider;
     procedure ReloadNotify;
   public
-    constructor Create(const aFilename : string; aReloadIfFileChanged : Boolean = False); virtual;
+    constructor Create(const aFilename : string; aReloadIfFileChanged : Boolean = False);
     destructor Destroy; override;
     property Provider : TAppConfigYMALProvider read GetProvider;
     function ToYAML : string;

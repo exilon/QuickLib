@@ -59,7 +59,7 @@ type
     procedure Load(cConfig : TAppConfig); virtual; abstract;
     procedure Save(cConfig : TAppConfig); virtual; abstract;
   public
-    constructor Create; virtual;
+    constructor Create;
     property CreateIfNotExists : Boolean read fCreateIfNotExists write fCreateIfNotExists;
     property SerializeLevel : TSerializeProperty read fSerializeLevel write fSerializeLevel;
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
@@ -75,7 +75,7 @@ type
   protected
     fProvider : TAppConfigProvider;
   public
-    constructor Create(aConfigProvider : TAppConfigProvider); virtual;
+    constructor Create(aConfigProvider : TAppConfigProvider);
     destructor Destroy; override;
     {$IFNDEF FPC}[TNotSerializableProperty]{$ENDIF}
     property OnApplyConfig : TApplyConfigEvent read fOnApplyConfig write fOnApplyConfig;

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2021 Kike Pérez
 
   Unit        : Quick.Config.Json
   Description : Save config to JSON file
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 12/02/2019
+  Modified    : 10/03/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -217,7 +217,7 @@ begin
       try
         //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
         //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        json.Text := serializer.ObjectToJson(cConfig,True);
+        json.Text := serializer.ObjectToJson(cConfig,cConfig.JsonIndent);
       finally
         serializer.Free;
       end;

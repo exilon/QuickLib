@@ -186,7 +186,6 @@ type
     class function ParsePairValue(const aPair : string) : string;
     class function ParseArrayValue(const aValue : string) : TYamlValue;
     class function GetItemLevel(const aValue : string) : Integer;
-    function InSameLevel(const aValue1, aValue2 : string) : Boolean;
     function ParseToYaml(aIndent : Integer) : string;
   protected
     procedure AddDescendant(const aDescendent: TYamlAncestor); override;
@@ -208,6 +207,7 @@ type
     function GetEnumerator: TEnumerator; inline;
     property Pairs[const aIndex: Integer]: TYamlPair read GetPair;
     function ToYaml : string;
+    function AsString : string; override;
   end;
 
   { TYamlArray }
@@ -239,6 +239,7 @@ type
     property Items[const aIndex: Integer]: TYamlValue read GetValue;
     procedure AddElement(const aElement: TYamlValue);
     function GetEnumerator: TEnumerator; inline;
+    function AsString : string; override;
   end;
 
   EYAMLException = class(Exception);
@@ -296,6 +297,11 @@ function TYamlObject.AddPair(const aName, aValue: string): TYamlObject;
 begin
   if not aName.IsEmpty and (not aValue.IsEmpty) then AddPair(TYamlPair.Create(aName,aValue));
   Result := Self;
+end;
+
+function TYamlObject.AsString: string;
+begin
+  Result := ToYaml;
 end;
 
 constructor TYamlObject.Create(const aData: string);
@@ -393,11 +399,6 @@ begin
   Result := nil;
 end;
 
-function TYamlObject.InSameLevel(const aValue1, aValue2: string): Boolean;
-begin
-  Result := GetItemLevel(aValue1) = GetItemLevel(aValue2);
-end;
-
 class function TYamlObject.ParseArrayValue(const aValue: string): TYamlValue;
 var
   nint : Int64;
@@ -430,6 +431,8 @@ var
   aitem : string;
   yamlType : TYamlType;
 begin
+  Result := nil;
+  level := 0;
   while yaml.Count > vIndex do
   begin
     value := yaml[vIndex].Trim;
@@ -453,7 +456,8 @@ begin
       value := ParsePairValue(value);
       if (value.StartsWith('[')) and (value.EndsWith(']')) then yamlType := ytScalarArray
         else yamlType := ytScalar;
-    end;
+    end
+    else yamlType := TYamlType.ytScalar;
 
     case yamlType of
       ytArray : //is array
@@ -881,6 +885,20 @@ begin
   if aElement <> nil then AddDescendant(aElement);
 end;
 
+function TYamlArray.AsString: string;
+var
+  first : Boolean;
+  element : TYamlValue;
+begin
+  first := True;
+  for element in fElements do
+  begin
+    if first then Result := Result + element.AsString
+      else  Result := Result + ',' + element.AsString;
+  end;
+  Result := Format('[%s]',[Result]);
+end;
+
 destructor TYamlArray.Destroy;
 var
   element: TYamlAncestor;
@@ -920,6 +938,7 @@ var
   isscalar : Boolean;
 begin
   Result := '';
+  yvalue := nil;
   yaml := TYamlWriter.Create;
   try
     indent := StringOfChar(' ',aIndent);
@@ -953,7 +972,7 @@ begin
       end;
       yaml.Writeln('');
     end;
-    if yvalue.IsScalar then
+    if (yvalue <> nil) and (yvalue.IsScalar) then
     begin
       Result := '[' + Result + ']';
       vIsScalar := True;

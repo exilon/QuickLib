@@ -49,6 +49,7 @@ uses
   {$ENDIF}
   {$IF Defined(NEXTGEN) OR Defined(LINUX) or Defined(MACOS)}
   syncObjs,
+  Posix.Unistd,
   {$ENDIF}
   SysUtils;
 

@@ -55,6 +55,8 @@ begin
 
     //add values
     myarray := ['Joe','Mat','Lee'];
+    //remove if starts with J
+    myarray.Where('^J',True).Delete;
     //search for regex match
     cout('Search for regex match',ccYellow);
     for name in myarray.Where('e$',True).Select do
@@ -73,9 +75,9 @@ begin
 
     //search for regex match
     cout('Search for regex match',ccYellow);
-    for name in List.Where('e$',True).Select do
+    for name in List.Where('^Ma',True).Select do
     begin
-      cout('User %s ends with "e"',[name],etInfo);
+      cout('User %s starts with "Ma"',[name],etInfo);
     end;
 
     //add values to objectlist
@@ -102,6 +104,17 @@ begin
     user := ListObj.Where('Roles2 CONTAINS ?',['SuperAdmin']).SelectFirst;
     if user <> nil then cout('%s is %s',[user.Name,CommaText(user.Roles)],etInfo);
 
+    cout('List before remove Mat',ccYellow);
+    for user in ListObj do
+    begin
+      cout('User "%s"',[user.Name],etInfo);
+    end;
+    ListObj.Where('Name = ?',['Mat']).Delete;
+    cout('List after remove Mat',ccYellow);
+    for user in ListObj do
+    begin
+      cout('User "%s"',[user.Name],etInfo);
+    end;
 
     cout('Press ENTER to Exit',ccYellow);
     ConsoleWaitForEnterKey;

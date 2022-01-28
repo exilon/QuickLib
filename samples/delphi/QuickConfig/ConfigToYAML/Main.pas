@@ -198,6 +198,7 @@ begin
     Assert(cConfig1.Complex.Priority = cConfig2.Complex.Priority);
     Assert(cConfig1.Complex.Redundant  = cConfig2.Complex.Redundant);
     Assert(cConfig1.Title = cConfig2.Title);
+    Assert(cConfig1.WorkList.Count = cConfig2.WorkList.Count);
     for i := 0 to cConfig1.WorkList.Count - 1 do
     begin
       Assert(cConfig1.WorkList[i].Name = cConfig2.WorkList[i].Name);

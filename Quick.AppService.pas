@@ -63,6 +63,10 @@ type
                 ssRunning = SERVICE_RUNNING,
                 ssPaused = SERVICE_PAUSED);
 
+  TSvcStartType = (stAuto = SERVICE_AUTO_START,
+                   stManual = SERVICE_DEMAND_START,
+                   stDisabled = SERVICE_DISABLED);
+
   TSvcInitializeEvent = procedure of object;
   {$IFDEF FPC}
   TSvcAnonMethod = procedure of object;
@@ -77,6 +81,12 @@ type
     fSvHandle : SC_HANDLE;
     fServiceName : string;
     fDisplayName : string;
+    fLoadOrderGroup : string;
+    fDependencies : string;
+    fDesktopInteraction : Boolean;
+    fUsername : string;
+    fUserPass : string;
+    fStartType : TSvcStartType;   
     fFileName : string;
     fSilent : Boolean;
     fStatus : TSvcStatus;
@@ -95,6 +105,12 @@ type
     destructor Destroy; override;
     property ServiceName : string read fServiceName write fServiceName;
     property DisplayName : string read fDisplayName write fDisplayName;
+    property LoadOrderGroup : string read fLoadOrderGroup write fLoadOrderGroup;
+    property Dependencies : string read fDependencies write fDependencies;
+    property DesktopInteraction : Boolean read fDesktopInteraction write fDesktopInteraction;
+    property UserName : string read fUserName write fUserName;
+    property UserPass : string read fUserPass write fUserPass;
+    property StartType : TSvcStartType read fStartType write fStartType;
     property FileName : string read fFileName write fFileName;
     property Silent : Boolean read fSilent write fSilent;
     property CanInstallWithOtherName : Boolean read fCanInstallWithOtherName write fCanInstallWithOtherName;
@@ -183,6 +199,12 @@ begin
   inherited;
   fServiceName := DEF_SERVICENAME;
   fDisplayName := DEF_DISPLAYNAME;
+  fLoadOrderGroup := '';
+  fDependencies := '';
+  fDesktopInteraction := False;
+  fUserName := '';
+  fUserPass := '';
+  fStartType := TSvcStartType.stAuto;
   fFileName := ParamStr(0);
   fSilent := True;
   fStatus := TSvcStatus.ssStopped;
@@ -280,6 +302,13 @@ procedure TAppService.Install;
 const
   cInstallMsg = 'Service "%s" installed successfully!';
   cSCMError = 'Error trying to open SC Manager (you need admin permissions)';
+var
+  servicetype : Cardinal;
+  starttype : Cardinal;
+  svcloadgroup : PChar;
+  svcdependencies : PChar;
+  svcusername : PChar;
+  svcuserpass : PChar;
 begin
   fSCMHandle := OpenSCManager(nil,nil,SC_MANAGER_ALL_ACCESS);
 
@@ -289,19 +318,35 @@ begin
       else MessageBox(0,cSCMError,PChar(fServiceName),MB_ICONERROR or MB_OK or MB_TASKMODAL or MB_TOPMOST);
     Exit;
   end;
+  //service interacts with desktop
+  if fDesktopInteraction then servicetype := SERVICE_WIN32_OWN_PROCESS and SERVICE_INTERACTIVE_PROCESS
+    else servicetype := SERVICE_WIN32_OWN_PROCESS; 
+  //service load order
+  if fLoadOrderGroup.IsEmpty then svcloadgroup := nil
+    else svcloadgroup := PChar(fLoadOrderGroup);
+  //service dependencies
+  if fDependencies.IsEmpty then svcdependencies := nil
+    else svcdependencies := PChar(fDependencies);
+  //service user name
+  if fUserName.IsEmpty then svcusername := nil
+    else svcusername := PChar(fUserName);
+  //service user password
+  if fUserPass.IsEmpty then svcuserpass := nil
+    else svcuserpass := PChar(fUserPass);
+    
   fSvHandle := CreateService(fSCMHandle,
                               PChar(fServiceName),
                               PChar(fDisplayName),
                               SERVICE_ALL_ACCESS,
-                              SERVICE_WIN32_OWN_PROCESS,
-                              SERVICE_AUTO_START,
-                              SERVICE_ERROR_IGNORE,
+                              servicetype,
+                              Cardinal(fStartType),
+                              SERVICE_ERROR_NORMAL,
                               PChar(fFileName),
-                              'System Reserved',
+                              svcloadgroup,
                               nil,
-                              nil,
-                              nil, //user
-                              nil); //password
+                              svcdependencies,
+                              svcusername, //user
+                              svcuserpass); //password
 
   if fSvHandle <> 0 then
   begin

@@ -13,16 +13,25 @@ var
   smtp : TSMTP;
 begin
   try
-    smtp := TSMTP.Create('mail.mydomain.com',25,True);
-    smtp.Username := 'myemail@mydomain.com';
-    smtp.Password := '1234';
-    smtp.SendEmail('myemail@mydomain.com',
-                   'Test email',
-                   'A test message',
-                   'other@mydomain.com',
-                   'cc@mydomain.com',
-                   'bc@mydomain.com',
-                   'This is the body message');
+    ReportMemoryLeaksOnShutdown := True;
+    smtp := TSMTP.Create('mail.domain.com',25,False);
+    try
+      smtp.Username := 'test@domain.com';
+      smtp.Password := '';
+      smtp.Mail.AddAttachment('output2.png','d:\output.png');
+      //smtp.Mail.AddAttachment('dell.gif','d:\dell.gif');
+      //smtp.Mail.AddAttachment('config.json','d:\config.json');
+      //smtp.Mail.Attachments.Add('d:\output.png');
+      //smtp.Mail.Attachments.Add('d:\config.json');
+      smtp.Mail.SenderName := 'Attachment Test';
+      smtp.Mail.From := 'test@domain.com';
+      smtp.Mail.Recipient := 'other@domain.com';
+      smtp.Mail.Subject := 'test adjuntos';
+      smtp.Mail.Body := 'Ver adjuntos';
+      smtp.SendMail;
+    finally
+      smtp.Free;
+    end;
     cout('Press <ENTER> to Exit',ccYellow);
     ConsoleWaitForEnterKey;
   except

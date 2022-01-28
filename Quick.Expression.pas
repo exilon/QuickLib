@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pérez
 
   Unit        : Quick.Expression
   Description : Expression parser & validator
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 04/05/2019
-  Modified    : 12/03/2020
+  Modified    : 06/02/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -102,7 +102,8 @@ type
     class function GetCombine(const aValue : string) : TCombine;
   public
     class function Parse(const aExpression : string) : TExpression;
-    class function Validate(const aValue : TValue; const aExpression : string) : Boolean;
+    class function Validate(const aValue : TValue; const aExpression : string) : Boolean; overload;
+    class function Validate(const aExpression : string) : Boolean; overload;
   end;
 
   ENotValidExpression = class(Exception);
@@ -238,6 +239,11 @@ begin
     else Result := GetMultiExpression(exp);
 end;
 
+class function TExpressionParser.Validate(const aExpression: string): Boolean;
+begin
+  Result := Validate(nil,aExpression);
+end;
+
 class function TExpressionParser.Validate(const aValue: TValue; const aExpression: string): Boolean;
 var
   exp : TExpression;
@@ -345,13 +351,16 @@ var
   value1 : TFlexValue;
 begin
   Result := False;
-  if aValue.IsEmpty then Exit;
-  if aValue.IsObject then
+  if aValue.IsEmpty then value1 := fValue1
+  else
   begin
-    if fValue1.Contains('.') then value1.AsTValue := TRTTI.GetPathValue(aValue.AsObject,fValue1)
-      else value1.AsTValue := TRTTI.GetPropertyValueEx(aValue.AsObject,fValue1);
-  end
-  else value1.AsTValue := aValue;
+    if aValue.IsObject then
+    begin
+      if fValue1.Contains('.') then value1.AsTValue := TRTTI.GetPathValue(aValue.AsObject,fValue1)
+        else value1.AsTValue := TRTTI.GetPropertyValueEx(aValue.AsObject,fValue1);
+    end
+    else value1.AsTValue := aValue;
+  end;
   case fOperator of
     TOperator.opEqual : Result := IsEqual(value1,fValue2);
     TOperator.opNotEqual : Result := not IsEqual(value1,fValue2);

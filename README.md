@@ -4,7 +4,7 @@
 **QuickLib**
 --------
 
-Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 10.4 Sydney supported.
+Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 11 Alexandria supported.
 
 **Areas of functionality:**
   
@@ -58,10 +58,17 @@ Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Li
 * **Quick.Template:** String template replacing with dictionary or delegate.
 * **Quick.Debug.Utils:** Simple debugging and code benchmark utils.
 * **Quick.Parameters:** Work with commandline parameters like a class.
+* **Quick.Url.Utils:** Simple url manipulation
+* **Quick.RegEx.Utils:** Commonly used RegEx comparison (email verification, password complexity, etc)
+* **Quick.Conditions:** Pre and postcondition validations in fluent style.
 
 
 **Updates:**
 
+* NEW: RAD Studio 11 supported
+* NEW: Condition checks
+* NEW: Commonly used RegEx validations
+* NEW: Url manipulation utils
 * NEW: QuickParameters to work with commandline arguments like a class.
 * NEW: HttpServer custom and dynamic error pages.
 * NEW: Debug utils
@@ -817,9 +824,14 @@ Serialize/Deserialize object from/to Yaml.
 
 **Quick.Expression:**
 --
- Evaluate object properties using expressions.
+ Evaluate object properties or single values using expressions.
 ```delphi
   if TExpressionParser.Validate(user,('(Age > 30) AND (Dept.Name = "Financial")') then
+  begin
+    //do something
+  end;
+
+  if TExpressionParser.Validate(user,('(20 > 30) OR (5 > 3)') then
   begin
     //do something
   end;
@@ -1279,14 +1291,14 @@ type
   end;
 
 ```
-And pass to de commandline extension:
+Use param:
 ```delphi
-services.AddCommandline<TArguments>;
+params := TMyParameter.Create;
 ```
 When you call your exe with --help you get documentation. If you need to check for a switch or value, you can do like this:
 ```delphi
-if services.Commandline<TArguments>.Port = 0 then ...
-if services.Commandline<TArguments>.Silent then ...
+if params.Port = 0 then ...
+if params.Silent then ...
 ```
 QuickParameters uses custom attributes to define special parameter conditions:
 
@@ -1339,3 +1351,43 @@ Arguments:
   --Help, -h                 Show this documentation
 ```
 
+**Quick.Url.Utils:**
+--
+- **GetProtocol:** Get protocol from an url.
+- **GetHost:** Get hostname from an url.
+- **GetPath:** Get path from an url.
+- **GetQuery:** Get Query part from an url.
+- **RemoveProtocol:** Remove protocol from an url.
+- **RemoveQuery:** Remove query part from an url.
+- **EncodeUrl:** Encode path and query from and url.
+
+**Quick.RegEx.Utils:**
+--
+Commonly used validations.
+```delphi
+```
+
+**Quick.Conditions:**
+--
+Pre and postcondition validations in fluent style.
+Condition.Requires evaluates a variable for conditions before do some operations.
+Condition.Ensures evaluates a variable result for conditions after do some operations.
+```delphi
+    Condition.Requires(num, "num")
+        .IsInRange(1,10,'value for num is out of range');   // throws custom error if not in range
+        .IsNotGreater(50);   // throws ArgumentException if not equal to 128
+
+    Condition.Requires(myobj, "myobj")
+        .WithExceptionOnFailure(EMyException) //throws specific exception on failure
+        .IsNotNull()          // throws ArgumentNullException if null
+        .Evaluate(myobj.id > 10); // myobj.id must be greater than 10
+
+    Condition.Requires(text, "text")
+        .IsNotEmpty()          // throws ArgumentNullException if empty
+        .StartsWith("<html>") // throws ArgumentException if not starts with <html>
+        .EndsWith("</html>") // throws ArgumentException if not ends with </html>
+        .IsNotLowerCase // thows ArgumentException if not lowercase
+        .Evaluate(text.Contains("sometxt") or test.Contains('othertxt')); // throws ArgumentException if not evaluates
+```
+
+>Do you want to learn delphi or improve your skills? [learndelphi.org](https://learndelphi.org)

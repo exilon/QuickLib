@@ -53,6 +53,9 @@ type
       public
         constructor Create(var aArray: TArray<T>);
       end;
+  private type
+    arrayofT = array of T;
+    ParrayofT = ^arrayofT;
   private
     fArray : TArray<T>;
     function GetItem(Index : Integer) : T;
@@ -60,6 +63,7 @@ type
     function GetCapacity: Integer;
     function GetCount: Integer;
     procedure SetCapacity(const Value: Integer);
+    function GetPArray: ParrayofT;
   public
     function GetEnumerator: TEnumerator<T>;
     property AsArray : TArray<T> read fArray;
@@ -72,6 +76,7 @@ type
     procedure Remove(aItem : T);
     function Contains(aItem : T) : Boolean;
     function IndexOf(aItem : T) : Integer;
+    property PArray : ParrayofT read GetPArray;
     class operator Implicit(const Value : TxArray<T>) : TArray<T>;
     class operator Implicit(const Value : TArray<T>) : TxArray<T>;
   end;
@@ -126,6 +131,11 @@ implementation
 function TxArray<T>.GetItem(Index : Integer) : T;
 begin
   Result := fArray[Index];
+end;
+
+function TXArray<T>.GetPArray: ParrayofT;
+begin
+  Pointer(Result) := fArray;
 end;
 
 procedure TXArray<T>.SetCapacity(const Value: Integer);

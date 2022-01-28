@@ -66,4 +66,4 @@ bin
 *.or
 /Reports
 *.or
-Tests/Builds
+*.delphilsp.json

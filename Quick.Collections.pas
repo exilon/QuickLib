@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pérez
 
   Unit        : Quick.Collections
   Description : Generic Collections
   Author      : Kike Pérez
   Version     : 1.2
   Created     : 07/03/2020
-  Modified    : 07/04/2020
+  Modified    : 27/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -286,7 +286,11 @@ end;
 
 function TxList<T>.ExtractAt(Index: Integer): T;
 begin
+  {$If Defined(FPC) OR Defined(DELPHIRX102_UP)}
   Result := fList.ExtractAt(Index);
+  {$ELSE}
+  Result := fList.Extract(fList[Index]);
+  {$ENDIF}
 end;
 
 function TxList<T>.ExtractItem(const Value: T; Direction: TDirection): T;
@@ -296,7 +300,8 @@ end;
 
 function TxList<T>.First: T;
 begin
-  Result := fList.First;
+  if fList.Count > 0 then Result := fList.First
+    else Result := default(T);
 end;
 
 procedure TxList<T>.FromList(const aList: TList<T>);
@@ -367,7 +372,11 @@ end;
 
 procedure TxList<T>.InsertRange(Index: Integer; const Values: array of T; Count: Integer);
 begin
+  {$If Defined(FPC) OR Defined(DELPHIRX102_UP)}
   fList.InsertRange(Index,Values,Count);
+  {$ELSE}
+  fList.InsertRange(Index,Values);
+  {$ENDIF}
 end;
 
 procedure TxList<T>.InsertRange(Index: Integer; const Values: array of T);
@@ -377,7 +386,8 @@ end;
 
 function TxList<T>.Last: T;
 begin
-  Result := fList.Last;
+  if fList.Count > 0 then Result := fList.Last
+    else Result := default(T)
 end;
 
 function TxList<T>.LastIndexOf(const Value: T): Integer;
@@ -451,7 +461,11 @@ end;
 
 function TxList<T>.Where(const aMatchString: string; aUseRegEx: Boolean): ILinqArray<T>;
 begin
+  {$IFDEF DELPHIRX104_UP}
+  Result := TLinqArray<T>.Create(fList.PList^);
+  {$ELSE}
   Result := TLinqArray<T>.Create(fList.ToArray);
+  {$ENDIF}
   Result.Where(aMatchString, aUseRegEx);
 end;
 

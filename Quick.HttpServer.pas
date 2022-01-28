@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 11/06/2020
+  Modified    : 12/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -74,9 +74,15 @@ type
     function GetOnRequest : TRequestEvent;
     function GetCustomErrorPages: TCustomErrorPages;
     procedure SetCustomErrorPages(const Value: TCustomErrorPages);
+    function GetLogger : ILogger;
+    procedure SetLogger(const aLogger : ILogger);
+    function GetHost: string;
+    function GetPort: Integer;
     property OnNewRequest : TRequestEvent read GetOnRequest write SetOnRequest;
     property CustomErrorPages : TCustomErrorPages read GetCustomErrorPages write SetCustomErrorPages;
-    function Logger : ILogger;
+    property Host : string read GetHost;
+    property Port : Integer read GetPort;
+    property Logger : ILogger read GetLogger write SetLogger;
     procedure Start;
     procedure Stop;
   end;
@@ -91,6 +97,10 @@ type
     function GetOnRequest : TRequestEvent;
     function GetCustomErrorPages: TCustomErrorPages;
     procedure SetCustomErrorPages(const Value: TCustomErrorPages);
+    function GetLogger : ILogger;
+    procedure SetLogger(const aLogger : ILogger);
+    function GetHost: string;
+    function GetPort: Integer;
   protected
     fOnRequest : TRequestEvent;
     fHost : string;
@@ -100,13 +110,13 @@ type
   public
     constructor Create(const aHost : string; aPort : Integer; aSSLEnabled : Boolean; aLogger : ILogger = nil); virtual;
     destructor Destroy; override;
-    property Host : string read fHost;
-    property Port : Integer read fPort;
+    property Host : string read GetHost;
+    property Port : Integer read GetPort;
     property CustomErrorPages : TCustomErrorPages read GetCustomErrorPages write SetCustomErrorPages;
     property OnNewRequest : TRequestEvent read GetOnRequest write SetOnRequest;
     property OnConnect : TOnConnectEvent read fOnConnect write fOnConnect;
     property OnDisconnect : TOnDisconnectEvent read fOnDisconnect write fOnDisconnect;
-    function Logger : ILogger;
+    property Logger : ILogger read GetLogger write SetLogger;
     procedure Start; virtual; abstract;
     procedure Stop; virtual; abstract;
   end;
@@ -226,9 +236,24 @@ begin
   else aResponse.ContentText := content;
 end;
 
+function TCustomHttpServer.GetHost: string;
+begin
+  Result := fHost;
+end;
+
+function TCustomHttpServer.GetLogger: ILogger;
+begin
+  Result := fLogger;
+end;
+
 function TCustomHttpServer.GetOnRequest: TRequestEvent;
 begin
   Result := fOnRequest;
+end;
+
+function TCustomHttpServer.GetPort: Integer;
+begin
+  Result := fPort;
 end;
 
 procedure TCustomHttpServer.SetCustomErrorPages(const Value: TCustomErrorPages);
@@ -236,14 +261,14 @@ begin
   fCustomErrorPages := Value;
 end;
 
+procedure TCustomHttpServer.SetLogger(const aLogger: ILogger);
+begin
+  fLogger := aLogger;
+end;
+
 procedure TCustomHttpServer.SetOnRequest(aRequestEvent: TRequestEvent);
 begin
   fOnRequest := aRequestEvent;
-end;
-
-function TCustomHttpServer.Logger: ILogger;
-begin
-  Result := fLogger;
 end;
 
 { THTTPServer }
@@ -267,6 +292,11 @@ begin
   //fHTTPServer.OnExecute := DoConnect;
   fHTTPServer.OnQuerySSLPort := DoOnQuerySSLPort;
   fHTTPServer.ServerSoftware := 'Quick.HttpServer';
+  fHTTPServer.MaxConnections := 0;
+  fHTTPServer.AutoStartSession := False;
+  fHTTPServer.KeepAlive := True;
+  fHTTPServer.SessionState := False;
+  fHTTPServer.ParseParams := False;
 end;
 
 destructor THTTPServer.Destroy;
@@ -319,6 +349,9 @@ begin
   Result.ContentType := aRequestInfo.ContentType;
   Result.ContentEncoding := aRequestInfo.ContentEncoding;
   Result.ContentLength := aRequestInfo.ContentLength;
+  {$IFDEF DEBUG_HTTPSERVER}
+  TDebugger.Trace(Self,'Request: Headers (%s)',[aRequestInfo.RawHeaders.Text]);
+  {$ENDIF}
   for i := 0 to aRequestInfo.RawHeaders.Count -1 do
   begin
     if not StrInArray(aRequestInfo.RawHeaders.Names[i],['Host','Accept-Encoding','Accept','User-Agent','Connection','Cache-Control']) then
@@ -391,7 +424,11 @@ begin
     on E : Exception do
     begin
       //get unexpected exception
-      if E.InheritsFrom(EControlledException) then response.ContentText := response.ContentText + '<BR>' + e.Message
+      if E.InheritsFrom(EControlledException) then
+      begin
+        Logger.Error('Request: %s %s [%d %s] %s',[request.GetMethodAsString,request.URL, response.StatusCode, response.StatusText,e.Message]);
+        response.ContentText := response.ContentText + '<BR>' + e.Message;
+      end
       else
       begin
         if response.StatusCode = 200 then
@@ -400,6 +437,9 @@ begin
           response.StatusText := 'Internal server error';
         end;
         response.ContentText := e.Message;
+        //log error
+        if response.StatusCode = 404 then Logger.Warn('Request: %s %s [%d %s] %s',[request.GetMethodAsString,request.URL, response.StatusCode, response.StatusText,e.Message])
+          else Logger.Error('Request: %s %s [%d %s] %s',[request.GetMethodAsString,request.URL, response.StatusCode, response.StatusText,e.Message]);
       end;
     end;
   end;

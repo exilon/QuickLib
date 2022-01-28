@@ -33,6 +33,7 @@ unit Quick.Base64;
 interface
 
 uses
+  System.SysUtils,
   {$IFDEF DELPHIXE7_UP}
   System.NetEncoding;
   {$ELSE}
@@ -42,6 +43,10 @@ uses
 
 function Base64Encode(const Input: string): string;
 function Base64Decode(const Input: string): string;
+{$IFDEF DELPHIXE7_UP}
+function Base64DecodeFromBinary(const Input: string) : string;
+function Base64DecodeToBytes(const Input: string) : TBytes;
+{$ENDIF}
 
 implementation
 
@@ -62,6 +67,21 @@ begin
   Result := TIdDecoderMIME.DecodeString(Input,IndyTextEncoding_OSDefault);
   {$ENDIF}
 end;
+
+{$IFDEF DELPHIXE7_UP}
+function Base64DecodeFromBinary(const Input: string) : string;
+var
+  b : TBytes;
+begin
+  b := TNetEncoding.Base64.DecodeStringToBytes(Input);
+  Result := TEncoding.ANSI.GetString(b);
+end;
+
+function Base64DecodeToBytes(const Input: string) : TBytes;
+begin
+  Result := TNetEncoding.Base64.DecodeStringToBytes(Input);
+end;
+{$ENDIF}
 
 end.
 

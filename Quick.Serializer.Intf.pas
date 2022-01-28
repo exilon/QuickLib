@@ -3,10 +3,11 @@ unit Quick.Serializer.Intf;
 interface
 
 uses
-  System.SysUtils,
+  SysUtils,
   {$IFNDEF FPC}
   rtti;
   {$ELSE}
+  Rtti,
   rttiutils;
   {$ENDIF}
 

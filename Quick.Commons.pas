@@ -1,13 +1,13 @@
-{ ***************************************************************************
+ï»¿{ ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pï¿½rez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 06/08/2020
+  Modified    : 19/01/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -39,6 +39,7 @@ interface
     Types,
     {$IFDEF MSWINDOWS}
       Windows,
+      ActiveX,
       ShlObj,
     {$ENDIF MSWINDOWS}
     {$IFDEF FPC}
@@ -54,6 +55,9 @@ interface
     Androidapi.Helpers,
     Androidapi.JNI.JavaTypes,
     Androidapi.JNI.GraphicsContentViewText,
+    {$IFDEF DELPHIRX103_UP}
+      Androidapi.JNI.App,
+    {$ENDIF}
     {$ENDIF}
     {$IFDEF IOS}
     iOSapi.UIKit,
@@ -86,9 +90,9 @@ const
   LOG_ALL = [etInfo, etSuccess, etWarning, etError, etDebug, etDone, etTrace, etCritical, etException];
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
   {$IFDEF DELPHIXE7_UP}
-  EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','TRACE'];
+  EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION'];
   {$ELSE}
-  EventStr : array[0..5] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','TRACE');
+  EventStr : array[0..8] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION');
   {$ENDIF}
 type
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
@@ -226,6 +230,47 @@ type
     procedure Clear;
   end;
 
+  {$IFDEF DELPHIXE7_UP}
+  TDateTimeHelper = record helper for TDateTime
+  public
+    function ToSQLString : string;
+    procedure FromNow;
+    procedure FromUTC(const aUTCTime : TDateTime);
+    function IncDay(const aValue : Cardinal = 1) : TDateTime;
+    function DecDay(const aValue : Cardinal = 1) : TDateTime;
+    function IncMonth(const aValue : Cardinal = 1) : TDateTime;
+    function DecMonth(const aValue : Cardinal = 1) : TDateTime;
+    function IncYear(const aValue : Cardinal = 1) : TDateTime;
+    function DecYear(const aValue : Cardinal = 1) : TDateTime;
+    function IsEqualTo(const aDateTime : TDateTime) : Boolean;
+    function IsAfter(const aDateTime : TDateTime) : Boolean;
+    function IsBefore(const aDateTime : TDateTime) : Boolean;
+    function IsSameDay(const aDateTime : TDateTime) : Boolean;
+    function IsSameTime(const aTime : TTime) : Boolean;
+    function DayOfTheWeek : Word;
+    function ToJsonFormat : string;
+    function ToGMTFormat: string;
+    function ToTimeStamp : TTimeStamp;
+    function ToUTC : TDateTime;
+    function ToMilliseconds : Int64;
+    function ToString : string;
+    function Date : TDate;
+    function Time : TTime;
+    function IsAM : Boolean;
+    function IsPM : Boolean;
+  end;
+
+  TDateHelper = record helper for TDate
+  public
+    function ToString : string;
+  end;
+
+  TTimeHelper = record helper for TTime
+  public
+    function ToString : string;
+  end;
+  {$ENDIF}
+
   EEnvironmentPath = class(Exception);
   EShellError = class(Exception);
 
@@ -240,7 +285,15 @@ type
   //converts a Windows path to Unix path
   function WindowsToUnixPath(const WindowsPath: string): string;
   //corrects malformed urls
-  function CorrectURLPath(cUrl : string) : string;
+  function CorrectURLPath(const cUrl : string) : string;
+  //get url parts
+  function UrlGetProtocol(const aUrl : string) : string;
+  function UrlGetHost(const aUrl : string) : string;
+  function UrlGetPath(const aUrl : string) : string;
+  function UrlGetQuery(const aUrl : string) : string;
+  function UrlRemoveProtocol(const aUrl : string) : string;
+  function UrlRemoveQuery(const aUrl : string) : string;
+  function UrlSimpleEncode(const aUrl : string) : string;
   //get typical environment paths as temp, desktop, etc
   procedure GetEnvironmentPaths;
   {$IFDEF MSWINDOWS}
@@ -277,7 +330,7 @@ type
   //returns n times a char
   function FillStr(const C : Char; const Count : Integer) : string;
   //checks if string exists in array of string
-  function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+  function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
   //checks if integer exists in array of integer
   function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
   //check if array is empty
@@ -302,12 +355,20 @@ type
   function GetLoggedUserName : string;
   //returns computer name
   function GetComputerName : string;
+  //check if remote desktop session
+  {$IFDEF MSWINDOWS}
+  function IsRemoteSession : Boolean;
+  {$ENDIF}
+  //extract domain and user name from user login
+  function ExtractDomainAndUser(const aUser : string; out oDomain, oUser : string) : Boolean;
   //Changes incorrect delims in path
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
   //combine paths normalized with delim
   function CombinePaths(const aFirstPath, aSecondPath: string; aDelim : Char): string;
+  //Removes firs segment of a path
+  function RemoveFirstPathSegment(const cdir : string) : string;
   //Removes last segment of a path
-  function RemoveLastPathSegment(cDir : string) : string;
+  function RemoveLastPathSegment(const cDir : string) : string;
   //returns path delimiter if found
   function GetPathDelimiter(const aPath : string) : string;
   //returns first segment of a path
@@ -343,19 +404,23 @@ type
   //save stream to file
   procedure SaveStreamToFile(aStream : TStream; const aFilename : string);
   //save stream to string
-  function StreamToString(aStream : TStream) : string;
-  function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
+  function StreamToString(const aStream: TStream; const aEncoding: TEncoding): string;
+  function StreamToStringEx(aStream : TStream) : string;
   //save string to stream
-  procedure StringToStream(const aStr : string; aStream : TStream);
-  procedure StringToStream2(const aStr : string; aStream : TStream);
+  procedure StringToStream(const aStr : string; aStream : TStream; const aEncoding: TEncoding);
+  procedure StringToStreamEx(const aStr : string; aStream : TStream);
   //returns a real comma separated text from stringlist
   function CommaText(aList : TStringList) : string; overload;
   //returns a real comma separated text from array of string
   function CommaText(aArray : TArray<string>) : string; overload;
-  //returns a string CRLF from array of string
-  function ArrayToString(aArray : TArray<string>) : string;
+  //returns a string CRLF separated from array of string
+  function ArrayToString(aArray : TArray<string>) : string; overload;
+  //returns a string with separator from array of string
+  function ArrayToString(aArray : TArray<string>; aSeparator : string) : string; overload;
   //converts TStrings to array
-  function StringsToArray(aStrings : TStrings) : TArray<string>;
+  function StringsToArray(aStrings : TStrings) : TArray<string>; overload;
+  //converts string comma or semicolon separated to array
+  function StringsToArray(const aString : string) : TArray<string>; overload;
   {$IFDEF MSWINDOWS}
   //process messages on console applications
   procedure ProcessMessages;
@@ -380,6 +445,7 @@ type
   //get simple quoted or dequoted string
   function SpQuotedStr(const str : string): string;
   function UnSpQuotedStr(const str : string): string;
+  function UnQuotedStr(const str : string; const aQuote : Char) : string;
   //ternary operator
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : string) : string; overload;
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Integer) : Integer; overload;
@@ -502,7 +568,7 @@ begin
     until NumNumbers = MinNumbers;
   end;
   //checks if need include signs
-  if pfIncludeNumbers in Complexity then
+  if pfIncludeSigns in Complexity then
   begin
     MinSigns := Round(PasswordLength / 10 * 1);
     NumSigns := 0;
@@ -544,7 +610,7 @@ begin
   Result := StringReplace(WindowsPath, '\', '/',[rfReplaceAll, rfIgnoreCase]);
 end;
 
-function CorrectURLPath(cUrl : string) : string;
+function CorrectURLPath(const cUrl : string) : string;
 var
   nurl : string;
 begin
@@ -552,6 +618,65 @@ begin
   nurl := StringReplace(nurl,'//','/',[rfReplaceAll]);
   Result := StringReplace(nurl,' ','%20',[rfReplaceAll]);
   //TNetEncoding.Url.Encode()
+end;
+
+function UrlGetProtocol(const aUrl : string) : string;
+begin
+  Result := aUrl.SubString(0,aUrl.IndexOf('://'));
+end;
+
+function UrlGetHost(const aUrl : string) : string;
+var
+  url : string;
+  len : Integer;
+begin
+  url := UrlRemoveProtocol(aUrl);
+
+  if url.Contains('/') then len := url.IndexOf('/')
+    else len := url.Length;
+
+  Result := url.SubString(0,len);
+end;
+
+function UrlGetPath(const aUrl : string) : string;
+var
+  url : string;
+  len : Integer;
+begin
+  url := UrlRemoveProtocol(aUrl);
+  if not url.Contains('/') then Exit('');
+  len := url.IndexOf('?');
+  if len < 0 then len := url.Length
+    else len := url.IndexOf('?') - url.IndexOf('/');
+  Result := url.Substring(url.IndexOf('/'),len);
+end;
+
+function UrlGetQuery(const aUrl : string) : string;
+begin
+  if not aUrl.Contains('?') then Exit('');
+
+  Result := aUrl.Substring(aUrl.IndexOf('?')+1);
+end;
+
+function UrlRemoveProtocol(const aUrl : string) : string;
+var
+  pos : Integer;
+begin
+  pos := aUrl.IndexOf('://');
+  if pos < 0 then pos := 0
+    else pos := pos + 3;
+  Result := aUrl.SubString(pos, aUrl.Length);
+end;
+
+function UrlRemoveQuery(const aUrl : string) : string;
+begin
+  if not aUrl.Contains('?') then Exit(aUrl);
+  Result := aUrl.Substring(0,aUrl.IndexOf('?'));
+end;
+
+function UrlSimpleEncode(const aUrl : string) : string;
+begin
+  Result := StringReplace(aUrl,' ','%20',[rfReplaceAll]);
 end;
 
 procedure GetEnvironmentPaths;
@@ -587,15 +712,25 @@ end;
 {$IFDEF MSWINDOWS}
 function GetSpecialFolderPath(folderID : Integer) : string;
 var
+  shellMalloc: IMalloc;
   ppidl: PItemIdList;
 begin
-  SHGetSpecialFolderLocation(0, folderID, ppidl);
-  SetLength(Result, MAX_PATH);
-  if not SHGetPathFromIDList(ppidl,{$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}) then
-  begin
-    raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
+  ppidl := nil;
+  try
+    if SHGetMalloc(shellMalloc) = NOERROR then
+    begin
+      SHGetSpecialFolderLocation(0, folderID, ppidl);
+      SetLength(Result, MAX_PATH);
+      if not SHGetPathFromIDList(ppidl,{$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}) then
+      begin
+        raise EShellError.create(Format('GetSpecialFolderPath: Invalid PIPL (%d)',[folderID]));
+      end;
+      SetLength(Result, lStrLen({$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}));
+    end;
+  finally
+    if ppidl <> nil then
+      shellMalloc.Free(ppidl);
   end;
-  SetLength(Result, lStrLen({$IFDEF FPC}PAnsiChar(Result){$ELSE}PChar(Result){$ENDIF}));
 end;
 
 function Is64bitOS : Boolean;
@@ -624,7 +759,10 @@ function HasConsoleOutput : Boolean;
   begin
     try
       stout := GetStdHandle(Std_Output_Handle);
-      Win32Check(stout <> Invalid_Handle_Value);
+      {$WARN SYMBOL_PLATFORM OFF}
+      //Allready checked that we are on a windows platform
+        Win32Check(stout <> Invalid_Handle_Value);
+      {$WARN SYMBOL_PLATFORM ON}
       Result := stout <> 0;
     except
       Result := False;
@@ -731,13 +869,20 @@ begin
 end;
 
 
-function StrInArray(const aValue : string; const aInArray : array of string) : Boolean;
+function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
 var
   s : string;
 begin
   for s in aInArray do
   begin
-    if s = aValue then Exit(True);
+    if aCaseSensitive then
+    begin
+      if s = aValue then Exit(True);
+    end
+    else
+    begin
+      if CompareText(aValue,s) = 0 then Exit(True);
+    end;
   end;
   Result := False;
 end;
@@ -897,7 +1042,11 @@ function GetLoggedUserName : string;
     {$IFDEF POSIX}
     try
       plogin := getlogin;
+      {$IFDEF NEXTGEN}
+      Result := string(plogin);
+      {$ELSE}
       Result := Copy(plogin,1,Length(Trim(plogin)));
+      {$ENDIF}
     except
       Result := 'N/A';
     end;
@@ -983,6 +1132,36 @@ function GetComputerName : string;
   {$ENDIF}
 {$ENDIF}
 
+{$IFDEF MSWINDOWS}
+function IsRemoteSession : Boolean;
+const
+  SM_REMOTECONTROL      = $2001;
+  SM_REMOTESESSION      = $1000;
+begin
+  Result := (GetSystemMetrics(SM_REMOTESESSION) <> 0) or (GetSystemMetrics(SM_REMOTECONTROL) <> 0);
+end;
+{$ENDIF}
+
+function ExtractDomainAndUser(const aUser : string; out oDomain, oUser : string) : Boolean;
+begin
+  //check if domain specified into username
+  if aUser.Contains('\') then
+  begin
+    oDomain := Copy(aUser,Low(aUser),Pos('\',aUser)-1);
+    oUser := Copy(aUser,Pos('\',aUser)+1,aUser.Length);
+    Exit(True);
+  end
+  else if aUser.Contains('@') then
+  begin
+    oDomain := Copy(aUser,Pos('@',aUser)+1,aUser.Length);
+    oUser := Copy(aUser,Low(aUser),Pos('@',aUser)-1);
+    Exit(True);
+  end;
+  oDomain := '';
+  oUser := aUser;
+  Result := False;
+end;
+
 function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
 begin
   if Delim = '\' then Result := StringReplace(cPath,'/',Delim,[rfReplaceAll])
@@ -990,9 +1169,12 @@ begin
 end;
 
 function CombinePaths(const aFirstPath, aSecondPath: string; aDelim : Char): string;
+var
+  path1 : string;
+  path2 : string;
 begin
-  var path1 := NormalizePathDelim(aFirstPath,aDelim);
-  var path2 := NormalizePathDelim(aSecondPath,aDelim);
+  path1 := NormalizePathDelim(aFirstPath,aDelim);
+  path2 := NormalizePathDelim(aSecondPath,aDelim);
   if path1.EndsWith(aDelim) then
   begin
     if path2.StartsWith(aDelim) then Result := path1 + path2.Substring(1)
@@ -1005,33 +1187,61 @@ begin
   end;
 end;
 
-function RemoveLastPathSegment(cDir : string) : string;
+function RemoveFirstPathSegment(const cdir : string) : string;
 var
   posi : Integer;
   delim : Char;
+  dir : string;
+  StartsWithDelim : Boolean;
+begin
+  if cDir.Contains('\') then delim := '\'
+    else if cDir.Contains('/') then delim := '/'
+      else
+      begin
+        Exit('');
+      end;
+
+  dir := NormalizePathDelim(cDir,delim);
+  if dir.StartsWith(delim) then
+  begin
+    dir := Copy(dir,2,dir.Length);
+    StartsWithDelim := True;
+  end
+  else StartsWithDelim := False;
+
+  if dir.CountChar(delim) = 0 then Exit('')
+    else posi := Pos(delim,dir)+1;
+  Result := Copy(dir,posi,dir.Length);
+  if (not Result.IsEmpty) and (StartsWithDelim) then Result := delim + Result;
+end;
+
+function RemoveLastPathSegment(const cDir : string) : string;
+var
+  posi : Integer;
+  delim : Char;
+  dir : string;
   EndsWithDelim : Boolean;
 begin
   if cDir.Contains('\') then delim := '\'
     else if cDir.Contains('/') then delim := '/'
       else
       begin
-        Result := '';
-        Exit;
+        Exit('');
       end;
-  NormalizePathDelim(cDir,delim);
+  dir := NormalizePathDelim(cDir,delim);
 
-  if cDir.EndsWith(delim) then
+  if dir.EndsWith(delim) then
   begin
-    cDir := Copy(cDir,1,cDir.Length-1);
+    dir := Copy(dir,1,dir.Length-1);
     EndsWithDelim := True;
   end
   else EndsWithDelim := False;
 
-  if cDir.CountChar(delim) > 1 then posi := cDir.LastDelimiter(delim)
-    else posi := Pos(delim,cDir)-1;
-  if posi = cDir.Length then posi := 0;
-  Result := Copy(cDir,1,posi);
-  if (Result <> '') and (EndsWithDelim) then Result := Result + delim;
+  if dir.CountChar(delim) > 1 then posi := dir.LastDelimiter(delim)
+    else posi := Pos(delim,dir)-1;
+  if posi = dir.Length then posi := 0;
+  Result := Copy(dir,1,posi);
+  if (not Result.IsEmpty) and (EndsWithDelim) then Result := Result + delim;
 end;
 
 function GetPathDelimiter(const aPath : string) : string;
@@ -1050,7 +1260,8 @@ begin
   if delimiter.IsEmpty then Exit(aPath);
   if aPath.StartsWith(delimiter) then spath := Copy(aPath,2,aPath.Length)
     else spath := aPath;
-  Result := Copy(spath,0,spath.IndexOf(delimiter));
+  if spath.Contains(delimiter) then Result := Copy(spath,0,spath.IndexOf(delimiter))
+    else Result := spath;
 end;
 
 function GetLastPathSegment(const aPath : string) : string;
@@ -1155,7 +1366,11 @@ end;
       var
         PkgInfo : JPackageInfo;
       begin
+        {$IFDEF DELPHIRX103_UP}
+        PkgInfo := TAndroidHelper.Activity.getPackageManager.getPackageInfo(TAndroidHelper.Activity.getPackageName,0);
+        {$ELSE}
         PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        {$ENDIF}
         Result := IntToStr(PkgInfo.VersionCode);
       end;
       {$ELSE} //IOS
@@ -1259,7 +1474,11 @@ end;
       var
         PkgInfo : JPackageInfo;
       begin
+        {$IFDEF DELPHIRX103_UP}
+        PkgInfo := TAndroidHelper.Activity.getPackageManager.getPackageInfo(TAndroidHelper.Activity.getPackageName,0);
+        {$ELSE}
         PkgInfo := SharedActivity.getPackageManager.getPackageInfo(SharedActivity.getPackageName,0);
+        {$ENDIF}
         Result := JStringToString(PkgInfo.versionName);
       end;
       {$ELSE} //IOS
@@ -1424,7 +1643,17 @@ begin
   end;
 end;
 
-function StreamToString(aStream : TStream) : string;
+function StreamToString(const aStream: TStream; const aEncoding: TEncoding): string;
+var
+  sbytes: TBytes;
+begin
+  aStream.Position := 0;
+  SetLength(sbytes, aStream.Size);
+  aStream.ReadBuffer(sbytes,aStream.Size);
+  Result := aEncoding.GetString(sbytes);
+end;
+
+function StreamToStringEx(aStream : TStream) : string;
 var
   ss : TStringStream;
 begin
@@ -1451,27 +1680,11 @@ begin
   end;
 end;
 
-function StreamToString2(const aStream: TStream; const aEncoding: TEncoding): string;
-var
-  sbytes: TBytes;
-begin
-  aStream.Position := 0;
-  SetLength(sbytes, aStream.Size);
-  aStream.ReadBuffer(sbytes,aStream.Size);
-  Result := aEncoding.GetString(sbytes);
-end;
-
-procedure StringToStream(const aStr : string; aStream : TStream);
-begin
-  aStream.Seek(0,soBeginning);
-  aStream.WriteBuffer(Pointer(aStr)^,aStr.Length * SizeOf(Char));
-end;
-
-procedure StringToStream2(const aStr : string; aStream : TStream);
+procedure StringToStream(const aStr : string; aStream : TStream; const aEncoding: TEncoding);
 var
   stream : TStringStream;
 begin
-  stream := TStringStream.Create(aStr,TEncoding.UTF8);
+  stream := TStringStream.Create(aStr,aEncoding);
   try
     aStream.CopyFrom(stream,stream.Size);
   finally
@@ -1479,6 +1692,11 @@ begin
   end;
 end;
 
+procedure StringToStreamEx(const aStr : string; aStream : TStream);
+begin
+  aStream.Seek(0,soBeginning);
+  aStream.WriteBuffer(Pointer(aStr)^,aStr.Length * SizeOf(Char));
+end;
 
 function CommaText(aList : TStringList) : string;
 var
@@ -1523,6 +1741,7 @@ var
   value : string;
   sb : TStringBuilder;
 begin
+  Result := '';
   if High(aArray) < 0 then Exit;
   sb := TStringBuilder.Create;
   try
@@ -1531,6 +1750,30 @@ begin
       sb.Append(value);
       sb.Append(#10#13);
     end;
+    Result := sb.ToString;
+  finally
+    sb.Free;
+  end;
+end;
+
+function ArrayToString(aArray : TArray<string>; aSeparator : string) : string;
+var
+  value : string;
+  sb : TStringBuilder;
+  isfirst : Boolean;
+begin
+  Result := '';
+  if High(aArray) < 0 then Exit;
+  isfirst := True;
+  sb := TStringBuilder.Create;
+  try
+    for value in aArray do
+    begin
+      if isfirst then isfirst := False
+        else sb.Append(aSeparator);
+      sb.Append(value);
+    end;
+    Result := sb.ToString;
   finally
     sb.Free;
   end;
@@ -1546,6 +1789,13 @@ begin
   begin
     Result[i] := aStrings[i];
   end;
+end;
+
+function StringsToArray(const aString : string) : TArray<string>;
+var
+  item : string;
+begin
+  for item in aString.Split([';',',']) do Result := Result + [item.Trim];
 end;
 
 { TCounter }
@@ -1843,7 +2093,7 @@ end;
 
 function DateTimeToSQL(aDateTime : TDateTime) : string;
 begin
-  Result := FormatDateTime('YYYYMMDD hh:mm:ss',aDateTime);
+  Result := FormatDateTime('YYYY-MM-DD hh:mm:ss',aDateTime);
 end;
 
 function IsInteger(const aValue : string) : Boolean;
@@ -1919,6 +2169,12 @@ begin
   end;
 end;
 
+function UnQuotedStr(const str : string; const aQuote : Char) : string;
+begin
+  if (str.Length > 0) and (str[Low(str)] = aQuote) and (str[High(str)] = aQuote) then Result := Copy(str, Low(str)+1, High(str) - 2)
+    else Result := str;
+end;
+
 function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : string) : string;
 begin
   if aCondition then Result := aIfIsTrue else Result := aIfIsFalse;
@@ -1956,6 +2212,151 @@ end;
   {$ENDIF}
 {$ENDIF}
 
+{ TDateTimeHelper }
+
+{$IFDEF DELPHIXE7_UP}
+function TDateTimeHelper.ToSQLString : string;
+begin
+  Result := DateTimeToSQL(Self);
+end;
+
+procedure TDateTimeHelper.FromNow;
+begin
+  Self := Now;
+end;
+
+procedure TDateTimeHelper.FromUTC(const aUTCTime: TDateTime);
+begin
+  Self := UTCToLocalTime(aUTCTime);
+end;
+
+function TDateTimeHelper.IncDay(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,aValue);
+end;
+
+function TDateTimeHelper.DecDay(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncDay(Self,-aValue);
+end;
+
+function TDateTimeHelper.IncMonth(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := SysUtils.IncMonth(Self,aValue);
+end;
+
+function TDateTimeHelper.DecMonth(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := SysUtils.IncMonth(Self,-aValue);
+end;
+
+function TDateTimeHelper.IncYear(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncYear(Self,aValue);
+end;
+
+function TDateTimeHelper.DecYear(const aValue : Cardinal = 1) : TDateTime;
+begin
+  Result := System.DateUtils.IncYear(Self,-aValue);
+end;
+
+function TDateTimeHelper.IsEqualTo(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := Self = aDateTime;
+end;
+
+function TDateTimeHelper.IsAfter(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := Self > aDateTime;
+end;
+
+function TDateTimeHelper.IsBefore(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := Self < aDateTime;
+end;
+
+function TDateTimeHelper.IsSameDay(const aDateTime : TDateTime) : Boolean;
+begin
+  Result := System.DateUtils.SameDate(Self,aDateTime);
+end;
+
+function TDateTimeHelper.IsSameTime(const aTime : TTime) : Boolean;
+begin
+  Result := System.DateUtils.SameTime(Self,aTime);
+end;
+
+function TDateTimeHelper.DayOfTheWeek : Word;
+begin
+  Result := System.DateUtils.NthDayOfWeek(Self);
+end;
+
+function TDateTimeHelper.ToJsonFormat : string;
+begin
+  Result := DateTimeToJsonDate(Self);
+end;
+
+function TDateTimeHelper.ToGMTFormat : string;
+begin
+  Result := DateTimeToGMT(Self);
+end;
+
+function TDateTimeHelper.ToTimeStamp : TTimeStamp;
+begin
+  Result := DateTimeToTimeStamp(Self);
+end;
+
+function TDateTimeHelper.ToUTC : TDateTime;
+begin
+  Result := LocalTimeToUTC(Self);
+end;
+
+function TDateTimeHelper.ToMilliseconds : Int64;
+begin
+  {$IFDEF DELPHIRX104_ANDUP}
+  Result := System.DateUtils.DateTimeToMilliseconds(Self);
+  {$ELSE}
+  Result := System.DateUtils.MilliSecondOf(Self);
+  {$ENDIF}
+end;
+
+function TDateTimeHelper.ToString : string;
+begin
+  Result := DateTimeToStr(Self);
+end;
+
+function TDateTimeHelper.Date : TDate;
+begin
+  Result := System.DateUtils.DateOf(Self);
+end;
+
+function TDateTimeHelper.Time : TTime;
+begin
+  Result := System.DateUtils.TimeOf(Self);
+end;
+
+function TDateTimeHelper.IsAM : Boolean;
+begin
+  Result := System.DateUtils.IsAM(Self);
+end;
+
+function TDateTimeHelper.IsPM : Boolean;
+begin
+  Result := System.DateUtils.IsPM(Self);
+end;
+
+{ TDateHelper }
+function TDateHelper.ToString : string;
+begin
+  Result := DateToStr(Self);
+end;
+
+{ TTimeHelper }
+function TTimeHelper.ToString : string;
+begin
+  Result := TimeToStr(Self);
+end;
+{$ENDIF}
+
 {$IFNDEF NEXTGEN}
 initialization
   try
@@ -1974,6 +2375,8 @@ initialization
   end;
 {$ENDIF}
 
+
 end.
+
 
 

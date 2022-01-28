@@ -171,7 +171,8 @@ end;
 
 class destructor TDebugger.Destroy;
 begin
-
+  fSerializer := nil;
+  fLogger := nil;
 end;
 
 class function TDebugger.TimeIt(aOwner : TObject; const aFunctionName, aDescription: string): IDebugMehtodChrono;
@@ -182,8 +183,16 @@ end;
 
 class function TDebugger.Enter(aOwner : TObject; const aFunctionName: string) : IDebugMethodEnter;
 begin
-  fLogger.Debug(Format('[ENTER] >> %s.%s',[aOwner.ClassName,aFunctionName]));
-  Result := TDebugMethodEnter.Create(fLogger,Format('%s.%s',[aOwner.ClassName,aFunctionName]));
+  if aOwner <> nil then
+  begin
+    fLogger.Debug(Format('[ENTER] >> %s.%s',[aOwner.ClassName,aFunctionName]));
+    Result := TDebugMethodEnter.Create(fLogger,Format('%s.%s',[aOwner.ClassName,aFunctionName]));
+  end
+  else
+  begin
+    fLogger.Debug(Format('[ENTER] >> %s',[aFunctionName]));
+    Result := TDebugMethodEnter.Create(fLogger,aFunctionName);
+  end;
 end;
 
 class function TDebugger.NewChrono(aStarted : Boolean) : IChronometer;
