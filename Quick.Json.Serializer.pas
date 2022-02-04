@@ -301,7 +301,7 @@ begin
           end
       else
         begin
-          rItemValue := DeserializeType(aObject,rType.Kind,aTypeInfo,aJsonArray.Items[i].Value);
+          rItemValue := DeserializeType(aObject,rType.Kind,rType,aJsonArray.Items[i].Value);
         end;
       end;
       if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);

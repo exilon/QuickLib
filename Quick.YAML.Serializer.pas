@@ -225,7 +225,7 @@ begin
           end
       else
         begin
-          rItemValue := DeserializeType(aObject,rType.Kind,aTypeInfo,aYamlArray.Items[i].Value);
+          rItemValue := DeserializeType(aObject,rType.Kind,rType,aYamlArray.Items[i].Value);
         end;
       end;
       if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);
