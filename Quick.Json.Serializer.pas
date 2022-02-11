@@ -1368,6 +1368,13 @@ begin
       begin
          Result := TJSONValue(SerializeObject(aValue.AsObject));
       end;
+    tkInterface :
+      begin
+        {$IFDEF DELPHIRX10_UP}
+        // Would not work with iOS/Android native interfaces
+        Result := TJSONValue(SerializeObject(aValue.AsInterface as TObject));
+        {$ENDIF}
+      end;
     tkString, tkLString, tkWString, tkUString :
       begin
         Result := TJSONString.Create(aValue.AsString);
@@ -1447,7 +1454,7 @@ begin
         end;
         {$ENDIF}
       end;
-    tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure, tkUnknown :
+    tkMethod, tkPointer, tkClassRef, tkProcedure, tkUnknown :
       begin
         //skip these properties
       end

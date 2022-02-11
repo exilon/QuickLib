@@ -1204,6 +1204,13 @@ begin
         begin
            Result.Value := TYamlValue(Serialize(aValue.AsObject));
         end;
+      tkInterface :
+        begin
+          {$IFDEF DELPHIRX10_UP}
+          // Would not work with all interfaces, like iOS/Android native ones
+          Result.Value := TYamlValue(Serialize(aValue.AsInterface as TObject));
+          {$ENDIF}
+        end;
       tkString, tkLString, tkWString, tkUString :
         begin
           Result.Value := TYamlString.Create(aValue.AsString);
@@ -1270,7 +1277,7 @@ begin
             ctx.Free;
           end;
         end;
-      tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
+      tkMethod, tkPointer, tkClassRef, tkProcedure :
         begin
           //skip these properties
           //FreeAndNil(Result);
