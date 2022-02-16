@@ -225,7 +225,7 @@ begin
           end
       else
         begin
-          rItemValue := DeserializeType(aObject,rType.Kind,aTypeInfo,aYamlArray.Items[i].Value);
+          rItemValue := DeserializeType(aObject,rType.Kind,rType,aYamlArray.Items[i].Value);
         end;
       end;
       if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);
@@ -486,7 +486,10 @@ var
   rvalue : TValue;
   i : Integer;
   rProp : TRttiProperty;
-  {$IFNDEF DELPHIRX103_UP}
+  {$IFDEF DELPHIRX103_UP}
+  rMethod: TRttiMethod;
+  n: Integer;
+  {$ELSE}
   rfield : TRttiField;
   {$ENDIF}
 begin
@@ -509,14 +512,20 @@ begin
   if not rValue.IsEmpty then
   begin
     {$IFDEF DELPHIRX103_UP}
-    if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
+    if (aObject <> nil) and (rvalue.IsArray) then
     begin
-      TObjectList<TObject>(aObject).Clear;
-      TObjectList<TObject>(aObject).Capacity := rvalue.GetArrayLength;
-      for i := 0 to rvalue.GetArrayLength - 1 do
-      begin
-        TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
-      end;
+      rMethod := ctx.GetType(aObject.ClassType).GetMethod('Clear');
+      if rMethod = nil then
+        raise EYamlDeserializeError.Create('Unable to find RTTI method');
+      rMethod.Invoke(aObject, []);
+
+      rMethod := ctx.GetType(aObject.ClassType).GetMethod('Add');
+      if rMethod = nil then
+        raise EYamlDeserializeError.Create('Unable to find RTTI method');
+
+      n := rvalue.GetArrayLength - 1;
+      for i := 0 to n do
+        rMethod.Invoke(aObject, [rvalue.GetArrayElement(i)]);
     end;
     {$ELSE}
     for rfield in rType.GetFields do
@@ -1195,6 +1204,13 @@ begin
         begin
            Result.Value := TYamlValue(Serialize(aValue.AsObject));
         end;
+      tkInterface :
+        begin
+          {$IFDEF DELPHIRX10_UP}
+          // Would not work with all interfaces, like iOS/Android native ones
+          Result.Value := TYamlValue(Serialize(aValue.AsInterface as TObject));
+          {$ENDIF}
+        end;
       tkString, tkLString, tkWString, tkUString :
         begin
           Result.Value := TYamlString.Create(aValue.AsString);
@@ -1261,7 +1277,7 @@ begin
             ctx.Free;
           end;
         end;
-      tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
+      tkMethod, tkPointer, tkClassRef, tkProcedure :
         begin
           //skip these properties
           //FreeAndNil(Result);

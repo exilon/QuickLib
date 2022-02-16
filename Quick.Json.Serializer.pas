@@ -301,7 +301,7 @@ begin
           end
       else
         begin
-          rItemValue := DeserializeType(aObject,rType.Kind,aTypeInfo,aJsonArray.Items[i].Value);
+          rItemValue := DeserializeType(aObject,rType.Kind,rType,aJsonArray.Items[i].Value);
         end;
       end;
       if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);
@@ -620,10 +620,11 @@ var
   i : Integer;
   n : Integer;
   rProp : TRttiProperty;
-  {$IFNDEF DELPHIRX10_UP}
+  {$IFDEF DELPHIRX10_UP}
+  rMethod: TRttiMethod;
+  {$ELSE}
   rfield : TRttiField;
   {$ENDIF}
-  genericType : TGenericListType;
 begin
   Result := aObject;
 
@@ -654,17 +655,20 @@ begin
   if not rValue.IsEmpty then
   begin
     {$IFDEF DELPHIRX10_UP}
-    if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
+    if (aObject <> nil) and (rvalue.IsArray) then
     begin
-      genericType := GetGenericListType(aObject);
-      if genericType = TGenericListType.gtObjectList then TObjectList<TObject>(aObject).Clear
-        else TList<TObject>(aObject).Clear;
+      rMethod := ctx.GetType(aObject.ClassType).GetMethod('Clear');
+      if rMethod = nil then
+        raise EJsonDeserializeError.Create('Unable to find RTTI method');
+      rMethod.Invoke(aObject, []);
+
+      rMethod := ctx.GetType(aObject.ClassType).GetMethod('Add');
+      if rMethod = nil then
+        raise EJsonDeserializeError.Create('Unable to find RTTI method');
+
       n := rvalue.GetArrayLength - 1;
       for i := 0 to n do
-      begin
-        if genericType = TGenericListType.gtObjectList then TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject)
-          else TList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
-      end;
+        rMethod.Invoke(aObject, [rvalue.GetArrayElement(i)]);
     end;
     {$ELSE}
     n := 0;
@@ -1256,7 +1260,7 @@ begin
       //get list array
       propvalue := GetPropertyValueFromObject(aObject,'List');
       {$IFDEF DELPHIRX10_UP}
-      Result := TJSONObject(SerializeDynArray(propvalue,TList<TObject>(aObject).Count));
+      Result := TJSONObject(SerializeDynArray(propvalue));
       {$ELSE}
       Result := TJSONObject(SerializeValue(propvalue));
       {$ENDIF}
@@ -1364,6 +1368,13 @@ begin
       begin
          Result := TJSONValue(SerializeObject(aValue.AsObject));
       end;
+    tkInterface :
+      begin
+        {$IFDEF DELPHIRX10_UP}
+        // Would not work with iOS/Android native interfaces
+        Result := TJSONValue(SerializeObject(aValue.AsInterface as TObject));
+        {$ENDIF}
+      end;
     tkString, tkLString, tkWString, tkUString :
       begin
         Result := TJSONString.Create(aValue.AsString);
@@ -1443,7 +1454,7 @@ begin
         end;
         {$ENDIF}
       end;
-    tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure, tkUnknown :
+    tkMethod, tkPointer, tkClassRef, tkProcedure, tkUnknown :
       begin
         //skip these properties
       end
