@@ -1734,6 +1734,7 @@ end;
 
 function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
 var
+  jvalue : TJSONValue;
   json: TJSONObject;
 begin
   {$IFDEF DEBUG_SERIALIZER}
@@ -1741,7 +1742,9 @@ begin
   {$ENDIF}
   try
     {$IFDEF DELPHIRX10_UP}
-    json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
+    jvalue := TJSONObject.ParseJSONValue(aJson,True);
+    if jvalue.ClassType = TJSONArray then json := TJSONObject(jvalue)
+      else json := jvalue as TJSONObject;
     {$ELSE}
      {$IFDEF FPC}
      json := TJSONObject(TJSONObject.ParseJSONValue(aJson,True));
