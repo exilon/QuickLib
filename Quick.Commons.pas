@@ -94,6 +94,7 @@ const
   {$ELSE}
   EventStr : array[0..8] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION');
   {$ENDIF}
+  CRLF = #13#10;
 type
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
 
@@ -1748,7 +1749,7 @@ begin
     for value in aArray do
     begin
       sb.Append(value);
-      sb.Append(#10#13);
+      sb.Append(CRLF);
     end;
     Result := sb.ToString;
   finally

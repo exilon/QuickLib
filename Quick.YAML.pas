@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2022 Kike Pérez
 
   Unit        : Quick.YAML
   Description : YAML Object parser
   Author      : Kike Pérez
   Version     : 1.1
   Created     : 17/04/2019
-  Modified    : 03/07/2020
+  Modified    : 07/03/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -247,9 +247,7 @@ type
 implementation
 
 const
-  CRLF = #13#10;
   NUM_INDENT = 2;
-
 
 { TYamlAncestor }
 
@@ -512,7 +510,7 @@ begin
   try
     vIndex := 0;
     //normalize tabs
-    data := StringReplace(aData,#9,Spaces(4),[rfReplaceAll]);
+    data := StringReplace(aData,#9,Spaces(NUM_INDENT),[rfReplaceAll]);
     {$IFNDEF LINUX}
     for line in data.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
     {$ELSE}
@@ -541,7 +539,7 @@ begin
   try
     vIndex := 0;
     //normalize tabs
-    data := StringReplace(aData,#9,Spaces(4),[rfReplaceAll]);
+    data := StringReplace(aData,#9,Spaces(NUM_INDENT),[rfReplaceAll]);
     {$IFNDEF LINUX}
     for line in data.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
     {$ELSE}
