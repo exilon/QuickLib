@@ -371,6 +371,11 @@ begin
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for obj in fList do
   begin
+    {$IFNDEF FPC}
+    if obj = nil then continue;
+    {$ELSE}
+    if Pointer(obj) = nil then continue;
+    {$ENDIF}
     if fWhereClause.Validate(obj) then
     begin
       //value := TRTTI.GetProperty(obj,aPropertyName);
@@ -396,6 +401,11 @@ begin
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for obj in fList do
   begin
+    {$IFNDEF FPC}
+    if obj = nil then continue;
+    {$ELSE}
+    if Pointer(obj) = nil then continue;
+    {$ENDIF}
     if fWhereClause.Validate(obj) then Result.Add(obj);
   end;
   DoOrderBy(Result);
@@ -412,6 +422,11 @@ begin
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for obj in fList do
   begin
+    {$IFNDEF FPC}
+    if obj = nil then continue;
+    {$ELSE}
+    if Pointer(obj) = nil then continue;
+    {$ENDIF}
     if fWhereClause.Validate(obj) then Exit(obj);
   end;
 end;
@@ -427,6 +442,11 @@ begin
   if fWhereClause = nil then raise ELinqNotValidExpression.Create('Not valid expression defined!');
   for obj in fList do
   begin
+    {$IFNDEF FPC}
+    if obj = nil then continue;
+    {$ELSE}
+    if Pointer(obj) = nil then continue;
+    {$ENDIF}
     if fWhereClause.Validate(obj) then Result := obj;
   end;
 end;
@@ -446,6 +466,11 @@ begin
   i := 0;
   for obj in fList do
   begin
+    {$IFNDEF FPC}
+    if obj = nil then continue;
+    {$ELSE}
+    if Pointer(obj) = nil then continue;
+    {$ENDIF}
     if fWhereClause.Validate(obj) then
     begin
       Result.Add(obj);
