@@ -92,12 +92,12 @@ implementation
 
 class function TRegExUtils.IsNumber(const aValue: string): Boolean;
 begin
-  Result := TRegEx.IsMatch(aValue,'^\d*(\.\d+)?$');
+  Result := TRegEx.IsMatch(aValue,'^(-|)\d*(\.\d+)?$');
 end;
 
 class function TRegExUtils.IsFloat(const aValue: string): Boolean;
 begin
-  Result := TRegEx.IsMatch(aValue,'^\d*\.\d+$');
+  Result := TRegEx.IsMatch(aValue,'^(-|)\d*\.\d+$');
 end;
 
 class function TRegExUtils.IsInteger(const aValue: string): Boolean;
