@@ -330,6 +330,7 @@ type
   function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
   //returns n times a char
   function FillStr(const C : Char; const Count : Integer) : string;
+  function FillStrEx(const value : string; const Count : Integer) : string;
   //checks if string exists in array of string
   function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
   //checks if integer exists in array of integer
@@ -869,6 +870,13 @@ begin
   for i := 1 to Count do Result := Result + C;
 end;
 
+function FillStrEx(const value : string; const Count : Integer) : string;
+var
+  i   : Integer;
+begin
+  Result := '';
+  for i := 1 to Count do Result := Result + value;
+end;
 
 function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
 var
