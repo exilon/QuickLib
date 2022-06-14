@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pérez
 
   Unit        : Quick.Threads
   Description : Thread safe collections
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 08/09/2021
+  Modified    : 14/06/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -152,7 +152,11 @@ type
   TSimpleThread = class(TThread)
   private
     fExecuteProc : TProc;
+    {$IFNDEF FPC}
     fTimeoutFlag : TLightweightEvent;
+    {$ELSE}
+    fTimeoutFlag : TSimpleEvent;
+    {$ENDIF}
   public
     constructor Create(aProc: TProc; aCreateSuspended, aFreeOnTerminate : Boolean);
     destructor Destroy; override;
@@ -549,6 +553,7 @@ type
     destructor Destroy; override;
   end;
 
+  {$IFNDEF FPC}
   IAsyncTask<T> = interface
   ['{8529BBD4-B5AD-4674-8E42-3C74F5156A97}']
     function Result : T; overload;
@@ -567,6 +572,7 @@ type
     class function Run(const aAction : TFunc<T>) : IAsyncTask<T>; virtual;
     destructor Destroy; override;
   end;
+  {$ENDIF}
 
   TBackgroundTasks = class
   private
@@ -2289,7 +2295,7 @@ begin
       {$ELSE}
       if Assigned(fExceptionProc) then fExceptionProc(Exception(AcquireExceptionObject))
       {$ENDIF}
-        else raise e;
+        else raise;
     end;
   end;
 end;
@@ -2360,7 +2366,6 @@ begin
 end;
 
 { TAsyncTask }
-
 constructor TAsyncTask.Create(aAction : TProc);
 begin
   fProcess := TSimpleThread.Create(aAction,False,True);
@@ -2389,6 +2394,7 @@ end;
 
 { TAsyncTask<T> }
 
+{$IFNDEF FPC}
 constructor TAsyncTask<T>.Create(aAction: TFunc<T>);
 begin
   fWaitForResult := False;
@@ -2424,6 +2430,7 @@ begin
   Result := fTaskResult;
   fProcess.Free;
 end;
+{$ENDIF}
 
 { TParamValue }
 
@@ -2574,11 +2581,14 @@ begin
 end;
 
 { TSimpleThread }
-
 constructor TSimpleThread.Create(aProc: TProc; aCreateSuspended, aFreeOnTerminate : Boolean);
 begin
   if not Assigned(aProc) then raise EArgumentNilException.Create('param cannot be nil!');
+  {$IFNDEF FPC}
   fTimeoutFlag := TLightweightEvent.Create;
+  {$ELSE}
+  fTimeoutFlag := TSimpleEvent.Create;
+  {$ENDIF}
   fTimeoutFlag.ResetEvent;
   fExecuteProc := aProc;
   inherited Create(aCreateSuspended);
