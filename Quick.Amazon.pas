@@ -102,7 +102,6 @@ type
       procedure SetAmazonProtocol(amProtocol : TAmazonProtocol);
       procedure SetAWSRegion(Value : TAmazonRegion);
       function FileToArray(cFilename : string) : TArray<Byte>;
-      function StreamToArray(cStream : TStream) : TArray<Byte>;
       function ByteContent(DataStream: TStream): TBytes;
     public
       constructor Create; overload;
@@ -127,8 +126,9 @@ type
       function DeleteBucket(amBucket : string; amBucketRegion : TAmazonRegion; var amResponseInfo : TAmazonResponseInfo) : Boolean;
       {$IFNDEF DELPHISYDNEY_UP}
       class function GetAWSRegion(Region: TAmazonRegion): string; overload;
-      {$ENDIF}
+      {$ELSE}
       class function GetAWSRegion(const Region : string) : TAmazonRegion; overload;
+      {$ENDIF}
   end;
 
 implementation
@@ -207,19 +207,6 @@ begin
     Result := ByteContent(fs);
   finally
     fs.Free;
-  end;
-end;
-
-function TQuickAmazon.StreamToArray(cStream : TStream) : TArray<Byte>;
-var
-  bs : TBytesStream;
-begin
-  bs := TBytesStream.Create(Result);
-  try
-    bs.LoadFromStream(cStream);
-    Result := bs.Bytes;
-  finally
-    bs.Free
   end;
 end;
 
@@ -606,15 +593,15 @@ begin
   end;
 end;
 
-class function TQuickAmazon.GetAWSRegion(const Region : string) : TAmazonRegion;
-begin
-  Result := TAmazonStorageService.GetRegionFromString(Region);
-end;
-
 {$IFNDEF DELPHISYDNEY_UP}
 class function TQuickAmazon.GetAWSRegion(Region: TAmazonRegion): string;
 begin
   Result := TAmazonStorageService.GetRegionString(Region);
+end;
+{$ELSE}
+class function TQuickAmazon.GetAWSRegion(const Region : string) : TAmazonRegion;
+begin
+  Result := TAmazonStorageService.GetRegionFromString(Region);
 end;
 {$ENDIF}
 
