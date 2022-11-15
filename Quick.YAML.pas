@@ -585,6 +585,8 @@ begin
 end;
 
 function TYamlObject.ParseToYaml(aIndent : Integer) : string;
+const
+  SPECIAL_CHARS: array[1..19] of Char = (':', '{', '}', '[', ']', ',', '&', '*', '#', '?', '|', '-', '<', '>', '=', '!', '%', '@', '\');
 var
   i : Integer;
   member : TYamlPair;
@@ -613,6 +615,8 @@ begin
           else if (yvalue is TYamlFloat) or (yvalue is TYamlBoolean) then scalar := member.Value.AsString
             else scalar := member.Value.Value.AsString;
           if scalar.IsEmpty then scalar := '""';
+          if scalar.IndexOfAny(SPECIAL_CHARS) > -1 then
+            scalar := AnsiQuotedStr(scalar, '"');
           yaml.Writeln(Format('%s%s: %s',[indent,member.Name,scalar]));
           if (i < fMembers.Count - 1) and (fMembers[i+1].Value is TYamlComment) then yaml.Writeln('');
         end;
