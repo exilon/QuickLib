@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2022 Kike Pérez
+  Copyright (c) 2015-2022 Kike Pï¿½rez
 
   Unit        : Quick.YAML
   Description : YAML Object parser
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.1
   Created     : 17/04/2019
   Modified    : 07/03/2022
@@ -414,7 +414,7 @@ end;
 
 class function TYamlObject.ParsePairValue(const aPair: string): string;
 begin
-  Result := Copy(aPair,aPair.IndexOf(':')+2,aPair.Length).Trim;
+  Result := AnsiDequotedStr(Copy(aPair,aPair.IndexOf(':')+2,aPair.Length).Trim, '"');
 end;
 
 class function TYamlObject.ParseValue(yaml : TList<string>; var vIndex : Integer): TYamlAncestor;
@@ -511,7 +511,7 @@ begin
     vIndex := 0;
     //normalize tabs
     data := StringReplace(aData,#9,Spaces(NUM_INDENT),[rfReplaceAll]);
-    {$IFNDEF LINUX}
+    {$IFDEF MSWINDOWS}
     for line in data.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
     {$ELSE}
     for line in data.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
@@ -540,7 +540,7 @@ begin
     vIndex := 0;
     //normalize tabs
     data := StringReplace(aData,#9,Spaces(NUM_INDENT),[rfReplaceAll]);
-    {$IFNDEF LINUX}
+    {$IFDEF MSWINDOWS}
     for line in data.Split([#13]) do yaml.Add(StringReplace(line,#10,'',[rfReplaceAll]));
     {$ELSE}
     for line in data.Split([#10]) do yaml.Add(StringReplace(line,#13,'',[rfReplaceAll]));
