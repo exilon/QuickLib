@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2022 Kike Pérez
 
   Unit        : Quick.Data.Redis
   Description : Redis client
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 22/02/2020
-  Modified    : 15/10/2021
+  Modified    : 07/03/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -161,7 +161,6 @@ implementation
 const
 
   DEF_REDIS_PORT = 6379;
-  CRLF = #13#10;
   DEF_CONNECTIONTIMEOUT = 30000;
   DEF_READTIMETOUT = 10000;
 

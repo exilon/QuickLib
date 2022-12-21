@@ -146,7 +146,7 @@ var
   str : string;
 begin
   i := LOWSTR;
-  idx := 0;
+  idx := LOWSTR;
   count := 0;
   Result := TMultiExpression.Create;
   exp := aExpression.TrimLeft;
@@ -176,8 +176,8 @@ begin
       if (rexp.Combine = TCombine.coNone) and not (exp.IsEmpty) then raise ENotValidExpression.Create('Not valid expression defined!');
       //add to multiexpression
       Result.Add(rexp);
-      idx := 0;
-      i := -1;
+      idx := LOWSTR;
+      i := 0;
     end;
     Inc(i);
   end;

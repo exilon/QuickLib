@@ -1,10 +1,15 @@
-﻿
+![alt text](docs/QuickLib.png "QuickLib") 
 
+QuickLib is a delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 11 Alexandria supported.
 
-**QuickLib**
---------
+## Give it a star
+Please "star" this project in GitHub! It costs nothing but helps to reference the code.
+![alt text](docs/githubstartme.jpg "Give it a star")
 
-Small delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 11 Alexandria supported.
+## Support
+If you find this project useful, please consider making a donation.
+
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=BKLKPNEYKSBKL)
 
 **Areas of functionality:**
   

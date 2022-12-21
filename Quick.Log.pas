@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pérez
 
   Unit        : Quick.Log
   Description : Threadsafe Log
   Author      : Kike Pérez
   Version     : 1.19
   Created     : 10/04/2016
-  Modified    : 21/01/2019
+  Modified    : 10/02/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -173,7 +173,7 @@ end;
 
 function TQuickLog.SetLog(logname : string; AddCurrentDateToFileName : Boolean; LimitSizeInMB : Integer = 0) : Boolean;
 begin
-  if logname = '' then logname := TPath.GetDirectoryName(ParamStr(0)) + '\' + TPath.GetFileNameWithoutExtension(ParamStr(0)) + '.log';
+  if logname = '' then logname := TPath.GetDirectoryName(ParamStr(0)) + PathDelim + TPath.GetFileNameWithoutExtension(ParamStr(0)) + '.log';
   fFMTName := ExtractFilePath(logname) + ExtractFileNameWithoutExt(logname) + '_%s' + ExtractFileExt(logname);
   fHideHour := True;
   fCurrentDateToFileName := AddCurrentDateToFileName;

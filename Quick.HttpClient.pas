@@ -211,7 +211,7 @@ begin
         except
           on E : Exception do
           begin
-            if e.ClassType <> EIdConnClosedGracefully then raise e;
+            if e.ClassType <> EIdConnClosedGracefully then raise;
           end;
         end;
         {$ELSE}
@@ -250,7 +250,7 @@ begin
       except
         on E : Exception do
         begin
-          if e.ClassType <> EIdConnClosedGracefully then raise e;
+          if e.ClassType <> EIdConnClosedGracefully then raise;
         end;
       end;
       {$ELSE}
@@ -302,7 +302,7 @@ begin
         except
           on E : Exception do
           begin
-            if e.ClassType <> EIdConnClosedGracefully then raise e;
+            if e.ClassType <> EIdConnClosedGracefully then raise;
           end;
         end;
         {$ELSE}

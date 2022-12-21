@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pérez
 
   Unit        : Quick.Template
   Description : String Replace Templates
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 01/04/2020
-  Modified    : 30/06/2020
+  Modified    : 31/03/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -106,6 +106,7 @@ var
 begin
   //resolve template
   Result := '';
+  st := 0;
   idx := 1;
   repeat
     st := aTemplate.IndexOf(fQuoteBegin,st) + 1;

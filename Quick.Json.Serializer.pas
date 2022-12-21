@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.12
   Created     : 21/05/2018
-  Modified    : 26/01/2022
+  Modified    : 17/05/2022
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -86,6 +86,8 @@ type
     property Comment : string read fComment;
   end;
 
+  TSerializerOptions = Quick.Serializer.Intf.TSerializerOptions;
+
   TCustomNameProperty = class(TCustomAttribute)
   private
     fName : string;
@@ -130,6 +132,9 @@ type
     fUseJsonCaseSense : Boolean;
     fUseBase64Stream : Boolean;
     fUseNullStringsAsEmpty : Boolean;
+    fUseGUIDWithBrackets : Boolean;
+    fUseGUIDLowercase : Boolean;
+    fOptions : TSerializerOptions;
     function GetValue(aAddr: Pointer; aType: TRTTIType): TValue; overload;
     {$IFDEF FPC}
     function GetValue(aAddr: Pointer; aTypeInfo: PTypeInfo): TValue; overload;
@@ -151,12 +156,17 @@ type
     function CreateInstance(aClass: TClass): TValue; overload;
     function CreateInstance(aType: TRttiType): TValue; overload;
     {$ENDIF}
+    function GUIDToStringFormated(const aGUID : TGUID) : string;
   public
     constructor Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
+    destructor Destroy; override;
     property UseEnumNames : Boolean read fUseEnumNames write fUseEnumNames;
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write fUseJsonCaseSense;
     property UseBase64Stream : Boolean read fUseBase64Stream write fUseBase64Stream;
     property UseNullStringsAsEmpty : Boolean read fUseNullStringsAsEmpty write fUseNullStringsAsEmpty;
+    property UseGUIDWithBrackets : Boolean read fUseGUIDWithBrackets write fUseGUIDWithBrackets;
+    property UseGUIDLowercase : Boolean read fUseGUIDLowercase write fUseGUIDLowercase;
+    property Options : TSerializerOptions read fOptions write fOptions;
     function GetJsonPairValueByName(aJson : TJSONObject; const aName : string) : TJsonValue;
     function GetJsonPairByName(aJson : TJSONObject; const aName : string) : TJSONPair;
     function IsGenericList(aObject : TObject) : Boolean;
@@ -197,6 +207,8 @@ type
     fUseJsonCaseSense : Boolean;
     fUseBase64Stream : Boolean;
     fUseNullStringsAsEmpty : Boolean;
+    fUseGUIDWithBrackets: Boolean;
+    fUseGUIDLowercase: Boolean;
     fRTTIJson : TRTTIJson;
   private
     procedure SetUseEnumNames(const Value: Boolean);
@@ -205,6 +217,8 @@ type
     procedure SetUseBase64Stream(const Value: Boolean);
     //Only Delphi -> Workaround, use this when something passes : {Test : "Null"} but we expect : {Test : ""}
     procedure SetUseNullStringsAsEmpty(const Value : Boolean);
+    procedure SetUseGUIDLowerCase(const Value: Boolean);
+    procedure SetUseGUIDWithBrackets(const Value: Boolean);
   public
     constructor Create(aSerializeLevel: TSerializeLevel; aUseEnumNames : Boolean = True; aUseNullStringsAsEmpty : Boolean = False);
     destructor Destroy; override;
@@ -213,6 +227,8 @@ type
     property UseJsonCaseSense : Boolean read fUseJsonCaseSense write SetUseJsonCaseSense;
     property UseBase64Stream : Boolean read fUseBase64Stream write SetUseBase64Stream;
     property UseNullStringsAsEmpty : Boolean read fUseNullStringsAsEmpty write SetUseNullStringsAsEmpty;
+    property UseGUIDWithBrackets : Boolean read fUseGUIDWithBrackets write SetUseGUIDWithBrackets;
+    property UseGUIDLowerCase : Boolean read fUseGUIDLowercase write SetUseGUIDLowerCase;
     function JsonToObject(aType : TClass; const aJson: string) : TObject; overload;
     function JsonToObject(aObject : TObject; const aJson: string) : TObject; overload;
     function JsonStreamToObject(aObject : TObject; aJsonStream : TStream) : TObject;
@@ -227,6 +243,7 @@ type
     function JsonToArray<T>(const aJson : string) : TArray<T>;
     function JsonToValue(const aJson: string): TValue;
     {$ENDIF}
+    function Options : TSerializerOptions;
   end;
 
   EJsonSerializerError = class(Exception);
@@ -301,7 +318,7 @@ begin
           end
       else
         begin
-          rItemValue := DeserializeType(aObject,rType.Kind,aTypeInfo,aJsonArray.Items[i].Value);
+          rItemValue := DeserializeType(aObject,rType.Kind,rType,aJsonArray.Items[i].Value);
         end;
       end;
       if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);
@@ -458,7 +475,7 @@ function TRTTIJson.DeserializeStream(aObject: TObject; const aJson: TJSONValue):
 var
  stream : TStringStream;
 begin
-  if fUseBase64Stream then stream := TStringStream.Create(Base64Decode(aJson.Value),TEncoding.Ansi)
+  if fOptions.UseBase64Stream then stream := TStringStream.Create(Base64Decode(aJson.Value),TEncoding.Ansi)
     else stream := TStringStream.Create({$IFNDEF FPC}aJson.Value{$ELSE}string(aJson.Value){$ENDIF},TEncoding.Ansi);
   try
     TStream(aObject).CopyFrom(stream,stream.Size);
@@ -470,10 +487,24 @@ end;
 
 constructor TRTTIJson.Create(aSerializeLevel : TSerializeLevel; aUseEnumNames : Boolean = True);
 begin
+  fOptions := TSerializerOptions.Create;
   fSerializeLevel := aSerializeLevel;
   fUseEnumNames := aUseEnumNames;
   fUseJsonCaseSense := False;
   fUseBase64Stream := True;
+  fUseGUIDWithBrackets := False;
+  fUseGUIDLowerCase := True;
+  fOptions.UseEnumNames := aUseEnumNames;
+  fOptions.UseJsonCaseSense := False;
+  fOptions.UseBase64Stream := True;
+  fOptions.UseGUIDLowercase := False;
+  fOptions.UseGUIDLowercase := True;
+end;
+
+destructor TRTTIJson.Destroy;
+begin
+  fOptions.Free;
+  inherited;
 end;
 
 {$IFNDEF FPC}
@@ -620,10 +651,11 @@ var
   i : Integer;
   n : Integer;
   rProp : TRttiProperty;
-  {$IFNDEF DELPHIRX10_UP}
+  {$IFDEF DELPHIRX10_UP}
+  rMethod: TRttiMethod;
+  {$ELSE}
   rfield : TRttiField;
   {$ENDIF}
-  genericType : TGenericListType;
 begin
   Result := aObject;
 
@@ -654,17 +686,20 @@ begin
   if not rValue.IsEmpty then
   begin
     {$IFDEF DELPHIRX10_UP}
-    if (TObjectList<TObject>(aObject) <> nil) and (rvalue.IsArray) then
+    if (aObject <> nil) and (rvalue.IsArray) then
     begin
-      genericType := GetGenericListType(aObject);
-      if genericType = TGenericListType.gtObjectList then TObjectList<TObject>(aObject).Clear
-        else TList<TObject>(aObject).Clear;
+      rMethod := ctx.GetType(aObject.ClassType).GetMethod('Clear');
+      if rMethod = nil then
+        raise EJsonDeserializeError.Create('Unable to find RTTI method');
+      rMethod.Invoke(aObject, []);
+
+      rMethod := ctx.GetType(aObject.ClassType).GetMethod('Add');
+      if rMethod = nil then
+        raise EJsonDeserializeError.Create('Unable to find RTTI method');
+
       n := rvalue.GetArrayLength - 1;
       for i := 0 to n do
-      begin
-        if genericType = TGenericListType.gtObjectList then TObjectList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject)
-          else TList<TObject>(aObject).Add(rvalue.GetArrayElement(i).AsObject);
-      end;
+        rMethod.Invoke(aObject, [rvalue.GetArrayElement(i)]);
     end;
     {$ELSE}
     n := 0;
@@ -717,12 +752,20 @@ begin
   if not rValue.IsEmpty then rField.SetValue(aRecord.GetReferenceToRawData,rValue);
   aProperty.SetValue(Instance,aRecord);
 end;
+
 {$ENDIF}
 
 function StringToGUIDEx(const aGUID : string) : TGUID;
 begin
   if not aGUID.StartsWith('{') then Result := System.SysUtils.StringToGUID('{' + aGUID + '}')
     else Result := System.SysUtils.StringToGUID(aGUID);
+end;
+
+function TRTTIJson.GUIDToStringFormated(const aGUID : TGUID) : string;
+begin
+  if fOptions.UseGUIDWithBrackets then Result := System.SysUtils.GUIDToString(aGUID)
+    else Result := GetSubString(System.SysUtils.GUIDToString(aGUID),'{','}');
+  if fOptions.UseGUIDLowercase then Result := Result.ToLower;
 end;
 
 function TRTTIJson.DeserializeProperty(aObject : TObject; const aName : string; aProperty : TRttiProperty; const aJson : TJSONObject) : TObject;
@@ -802,7 +845,8 @@ begin
           begin
             if aProperty.GetValue(aObject).TypeInfo = System.TypeInfo(TGUID) then
             begin
-              rValue:=TValue.From<TGUID>(StringToGUID(UnQuotedStr(member.ToJSON,'"')));
+              //get value from TGUID string with and without {} (more compatibility)
+              rValue:=TValue.From<TGUID>(StringToGUIDEx(UnQuotedStr(member.ToJSON,'"')));
             end
             else
             begin
@@ -850,7 +894,7 @@ begin
     case aType of
       tkString, tkLString, tkWString, tkUString :
         begin
-          if fUseNullStringsAsEmpty and (CompareText(value, 'null') = 0) then
+          if fOptions.UseNullStringsAsEmpty and (CompareText(value, 'null') = 0) then
             Result := ''
           else
             Result := value;
@@ -1055,7 +1099,7 @@ var
   candidate : TJSONPair;
   i : Integer;
 begin
-  if fUseJsonCaseSense then
+  if fOptions.UseJsonCaseSense then
   begin
     Result := aJson.GetValue(aName);
     Exit;
@@ -1076,7 +1120,7 @@ function TRTTIJson.GetJsonPairByName(aJson: TJSONObject; const aName: string): T
 var
   i : Integer;
 begin
-  if fUseJsonCaseSense then
+  if fOptions.UseJsonCaseSense then
   begin
     Result := TJSONPair(aJson.GetValue(aName));
     Exit;
@@ -1256,7 +1300,7 @@ begin
       //get list array
       propvalue := GetPropertyValueFromObject(aObject,'List');
       {$IFDEF DELPHIRX10_UP}
-      Result := TJSONObject(SerializeDynArray(propvalue,TList<TObject>(aObject).Count));
+      Result := TJSONObject(SerializeDynArray(propvalue));
       {$ELSE}
       Result := TJSONObject(SerializeValue(propvalue));
       {$ENDIF}
@@ -1364,6 +1408,13 @@ begin
       begin
          Result := TJSONValue(SerializeObject(aValue.AsObject));
       end;
+    tkInterface :
+      begin
+        {$IFDEF DELPHIRX10_UP}
+        // Would not work with iOS/Android native interfaces
+        Result := TJSONValue(SerializeObject(aValue.AsInterface as TObject));
+        {$ENDIF}
+      end;
     tkString, tkLString, tkWString, tkUString :
       begin
         Result := TJSONString.Create(aValue.AsString);
@@ -1443,7 +1494,7 @@ begin
         end;
         {$ENDIF}
       end;
-    tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure, tkUnknown :
+    tkMethod, tkPointer, tkClassRef, tkProcedure, tkUnknown :
       begin
         //skip these properties
       end
@@ -1466,7 +1517,7 @@ begin
   Result := nil;
   try
      stream := TStream(aObject);
-    if fUseBase64Stream then Result := TJSONString.Create(Base64Encode(StreamToString(stream,TEncoding.Ansi)))
+    if fOptions.UseBase64Stream then Result := TJSONString.Create(Base64Encode(StreamToString(stream,TEncoding.Ansi)))
       else Result := TJSONString.Create(StreamToString(stream,TEncoding.Ansi));
   except
     on E : Exception do
@@ -1530,7 +1581,7 @@ begin
     rRec := ctx.GetType(aValue.TypeInfo).AsRecord;
     if aValue.TypeInfo = System.TypeInfo(TGUID) then
     begin
-      Result := TJSONString.Create(GUIDToString(aValue.AsType<TGUID>));
+      Result := TJSONString.Create(GUIDToStringFormated(aValue.AsType<TGUID>));
     end
     else
     begin
@@ -1710,9 +1761,9 @@ begin
   fUseBase64Stream := True;
   fUseNullStringsAsEmpty := aUseNullStringsAsEmpty;
   fRTTIJson := TRTTIJson.Create(aSerializeLevel,aUseEnumNames);
-  fRTTIJson.UseJsonCaseSense := fUseJsonCaseSense;
-  fRTTIJson.UseBase64Stream := fUseBase64Stream;
-  fRTTIJson.UseNullStringsAsEmpty := fUseNullStringsAsEmpty;
+  fRTTIJson.Options.UseJsonCaseSense := fUseJsonCaseSense;
+  fRTTIJson.Options.UseBase64Stream := fUseBase64Stream;
+  fRTTIJson.Options.UseNullStringsAsEmpty := fUseNullStringsAsEmpty;
 end;
 
 destructor TJsonSerializer.Destroy;
@@ -1723,6 +1774,7 @@ end;
 
 function TJsonSerializer.JsonToObject(aType: TClass; const aJson: string): TObject;
 var
+  jvalue : TJSONValue;
   json: TJSONObject;
 begin
   {$IFDEF DEBUG_SERIALIZER}
@@ -1730,7 +1782,9 @@ begin
   {$ENDIF}
   try
     {$IFDEF DELPHIRX10_UP}
-    json := TJSONObject.ParseJSONValue(aJson,True) as TJSONObject;
+    jvalue := TJSONObject.ParseJSONValue(aJson,True);
+    if jvalue.ClassType = TJSONArray then json := TJSONObject(jvalue)
+      else json := jvalue as TJSONObject;
     {$ELSE}
      {$IFDEF FPC}
      json := TJSONObject(TJSONObject.ParseJSONValue(aJson,True));
@@ -1835,6 +1889,11 @@ begin
   finally
     json.Free;
   end;
+end;
+
+function TJsonSerializer.Options: TSerializerOptions;
+begin
+  Result := fRTTIJson.Options;
 end;
 
 function TJsonSerializer.ValueToJson(const aValue: TValue; aIndent: Boolean): string;
@@ -1980,25 +2039,37 @@ end;
 procedure TJsonSerializer.SetUseBase64Stream(const Value: Boolean);
 begin
   fUseBase64Stream := Value;
-  if Assigned(fRTTIJson) then fRTTIJson.UseBase64Stream := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.Options.UseBase64Stream := Value;
 end;
 
 procedure TJsonSerializer.SetUseEnumNames(const Value: Boolean);
 begin
   fUseEnumNames := Value;
-  if Assigned(fRTTIJson) then fRTTIJson.UseEnumNames := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.Options.UseEnumNames := Value;
+end;
+
+procedure TJsonSerializer.SetUseGUIDLowerCase(const Value: Boolean);
+begin
+  fUseGUIDLowercase := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.Options.UseGUIDLowerCase := Value;
+end;
+
+procedure TJsonSerializer.SetUseGUIDWithBrackets(const Value: Boolean);
+begin
+  fUseGUIDWithBrackets := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.Options.UseGUIDWithBrackets := Value;
 end;
 
 procedure TJsonSerializer.SetUseJsonCaseSense(const Value: Boolean);
 begin
-  fUseJsonCaseSense := Value;
-  if Assigned(fRTTIJson) then fRTTIJson.UseJsonCaseSense := Value;
+  fRTTIJson.Options.UseJsonCaseSense := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.Options.UseJsonCaseSense := Value;
 end;
 
 procedure TJsonSerializer.SetUseNullStringsAsEmpty(const Value: Boolean);
 begin
   fUseNullStringsAsEmpty := Value;
-  if Assigned(fRTTIJson) then fRTTIJson.fUseNullStringsAsEmpty := Value;
+  if Assigned(fRTTIJson) then fRTTIJson.Options.UseNullStringsAsEmpty := Value;
 end;
 
 {$IFNDEF FPC}

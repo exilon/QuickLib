@@ -36,6 +36,9 @@ interface
 uses
   System.SysUtils,
   RTTI,
+  {$IFDEF DEBUG_IOC}
+    Quick.Debug.Utils,
+  {$ENDIF}
   System.TypInfo,
   System.Generics.Collections,
   Quick.Logger.Intf,
@@ -102,10 +105,12 @@ type
   TIocRegistrator = class(TInterfacedObject,IIocRegistrator)
   private
     fDependencies : TDictionary<string,TIocRegistration>;
+    fDependencyOrder : TList<TIocRegistration>;
   public
     constructor Create;
     destructor Destroy; override;
     property Dependencies : TDictionary<string,TIocRegistration> read fDependencies write fDependencies;
+    property DependencyOrder : TList<TIocRegistration> read fDependencyOrder;
     function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName : string = '') : Boolean; overload;
     function IsRegistered<T>(const aName : string = '') : Boolean; overload;
     function GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
@@ -306,10 +311,19 @@ procedure TIocContainer.Build;
 var
   dependency : TIocRegistration;
 begin
-  for dependency in fRegistrator.Dependencies.Values do
+  {$IFDEF DEBUG_IOC}
+  TDebugger.TimeIt(Self,'Build','Container dependencies building...');
+  {$ENDIF}
+  for dependency in fRegistrator.DependencyOrder do
   begin
     try
+      {$IFDEF DEBUG_IOC}
+      TDebugger.Trace(Self,'[Building container]: %s',[dependency.fIntfInfo.Name]);
+      {$ENDIF}
       if dependency.IsSingleton then fResolver.Resolve(dependency.fIntfInfo,dependency.Name);
+      {$IFDEF DEBUG_IOC}
+      TDebugger.Trace(Self,'[Built container]: %s',[dependency.fIntfInfo.Name]);
+      {$ENDIF}
     except
       on E : Exception do raise EIocBuildError.CreateFmt('Build Error on "%s(%s)" dependency: %s!',[dependency.fImplementation.ClassName,dependency.Name,e.Message]);
     end;
@@ -415,6 +429,7 @@ end;
 constructor TIocRegistrator.Create;
 begin
   fDependencies := TDictionary<string,TIocRegistration>.Create;
+  fDependencyOrder := TList<TIocRegistration>.Create;
 end;
 
 destructor TIocRegistrator.Destroy;
@@ -422,18 +437,17 @@ var
   i : Integer;
   regs : TArray<TIocRegistration>;
 begin
-  //for reg in fDependencies.Values do
-  regs := fDependencies.Values.ToArray;
-  for i := High(regs) downto Low(regs) do
+  for i := fDependencyOrder.Count-1 downto 0 do
   begin
-    if regs[i]<> nil then
+    if fDependencyOrder[i] <> nil then
     begin
       //free singleton instances not interfaced
-      if (regs[i] is TIocRegistrationInstance) and (TIocRegistrationInstance(regs[i]).IsSingleton) then TIocRegistrationInstance(regs[i]).Instance.Free;
-      regs[i].Free;
+      if (fDependencyOrder[i] is TIocRegistrationInstance) and (TIocRegistrationInstance(fDependencyOrder[i]).IsSingleton) then TIocRegistrationInstance(regs[i]).Instance.Free;
+      fDependencyOrder[i].Free;
     end;
   end;
   fDependencies.Free;
+  fDependencyOrder.Free;
   inherited;
 end;
 
@@ -504,6 +518,7 @@ begin
     TIocRegistrationInterface(Result).Instance := aInstance;
     //reg.Instance := T.Create;
     fDependencies.Add(key,Result);
+    fDependencyOrder.Add(Result);
   end;
 end;
 
@@ -523,6 +538,7 @@ begin
     Result.&Implementation := aTypeInfo.TypeData.ClassType;
     //reg.Instance := T.Create;
     fDependencies.Add(key,Result);
+    fDependencyOrder.Add(Result);
   end;
 end;
 
@@ -545,6 +561,7 @@ begin
     reg.&Implementation := aOptions.ClassType;
     TIocRegistrationInterface(reg).Instance := TOptionValue<T>.Create(aOptions);
     fDependencies.Add(key,reg);
+    fDependencyOrder.Add(reg);
   end;
   Result := TIocRegistration<T>.Create(reg);
 end;
@@ -571,6 +588,7 @@ begin
   Result.IntfInfo := aTypeInfo;
   Result.&Implementation := aImplementation;
   fDependencies.Add(key,Result);
+  fDependencyOrder.Add(Result);
 end;
 
 { TIocResolver }
@@ -626,6 +644,9 @@ begin
   Result := nil;
   reg := nil;
   key := fRegistrator.GetKey(aServiceType,aName);
+  {$IFDEF DEBUG_IOC}
+  TDebugger.Trace(Self,'Resolving dependency: %s',[key]);
+  {$ENDIF}
   if not fRegistrator.Dependencies.TryGetValue(key,reg) then raise EIocResolverError.CreateFmt('Type "%s" not registered for IOC!',[aServiceType.Name]);
   //if is singleton return already instance if exists
   if reg.IsSingleton then
@@ -636,6 +657,9 @@ begin
       begin
         if TIocRegistrationInterface(reg).Instance.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
         TValue.Make(@intf,aServiceType,Result);
+        {$IFDEF DEBUG_IOC}
+        TDebugger.Trace(Self,'Resolved dependency: %s',[reg.fIntfInfo.Name]);
+        {$ENDIF}
         Exit;
       end;
     end
@@ -644,6 +668,9 @@ begin
       if TIocRegistrationInstance(reg).Instance <> nil then
       begin
         Result := TIocRegistrationInstance(reg).Instance;
+        {$IFDEF DEBUG_IOC}
+        TDebugger.Trace(Self,'Resolved dependency: %s',[reg.fIntfInfo.Name]);
+        {$ENDIF}
         Exit;
       end;
     end;
@@ -653,6 +680,9 @@ begin
   //use activator if assigned
   if reg is TIocRegistrationInterface then
   begin
+    {$IFDEF DEBUG_IOC}
+    TDebugger.Trace(Self,'Building dependency: %s',[reg.fIntfInfo.Name]);
+    {$ENDIF}
     if Assigned(reg.ActivatorDelegate) then TIocRegistrationInterface(reg).Instance := reg.ActivatorDelegate().AsInterface
       else TIocRegistrationInterface(reg).Instance := CreateInstance(reg.&Implementation).AsInterface;
     if (TIocRegistrationInterface(reg).Instance = nil) or (TIocRegistrationInterface(reg).Instance.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0) then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
@@ -660,6 +690,9 @@ begin
   end
   else
   begin
+    {$IFDEF DEBUG_IOC}
+    TDebugger.Trace(Self,'Building dependency: %s',[reg.fIntfInfo.Name]);
+    {$ENDIF}
     if Assigned(reg.ActivatorDelegate) then TIocRegistrationInstance(reg).Instance := reg.ActivatorDelegate().AsObject
     else
     begin
@@ -667,6 +700,9 @@ begin
     end;
     Result := TIocRegistrationInstance(reg).Instance;
   end;
+  {$IFDEF DEBUG_IOC}
+  TDebugger.Trace(Self,'Built dependency: %s',[reg.fIntfInfo.Name]);
+  {$ENDIF}
 end;
 
 function TIocResolver.Resolve<T>(const aName : string = ''): T;
@@ -687,7 +723,7 @@ begin
   Result := TList<T>.Create;
   pInfo := TypeInfo(T);
 
-  for reg in fRegistrator.Dependencies.Values do
+  for reg in fRegistrator.fDependencyOrder do
   begin
     if reg.IntfInfo = pInfo then Self.Resolve(pInfo,aName);
   end;

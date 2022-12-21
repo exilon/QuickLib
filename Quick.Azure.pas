@@ -162,7 +162,6 @@ end;
 function TQuickAzure.FileToArray(cFilename : string) : TArray<Byte>;
 var
   fs : TFileStream;
-  bs : TBytesStream;
 begin
   fs := TFileStream.Create(cFilename, fmOpenRead);
   try

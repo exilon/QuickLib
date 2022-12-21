@@ -94,6 +94,7 @@ const
   {$ELSE}
   EventStr : array[0..8] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION');
   {$ENDIF}
+  CRLF = #13#10;
 type
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
 
@@ -329,6 +330,7 @@ type
   function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
   //returns n times a char
   function FillStr(const C : Char; const Count : Integer) : string;
+  function FillStrEx(const value : string; const Count : Integer) : string;
   //checks if string exists in array of string
   function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
   //checks if integer exists in array of integer
@@ -868,6 +870,13 @@ begin
   for i := 1 to Count do Result := Result + C;
 end;
 
+function FillStrEx(const value : string; const Count : Integer) : string;
+var
+  i   : Integer;
+begin
+  Result := '';
+  for i := 1 to Count do Result := Result + value;
+end;
 
 function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
 var
@@ -1748,7 +1757,7 @@ begin
     for value in aArray do
     begin
       sb.Append(value);
-      sb.Append(#10#13);
+      sb.Append(CRLF);
     end;
     Result := sb.ToString;
   finally
