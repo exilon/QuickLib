@@ -263,7 +263,9 @@ type
   function FindDelimiter(const Delimiters, S: string; StartIdx: Integer = 1): Integer;
   {$ENDIF}
   function ConvertDateTimeToFileTime(const DateTime: TDateTime; const UseLocalTimeZone: Boolean): TFileTime;
+  {$IFDEF MSWINDOWS}
   function ConvertFileTimeToDateTime(const FileTime : TFileTime; const UseLocalTimeZone : Boolean) : TDateTime;
+  {$ENDIF}
   procedure SetDateTimeInfo(const Path: string; const CreationTime, LastAccessTime, LastWriteTime: PDateTime; const UseLocalTimeZone: Boolean);
   function GetFiles(const Path : string; Recursive : Boolean) : TArray<TDirItem>; overload;
   procedure GetFiles(const Path : string; aAddToList : TDirItemAddProc; Recursive : Boolean); overload;
@@ -1309,8 +1311,12 @@ begin
         diritem.Name := rec.Name;
         diritem.IsDirectory := False;
         diritem.Size := rec.Size;
+        {$IFNDEF LINUX}
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        {$ELSE}
+        diritem.CreationDate := FileDateToDateTime(rec.Time);
+        {$ENDIF}
         Result := Result + [diritem];
       end
       else
@@ -1336,8 +1342,12 @@ begin
         diritem.Name := rec.Name;
         diritem.IsDirectory := False;
         diritem.Size := rec.Size;
+       {$IFNDEF LINUX}
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        {$ELSE}
+        diritem.CreationDate := FileDateToDateTime(rec.Time);
+        {$ENDIF}
         aAddToList(diritem);
       end
       else
@@ -1363,8 +1373,12 @@ begin
         diritem.Name := rec.Name;
         diritem.IsDirectory := True;
         diritem.Size := rec.Size;
+        {$IFNDEF LINUX}
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        {$ELSE}
+        diritem.CreationDate := FileDateToDateTime(rec.Time);
+        {$ENDIF}
         Result := Result + [diritem];
         if Recursive then Result := Result + GetFiles(IncludeTrailingPathDelimiter(Path) + diritem.Name,Recursive);
       end;
@@ -1402,8 +1416,12 @@ begin
         diritem.Name := rec.Name;
         diritem.IsDirectory := False;
         diritem.Size := rec.Size;
+        {$IFNDEF LINUX}
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        {$ELSE}
+        diritem.CreationDate := FileDateToDateTime(rec.Time);
+        {$ENDIF}
         Result := Result + [diritem];
       end
       else if (rec.Name <> '.') and (rec.Name <> '..') then
@@ -1411,8 +1429,12 @@ begin
         diritem.Name := rec.Name;
         diritem.IsDirectory := True;
         diritem.Size := rec.Size;
+        {$IFNDEF LINUX}
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        {$ELSE}
+        diritem.CreationDate := FileDateToDateTime(rec.Time);
+        {$ENDIF}
         Result := Result + [diritem];
         if Recursive then Result := Result + GetFilesAndDirectories(dirpath + diritem.Name,Recursive);
       end;
@@ -1452,8 +1474,12 @@ begin
         diritem.Name := rec.Name;
         diritem.IsDirectory := False;
         diritem.Size := rec.Size;
+        {$IFNDEF LINUX}
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        {$ELSE}
+        diritem.CreationDate := FileDateToDateTime(rec.Time);
+        {$ENDIF}
         aAddToList(diritem);
       end
       else if (rec.Name <> '.') and (rec.Name <> '..') then
@@ -1461,8 +1487,12 @@ begin
         diritem.Name := rec.Name;
         diritem.IsDirectory := True;
         diritem.Size := rec.Size;
+        {$IFNDEF LINUX}
         diritem.CreationDate := ConvertFileTimeToDateTime(rec.FindData.ftCreationTime,True);
         diritem.LastModified := ConvertFileTimeToDateTime(rec.FindData.ftLastWriteTime,True);
+        {$ELSE}
+        diritem.CreationDate := FileDateToDateTime(rec.Time);
+        {$ENDIF}
         aAddToList(diritem);
         if Recursive then GetFilesAndDirectories(dirpath + diritem.Name,aAddToList,Recursive);
       end;

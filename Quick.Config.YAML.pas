@@ -177,14 +177,18 @@ begin
     yaml := TStringList.Create;
     try
       yaml.LoadFromFile(fFilename);
-      serializer := TYamlSerializer.Create(slPublishedProperty,UseEnumNames);
-      try
-        //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
-        //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
-        serializer.YamlToObject(cConfig,yaml.Text);
-      finally
-        serializer.Free;
-      end;
+      if yaml.Count > 0 then
+      begin
+        serializer := TYamlSerializer.Create(slPublishedProperty,UseEnumNames);
+        try
+          //Streamer.Options := Streamer.Options + [jsoDateTimeAsString ,jsoUseFormatString];
+          //Streamer.DateTimeFormat := 'yyyy-mm-dd"T"hh:mm:ss.zz';
+          serializer.YamlToObject(cConfig,yaml.Text);
+        finally
+          serializer.Free;
+        end;
+      end else
+        TAppConfig(cConfig).DefaultValues;
     finally
       yaml.Free;
     end;
