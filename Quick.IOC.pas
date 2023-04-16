@@ -442,7 +442,9 @@ begin
     if fDependencyOrder[i] <> nil then
     begin
       //free singleton instances not interfaced
-      if (fDependencyOrder[i] is TIocRegistrationInstance) and (TIocRegistrationInstance(fDependencyOrder[i]).IsSingleton) then TIocRegistrationInstance(regs[i]).Instance.Free;
+      if (fDependencyOrder[i] is TIocRegistrationInstance) and
+          (TIocRegistrationInstance(fDependencyOrder[i]).IsSingleton) then
+            TIocRegistrationInstance(fDependencyOrder[i]).Instance.Free;
       fDependencyOrder[i].Free;
     end;
   end;
