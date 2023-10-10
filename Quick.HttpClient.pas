@@ -380,7 +380,9 @@ constructor THttpRequestResponse.Create(aResponse: IHTTPResponse; const aContent
 begin
   fStatusCode := aResponse.StatusCode;
   fStatusText := aResponse.StatusText;
-  if aContent <> '' then fResponse := TJSONObject.ParseJSONValue(aContent) as TJSONObject;
+  if ((aContent <> '') and
+      (aContent.StartsWith('{') or (aContent.StartsWith('[')))
+      ) then fResponse := TJSONObject.ParseJSONValue(aContent) as TJSONObject;
   //if response is not json, get as json result
   if fResponse = nil then
   begin
