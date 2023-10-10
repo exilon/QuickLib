@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2023 Kike Pérez
 
   Unit        : Quick.Azure
   Description : Azure blobs operations
   Author      : Kike Pérez
   Version     : 1.4
   Created     : 27/08/2015
-  Modified    : 21/10/2021
+  Modified    : 14/07/2023
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -607,9 +607,13 @@ begin
       CloudResponseInfo := TCloudResponseInfo.Create;
       try
         previousMaker := cNextMarker;
+        cNextMarker := '';
         azBlobList := BlobService.ListBlobs(azContainer,azBlobsStartWith,'/',previousMaker,100,[],cNextMarker,blobprefix,xmlresp,CloudResponseInfo);
         azResponseInfo := GetResponseInfo(CloudResponseInfo);
-        if Assigned(azBlobList) then Result.Capacity := High(azBlobList);
+        if Assigned(azBlobList) then
+        begin
+          if Result.Capacity < High(azBlobList) then Result.Capacity := High(azBlobList);
+        end;
         //get folders (prefix)
         for folder in blobprefix do
         begin
@@ -636,6 +640,7 @@ begin
             Result.Add(Blob);
           end;
         end;
+        azBlobList := nil;
       finally
         CloudResponseInfo.Free;
       end;
@@ -692,6 +697,7 @@ begin
               azBlobList.Free;
             end;
           end;
+          azBlobList := nil;
         finally
           CloudResponseInfo.Free;
         end;
