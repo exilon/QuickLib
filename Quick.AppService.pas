@@ -364,7 +364,7 @@ begin
     WriteLn(' [/instance:<service name>]'+#9+'Install service with a custom name');
   end
   else Writeln(Format('%s [/console] [/install] [/remove] [/h] [/help]',[ExtractFileName(ParamStr(0))]));
-  WriteLn(' [/console]'+#9#9#9+'Force run as a console application (when runned from another service)');
+  WriteLn(' [/console]'+#9#9#9+'Force run as a console application (when run from another service)');
   WriteLn(' [/install]'+#9#9#9+'Install as a service');
   WriteLn(' [/remove]'+#9#9#9+'Remove service');
   WriteLn(' [/h /help]'+#9#9#9+'This help');
