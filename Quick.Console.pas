@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2024 Kike Pérez
 
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 05/08/2021
+  Modified    : 20/01/2024
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -172,7 +172,7 @@ type
   procedure coutSL(const cMsg : string; cColor : TConsoleColor);
   procedure cout(const cMsg : string; params : array of const; cEventType : TLogEventType); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; cEventType : TLogEventType); overload;
-  procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor); overload;
+  procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor; cClearLineBefore : Boolean = False); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; params : array of const; cEventType : TLogEventType); overload;
   procedure coutXY(x,y : Integer; const cMsg : string; params : array of const; cColor : TConsoleColor); overload;
   procedure coutTL(const cMsg : string; cEventType : TLogEventType); overload;
@@ -480,7 +480,7 @@ begin
   end;
 end;
 
-procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor); overload;
+procedure coutXY(x,y : Integer; const cMsg : string; cColor : TConsoleColor; cClearLineBefore : Boolean = False); overload;
 var
  NewCoord : TCoord;
  LastCoord : TCoord;
@@ -496,7 +496,7 @@ begin
   {$ENDIF}
   NewCoord.X := x;
   NewCoord.Y := y;
-  ClearLine(Y);
+  if cClearLineBefore then ClearLine(Y);
   SetCursorPos(NewCoord);
   try
     cout(cMsg,cColor);
