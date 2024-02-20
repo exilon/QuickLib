@@ -144,7 +144,7 @@ type
     function RedisZRANGE(const aKey : string; aStartPosition, aEndPosition : Int64) : TArray<string>;
     function RedisZRANGEBYSCORE(const aKey : string; aMinScore, aMaxScore : Int64) : TArray<TRedisSortedItem>;
     function RedisLLEN(const aKey : string): Integer;
-    function RedisTTL(const aKey: string): Integer;
+    function RedisTTL(const aKey, aValue : string): Integer;
     function RedisAUTH(const aPassword : string) : Boolean;
     function RedisPING : Boolean;
     function RedisQUIT : Boolean;
@@ -469,7 +469,7 @@ begin
   end;
 end;
 
-function TRedisClient.RedisTTL(const aKey : string): Integer;
+function TRedisClient.RedisTTL(const aKey, aValue : string): Integer;
 var
   rediscmd : IRedisCommand;
   response : IRedisResponse;
@@ -477,7 +477,7 @@ begin
   Result := 0;
   rediscmd := TRedisCommand.Create('TTL')
                .AddArgument(aKey)
-               ;
+               .AddArgument(aValue);
   response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin

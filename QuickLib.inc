@@ -1,7 +1,7 @@
 ﻿{
     This file is part of QuickLib: https://github.com/exilon/QuickLib
 
-    QuickLibs. Copyright (C) 2022 Kike Pérez
+    QuickLibs. Copyright (C) 2024 Kike Pérez
       Exilon - https://www.exilon.es
 
      ***************************************************************************
@@ -157,6 +157,26 @@
         {$if defined(CPUARM)}
           {$if defined(MACOS)}
 
+          {$ELSE}
+            {$DEFINE ANDROID}
+          {$ENDIF}
+        {$ELSE}
+          {$DEFINE LINUX}
+          {$DEFINE DELPHILINUX}
+        {$ENDIF}
+      {$ENDIF}
+      {$if defined(ANDROID) OR defined(IOS)}
+        {$define NEXTGEN} //compatibility with older delphis
+      {$endif}
+    {$endif}
+    {$if CompilerVersion >= 36.0} //Delphi RX12 Athens
+      {$define DELPHIRX12_UP}
+	    {$define DELPHIATHENS_UP}
+      {$UNDEF DELPHILINUX}
+      {$if defined(POSIX)}
+        {$DEFINE LINUX}
+        {$if defined(CPUARM)}
+          {$if defined(MACOS)}
           {$ELSE}
             {$DEFINE ANDROID}
           {$ENDIF}
