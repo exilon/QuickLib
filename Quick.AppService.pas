@@ -96,15 +96,18 @@ type
     fOnStop : TSvcAnonMethod;
     fOnExecute : TSvcAnonMethod;
     fAfterRemove : TSvcRemoveEvent;
+    fServiceDescription : string;
     procedure ReportSvcStatus(dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD);
     procedure Execute;
     procedure Help;
     procedure DoStop;
+    procedure SetServiceDescription;
   public
     constructor Create;
     destructor Destroy; override;
     property ServiceName : string read fServiceName write fServiceName;
     property DisplayName : string read fDisplayName write fDisplayName;
+    property ServiceDescription : string read fServiceDescription write fServiceDescription;
     property LoadOrderGroup : string read fLoadOrderGroup write fLoadOrderGroup;
     property Dependencies : string read fDependencies write fDependencies;
     property DesktopInteraction : Boolean read fDesktopInteraction write fDesktopInteraction;
@@ -137,6 +140,11 @@ var
   AppService : TAppService;
 
 implementation
+
+{$IFDEF MSWINDOWS}
+uses
+  Registry;
+{$ENDIF}
 
 procedure ServiceCtrlHandler(Control: DWORD); stdcall;
 begin
@@ -242,6 +250,27 @@ begin
   SetServiceStatus(StatusHandle,ServiceStatus);
 end;
 
+procedure TAppService.SetServiceDescription;
+{$IFDEF MSWINDOWS}
+var
+  reg: TRegistry;
+{$ENDIF}
+begin
+{$IFDEF MSWINDOWS}
+  reg := TRegistry.Create(KEY_READ or KEY_WRITE);
+  try
+    reg.RootKey := HKEY_LOCAL_MACHINE;
+    if reg.OpenKey('\SYSTEM\CurrentControlSet\Services\' + fServiceName, False) then
+    begin
+      reg.WriteString('Description', fServiceDescription);
+      reg.CloseKey;
+    end;
+  finally
+    reg.Free;
+  end;
+{$ENDIF}
+end;
+
 procedure TAppService.Execute;
 begin
   //we have to do something or service will stop
@@ -320,7 +349,7 @@ begin
   end;
   //service interacts with desktop
   if fDesktopInteraction then servicetype := SERVICE_WIN32_OWN_PROCESS and SERVICE_INTERACTIVE_PROCESS
-    else servicetype := SERVICE_WIN32_OWN_PROCESS; 
+    else servicetype := SERVICE_WIN32_OWN_PROCESS;
   //service load order
   if fLoadOrderGroup.IsEmpty then svcloadgroup := nil
     else svcloadgroup := PChar(fLoadOrderGroup);
@@ -333,7 +362,7 @@ begin
   //service user password
   if fUserPass.IsEmpty then svcuserpass := nil
     else svcuserpass := PChar(fUserPass);
-    
+
   fSvHandle := CreateService(fSCMHandle,
                               PChar(fServiceName),
                               PChar(fDisplayName),
@@ -347,6 +376,9 @@ begin
                               svcdependencies,
                               svcusername, //user
                               svcuserpass); //password
+
+  if Length(fServiceDescription) > 0 then
+    SetServiceDescription;
 
   if fSvHandle <> 0 then
   begin
@@ -364,7 +396,7 @@ begin
     WriteLn(' [/instance:<service name>]'+#9+'Install service with a custom name');
   end
   else Writeln(Format('%s [/console] [/install] [/remove] [/h] [/help]',[ExtractFileName(ParamStr(0))]));
-  WriteLn(' [/console]'+#9#9#9+'Force run as a console application (when runned from another service)');
+  WriteLn(' [/console]'+#9#9#9+'Force run as a console application (when run from another service)');
   WriteLn(' [/install]'+#9#9#9+'Install as a service');
   WriteLn(' [/remove]'+#9#9#9+'Remove service');
   WriteLn(' [/h /help]'+#9#9#9+'This help');
