@@ -192,43 +192,52 @@ begin
     TValue.Make(@pArr,aTypeInfo, Result);
     rDynArray := ctx.GetType(Result.TypeInfo) as TRTTIDynamicArrayType;
 
-    for i := 0 to aYamlArray.Count - 1 do
-    begin
-      rItemValue := nil;
-      case rType.Kind of
-        tkClass :
-          begin
-            if TYamlPair(aYamlArray.Items[i]).Value is TYamlObject then
+    try
+      for i := 0 to aYamlArray.Count - 1 do
+      begin
+        rItemValue := nil;
+        case rType.Kind of
+          tkClass :
             begin
-              Yaml := TYamlObject(TYamlPair(aYamlArray.Items[i]).value);
-              propObj := GetValue(PPByte(Result.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).AsObject;
-              if propObj = nil then
+              if aYamlArray.Items[i] = nil then raise Exception.Create('Value empty!');
+
+              if TYamlPair(aYamlArray.Items[i]).Value is TYamlObject then
               begin
-                objClass := rType.TypeData.ClassType;
-                rItemValue := DeserializeClass(objClass,yaml);
-              end
-              else
-              begin
-                DeserializeObject(propObj,yaml);
+                Yaml := TYamlObject(TYamlPair(aYamlArray.Items[i]).value);
+                propObj := GetValue(PPByte(Result.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i, rDynArray.ElementType).AsObject;
+                if propObj = nil then
+                begin
+                  objClass := rType.TypeData.ClassType;
+                  rItemValue := DeserializeClass(objClass,yaml);
+                end
+                else
+                begin
+                  DeserializeObject(propObj,yaml);
+                end;
               end;
             end;
-          end;
-        tkRecord :
+          tkRecord :
+            begin
+              Yaml := TYamlObject(TYamlPair(aYamlArray.Items[i]).value);
+              rItemValue := DeserializeRecord(GetValue(PPByte(Result.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i,
+                                              rDynArray.ElementType),aObject,Yaml);
+            end;
+          tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
+            begin
+              //skip these properties
+            end
+        else
           begin
-            Yaml := TYamlObject(TYamlPair(aYamlArray.Items[i]).value);
-            rItemValue := DeserializeRecord(GetValue(PPByte(Result.GetReferenceToRawData)^ +rDynArray.ElementType.TypeSize * i,
-                                            rDynArray.ElementType),aObject,Yaml);
+            rItemValue := DeserializeType(aObject,rType.Kind,rType,aYamlArray.Items[i].Value);
           end;
-        tkMethod, tkPointer, tkClassRef ,tkInterface, tkProcedure :
-          begin
-            //skip these properties
-          end
-      else
-        begin
-          rItemValue := DeserializeType(aObject,rType.Kind,rType,aYamlArray.Items[i].Value);
         end;
+        if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);
       end;
-      if not rItemValue.IsEmpty then Result.SetArrayElement(i,rItemValue);
+    except
+      on E : Exception do
+      begin
+        raise Exception.CreateFmt('Array %s item %d error (%s)',[rtype.Name, i, e.Message]);
+      end;
     end;
     //aProperty.SetValue(aObject,rValue);
   finally
