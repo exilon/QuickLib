@@ -500,7 +500,6 @@ end;
 
 procedure TMemoryCache<T>.SetValue(const aKey: string; aValue: T; aExpirationMilliseconds : Integer; aExpirationDate : TDateTime);
 var
-  serialized : string;
   cacheitem : TCacheEntry;
 begin
   fLock.BeginWrite;
