@@ -373,7 +373,6 @@ end;
 
 function TAutoMapper<TClass1, TClass2>.Map(aSrcObj: TClass1): TClass2;
 var
-  objvalue : TValue;
   obj : TObject;
 begin
   obj := aSrcObj as TObject;

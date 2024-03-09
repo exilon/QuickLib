@@ -1,6 +1,6 @@
 ![alt text](docs/QuickLib.png "QuickLib") 
 
-QuickLib is a delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 11 Alexandria supported.
+QuickLib is a delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 12 Athens supported.
 
 ## Give it a star
 Please "star" this project in GitHub! It costs nothing but helps to reference the code.
@@ -74,6 +74,7 @@ If you find this project useful, please consider making a donation.
 
 **Updates:**
 
+* NEW: RAD Studio 12 supported
 * NEW: RAD Studio 11 supported
 * NEW: Condition checks
 * NEW: Commonly used RegEx validations
