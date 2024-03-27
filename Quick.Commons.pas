@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike P�rez
+  Copyright (c) 2016-2024 Kike P�rez
 
   Unit        : Quick.Commons
   Description : Common functions
   Author      : Kike P�rez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 19/01/2022
+  Modified    : 14/03/2024
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -419,6 +419,10 @@ type
   function ArrayToString(aArray : TArray<string>) : string; overload;
   //returns a string with separator from array of string
   function ArrayToString(aArray : TArray<string>; aSeparator : string) : string; overload;
+  //returns a string CRLF separated from array of Integer
+  function ArrayToString(aArray : TArray<Integer>) : string; overload;
+  //returns a string with separator from array of Integer
+  function ArrayToString(aArray : TArray<Integer>; aSeparator : string) : string; overload;
   //converts TStrings to array
   function StringsToArray(aStrings : TStrings) : TArray<string>; overload;
   //converts string comma or semicolon separated to array
@@ -1768,6 +1772,49 @@ end;
 function ArrayToString(aArray : TArray<string>; aSeparator : string) : string;
 var
   value : string;
+  sb : TStringBuilder;
+  isfirst : Boolean;
+begin
+  Result := '';
+  if High(aArray) < 0 then Exit;
+  isfirst := True;
+  sb := TStringBuilder.Create;
+  try
+    for value in aArray do
+    begin
+      if isfirst then isfirst := False
+        else sb.Append(aSeparator);
+      sb.Append(value);
+    end;
+    Result := sb.ToString;
+  finally
+    sb.Free;
+  end;
+end;
+
+function ArrayToString(aArray : TArray<Integer>) : string;
+var
+  value : Integer;
+  sb : TStringBuilder;
+begin
+  Result := '';
+  if High(aArray) < 0 then Exit;
+  sb := TStringBuilder.Create;
+  try
+    for value in aArray do
+    begin
+      sb.Append(value);
+      sb.Append(CRLF);
+    end;
+    Result := sb.ToString;
+  finally
+    sb.Free;
+  end;
+end;
+
+function ArrayToString(aArray : TArray<Integer>; aSeparator : string) : string;
+var
+  value : Integer;
   sb : TStringBuilder;
   isfirst : Boolean;
 begin
