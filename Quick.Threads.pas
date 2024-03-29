@@ -685,7 +685,7 @@ begin
   try
     for obj in FQueue do
     begin
-      if TypeInfo(T) = TypeInfo(TObject) then PObject(@obj){$IFNDEF FPC}.DisposeOf;{$ELSE}.Free;{$ENDIF}
+      if TypeInfo(T) = TypeInfo(TObject) then PObject(@obj).Free;
     end;
 
     SetLength(FQueue,0);
