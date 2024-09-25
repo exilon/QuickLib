@@ -223,6 +223,14 @@ type
     class function TryToGetService<T: IInterface>(aService : T) : Boolean;
   end;
 
+  Name = class(TCustomAttribute)
+  private
+    fName: string;
+  public
+    constructor Create(aName: string);
+    property Name: String read fName;
+  end;
+
   EIocRegisterError = class(Exception);
   EIocResolverError = class(Exception);
   EIocBuildError = class(Exception);
@@ -609,6 +617,8 @@ var
   rParam : TRttiParameter;
   value : TValue;
   values : TArray<TValue>;
+  att: TCustomAttribute;
+  attname: string;
 begin
   Result := nil;
   rtype := ctx.GetType(aClass);
@@ -627,7 +637,17 @@ begin
       begin
         for rParam in rmethod.GetParameters do
         begin
-          value := Resolve(rParam.ParamType.Handle);
+          attname := EmptyStr;
+          for att in rParam.GetAttributes do
+          begin
+            if att is Name then
+            begin
+              attname := Name(att).Name;
+              Break;
+            end;
+          end;
+
+          value := Resolve(rParam.ParamType.Handle, attname);
           values := values + [value];
         end;
         Result := rmethod.Invoke(TRttiInstanceType(rtype).MetaclassType,values);
@@ -815,5 +835,12 @@ function TSimpleFactory<TInterface, TImplementation>.New: TInterface;
 begin
   Result := fResolver.CreateInstance(TClass(TImplementation)).AsType<TInterface>;
 end;
+
+{ Name }
+constructor Name.Create(aName: string);
+begin
+  fName := aName;
+end;
+
 
 end.
