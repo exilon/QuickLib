@@ -29,7 +29,7 @@ type
 
   procedure TMyService.Execute;
   begin
-    //your code
+    // your code
   end;
 
 var
@@ -61,6 +61,7 @@ begin
         AppService.ServiceName := 'MyService';
         AppService.DisplayName := 'MyServicesvc';
         AppService.DesktopInteraction := False;
+        AppService.CanInstallWithOtherName := True;
         {$IFDEF FPC}
         AppService.OnStart := TSrvFactory.CreateMyService;
         {$ELSE}

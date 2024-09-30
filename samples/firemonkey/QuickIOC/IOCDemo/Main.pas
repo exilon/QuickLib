@@ -7,7 +7,7 @@ uses
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.StdCtrls, FMX.Controls.Presentation, FMX.ScrollBox,
   FMX.Memo,
   Quick.IOC,
-  Dependencies;
+  Dependencies, FMX.Memo.Types;
 
 type
   TForm1 = class(TForm)

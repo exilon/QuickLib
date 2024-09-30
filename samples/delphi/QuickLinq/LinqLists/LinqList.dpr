@@ -9,6 +9,7 @@ uses
   System.Generics.Collections,
   Quick.Commons,
   Quick.Console,
+  Quick.Log,
   Quick.Chrono,
   Quick.Lists,
   Quick.Linq;

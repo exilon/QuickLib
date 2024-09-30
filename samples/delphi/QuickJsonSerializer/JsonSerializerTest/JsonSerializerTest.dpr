@@ -27,17 +27,29 @@ type
 
   THostList = TObjectList<THost>;
 
+  TGroup = type Integer;
+
+  TGroupHelper = class
+    class function One : Integer;
+    class function Two : Integer;
+    class function Three : Integer;
+  end;
+
   TConfig = class
   private
     fHosts : THostList;
     fDebugMode : Boolean;
     fLevel : Integer;
+    fCompleted : Double;
+    fGroup : TGroup;
   published
     constructor Create;
     destructor Destroy; override;
     property Hosts : THostList read fHosts write fHosts;
     property DebugMode : Boolean read fDebugMode write fDebugMode;
     property Level : Integer read fLevel write fLevel;
+    property Completed : Double read fCompleted write fCompleted;
+    property Group : TGroup read fGroup write fGroup;
   end;
 
 const
@@ -45,13 +57,13 @@ const
                   '{"Name":"Host 1 año perfeción","IP":"127.0.0.1","Port":80, "ID":"{00FB3A62-F77D-4E71-9613-79E2E49D4562}"},'+
                   '{"Name":"Host 2","IP":"192.168.1.1","Port":443,"ID":"{EBEBBC33-71F2-404A-8C0E-903CFA268616}"}'+
                         '],'+
-                '"DebugMode":true,"Level":1}';
+                '"DebugMode":true,"Level":1,"Completed":-0.658}';
   jsonstring2 = '{"Hosts":'+
                   '{"List":['+
                       '{"Name":"Host 1","IP":"127.0.0.2","Port":80, "ID":"{D52917AE-0A21-4B5B-945A-0F17FD158332}"},'+
                       '{"Name":"Host 2","IP":"192.168.1.2","Port":443, "ID":"{80E6467A-282C-437E-B66A-D704004A2C3F}"}'+
                           ']},'+
-                   '"DebugMode":true,"Level":2'+
+                   '"DebugMode":true,"Level":2,"Completed":1.5,"Group":2'+
                    '}';
 
 var
@@ -74,6 +86,23 @@ begin
   inherited;
 end;
 
+{ TGroupHelper }
+
+class function TGroupHelper.One: Integer;
+begin
+  Result := 1;
+end;
+
+class function TGroupHelper.Three: Integer;
+begin
+  Result := 2;
+end;
+
+class function TGroupHelper.Two: Integer;
+begin
+  Result := 3;
+end;
+
 begin
   try
     ReportMemoryLeaksOnShutdown := True;
@@ -83,6 +112,7 @@ begin
       //created from object
       cout('Create from object',ccYellow);
       config := TConfig.Create;
+      config.Group := TGroupHelper.One;
       try
         host := THost.Create;
         host.Name := 'Host 1';

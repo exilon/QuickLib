@@ -20,7 +20,7 @@ uses
   FMX.StdCtrls,
   Quick.JsonRecord,
   Quick.Base64,
-  Quick.Json.Serializer;
+  Quick.Json.Serializer, FMX.Memo.Types;
 
 type
 

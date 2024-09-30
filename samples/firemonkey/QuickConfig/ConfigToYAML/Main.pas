@@ -7,7 +7,7 @@ uses
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   System.Generics.Collections, System.IOUtils,
   Quick.Config.YAML, FMX.StdCtrls, FMX.Controls.Presentation,
-  FMX.ScrollBox, FMX.Memo;
+  FMX.ScrollBox, FMX.Memo, FMX.Memo.Types;
 
 type
 
