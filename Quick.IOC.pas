@@ -634,10 +634,13 @@ begin
   begin
     if (vValue.IntfInfo = aTypeInfo) and (vValue.Name = aName) then
     begin
+      if fDependencyOrder.Contains(vValue) then
+        fDependencyOrder.Remove(vValue);
       fDependencies.Remove(key);
       vValue.Free;
     end;
   end;
+
 end;
 
 { TIocResolver }
