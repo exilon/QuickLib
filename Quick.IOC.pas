@@ -100,6 +100,7 @@ type
     function GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
     function RegisterType(aTypeInfo : PTypeInfo; aImplementation : TClass; const aName : string = '') : TIocRegistration;
     function RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;
+    procedure Unregister(aTypeInfo : PTypeInfo; const aName : string = '');
   end;
 
   TIocRegistrator = class(TInterfacedObject,IIocRegistrator)
@@ -120,6 +121,8 @@ type
     function RegisterInstance<T : class>(const aName : string = '') : TIocRegistration<T>; overload;
     function RegisterInstance<TInterface : IInterface>(aInstance : TInterface; const aName : string = '') : TIocRegistration; overload;
     function RegisterOptions<T : TOptions>(aOptions : T) : TIocRegistration<T>;
+    procedure Unregister<TInterface: IInterface>(const aName : string = ''); overload;
+    procedure Unregister(aTypeInfo : PTypeInfo; const aName : string = ''); overload;
   end;
 
   IIocContainer = interface
@@ -127,6 +130,7 @@ type
     function RegisterType(aInterface: PTypeInfo; aImplementation : TClass; const aName : string = '') : TIocRegistration;
     function RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue;
+    procedure Unregister(aTypeInfo : PTypeInfo; const aName : string = '');
     procedure Build;
   end;
 
@@ -214,6 +218,8 @@ type
     function AbstractFactory<T : class, constructor> : T; overload;
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
     function RegisterSimpleFactory<TInterface : IInterface; TImplementation : class, constructor>(const aName : string = '') : TIocRegistration;
+    procedure Unregister<TInterface: IInterface>(const aName : string = ''); overload;
+    procedure Unregister(aInterface: PTypeInfo; const aName : string = ''); overload;
     procedure Build;
   end;
 
@@ -374,6 +380,17 @@ function TIocContainer.RegisterType(aInterface: PTypeInfo; aImplementation: TCla
 begin
   Result := fRegistrator.RegisterType(aInterface,aImplementation,aName);
 end;
+
+procedure TIocContainer.Unregister<TInterface>(const aName : string = '');
+begin
+  fRegistrator.Unregister<TInterface>(aName);
+end;
+
+procedure TIocContainer.Unregister(aInterface: PTypeInfo; const aName : string = '');
+begin
+  fRegistrator.Unregister(aInterface, aName);
+end;
+
 
 function TIocContainer.RegisterInstance<T>(const aName: string): TIocRegistration<T>;
 begin
@@ -599,6 +616,28 @@ begin
   Result.&Implementation := aImplementation;
   fDependencies.Add(key,Result);
   fDependencyOrder.Add(Result);
+end;
+
+procedure TIocRegistrator.Unregister<TInterface>(const aName : string);
+begin
+  Unregister(TypeInfo(TInterface), aName);
+end;
+
+procedure TIocRegistrator.Unregister(aTypeInfo : PTypeInfo; const aName : string);
+var
+  key: string;
+  vValue: TIocRegistration;
+begin
+  key := GetKey(aTypeInfo, aName);
+
+  if fDependencies.TryGetValue(key,vValue) then
+  begin
+    if (vValue.IntfInfo = aTypeInfo) and (vValue.Name = aName) then
+    begin
+      fDependencies.Remove(key);
+      vValue.Free;
+    end;
+  end;
 end;
 
 { TIocResolver }
