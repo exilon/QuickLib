@@ -69,6 +69,7 @@ type
     fCarList : TCarList;
     fPoints : TPointsList;
     fAgentList : TAgentList;
+    fTags : TArray<string>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -80,6 +81,7 @@ type
     property CarList : TCarList read fCarList write fCarList;
     property Points : TPointsList read fPoints write fPoints;
     property AgentList : TAgentList read fAgentList write fAgentList;
+    property Tags : TArray<string> read fTags write fTags;
   end;
 
   TUser2 = class(TUserBase)
@@ -125,6 +127,7 @@ begin
   fCarList := TCarList.Create(True);
   fPoints := TPointsList.Create;
   fAgentList := TAgentList.Create;
+  fTags := [];
 end;
 
 destructor TUser.Destroy;
@@ -193,6 +196,7 @@ begin
     agent.Name := 'SecondAgent';
     agent.Status := TAgentStatus.stFail;
     User.AgentList.Add(agent);
+    User.Tags := ['Tag1','Tag2','Tag3'];
     //User2 := TMapper<TUser2>.Map(User);
     AutoMapper := TAutoMapper<TUser,TUser2>.Create;
     try
@@ -278,6 +282,7 @@ begin
       cout('USER AS JSON RESULT',etTrace);
       cout('%s',[User.ToJson],etInfo);
       cout(' ',etInfo);
+      user.Free;
       cout('USER2 AS JSON RESULT',etTrace);
       cout('%s',[User2.ToJson],etInfo);
       {$IFNDEF FPC}
@@ -288,7 +293,6 @@ begin
 
     finally
       AutoMapper.Free;
-      User.Free;
       User2.Free;
       User3.Free;
     end;

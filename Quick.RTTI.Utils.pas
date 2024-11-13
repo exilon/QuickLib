@@ -88,6 +88,7 @@ var
   rmethod: TRttiMethod;
   rinstype: TRttiInstanceType;
 begin
+  Result := Default(T);
   rtype := fCtx.GetType(TypeInfo(T));
   for rmethod in rtype.GetMethods do
   begin

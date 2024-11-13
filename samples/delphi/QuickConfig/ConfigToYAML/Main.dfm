@@ -11,13 +11,12 @@ object MainForm: TMainForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   OnClose = FormClose
   OnCreate = FormCreate
+  PixelsPerInch = 96
   DesignSize = (
     720
     493)
-  PixelsPerInch = 96
   TextHeight = 13
   object meInfo: TMemo
     Left = 8

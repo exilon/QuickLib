@@ -162,7 +162,7 @@ begin
   cConfig.DefaultWorker.Job.JobName := 'Job ' + i.ToString;
   cConfig.DefaultWorker.Job.TimeElapsed := i * Random(1000);
   cConfig.DefaultWorker.Active := Boolean(Random(1));
-  cConfig.Title := 'a fresh title';
+  cConfig.Title := 'a fresh title.' + CRLF + ;
   cConfig.SessionName := 'First Session';
   for I := 0 to 5 do
   begin

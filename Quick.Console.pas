@@ -943,7 +943,7 @@ begin
   {$IFDEF DELPHIXE7_UP}
   fConsoleMenu := fConsoleMenu + [conmenu];
   {$ELSE}
-  SetLength(fConsoleMenu,High(fConsoleMenu)+1);
+  SetLength(fConsoleMenu,Length(fConsoleMenu)+1);
   fConsoleMenu[High(fConsoleMenu)] := conmenu;
   {$ENDIF}
 end;
@@ -953,7 +953,7 @@ begin
   {$IFDEF DELPHIXE7_UP}
   fConsoleMenu := fConsoleMenu + [MenuOption];
   {$ELSE}
-  SetLength(fConsoleMenu,High(fConsoleMenu)+1);
+  SetLength(fConsoleMenu,Length(fConsoleMenu)+1);
   fConsoleMenu[High(fConsoleMenu)] := MenuOption;
   {$ENDIF}
 end;
