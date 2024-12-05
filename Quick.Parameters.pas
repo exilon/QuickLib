@@ -187,7 +187,7 @@ type
     {$ENDIF}
     function GetHelp : TStringList;
     property Help : Boolean read fHelp write fHelp;
-    function ExistsParam(const aParam : string): Boolean; overload;
+    function ExistsParam(const aParam, aValueSeparator : string): Boolean; overload;
   end;
   {$M-}
 
@@ -315,11 +315,12 @@ begin
   end;
 end;
 
-function TParameters.ExistsParam(const aParam : string): Boolean;
+function TParameters.ExistsParam(const aParam, aValueSeparator : string): Boolean;
 var
   param : TParam;
 begin
   param := TParam.Create;
+  param.ValueSeparator := aValueSeparator;
   param.Name := aParam;
   param.Alias := '';
   try
