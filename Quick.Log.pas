@@ -178,6 +178,7 @@ begin
   fHideHour := True;
   fCurrentDateToFileName := AddCurrentDateToFileName;
   fLogFileName := logname;
+  logname := GetLogFileName;
   //Checks if logfile is too big and deletes
   fLimitLogSize := LimitSizeInMB * 1024 * 1024;
   if (fLimitLogSize > 0) and (TFile.Exists(logname)) then
