@@ -1,13 +1,13 @@
 ﻿{ ***************************************************************************
 
-  Copyright (c) 2016-2024 Kike P�rez
+  Copyright (c) 2016-2025 Kike Pérez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike P�rez
+  Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 14/03/2024
+  Modified    : 01/12/2025
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -79,56 +79,121 @@ interface
     DateUtils;
 
 type
-
- TLogEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etDone, etTrace, etCritical, etException);
- TLogVerbose = set of TLogEventType;
+  /// <summary>
+  /// Defines the different types of log events available in the logging system.
+  /// </summary>
+  TLogEventType = (etInfo, etSuccess, etWarning, etError, etDebug, etDone, etTrace, etCritical, etException);
+  
+  /// <summary>
+  /// Set of TLogEventType used to define which log event types should be processed.
+  /// </summary>
+  TLogVerbose = set of TLogEventType;
 
 const
+  /// <summary>Log verbosity level that only captures informational and error events.</summary>
   LOG_ONLYERRORS = [etInfo,etError];
+  /// <summary>Log verbosity level that captures informational, warning, and error events.</summary>
   LOG_ERRORSANDWARNINGS = [etInfo,etWarning,etError];
+  /// <summary>Log verbosity level that captures informational, error, warning, and trace events.</summary>
   LOG_TRACE = [etInfo,etError,etWarning,etTrace];
+  /// <summary>Log verbosity level that captures all event types.</summary>
   LOG_ALL = [etInfo, etSuccess, etWarning, etError, etDebug, etDone, etTrace, etCritical, etException];
+  /// <summary>Log verbosity level that captures debug-related events.</summary>
   LOG_DEBUG = [etInfo,etSuccess,etWarning,etError,etDebug];
   {$IFDEF DELPHIXE7_UP}
+  /// <summary>Array of string representations for each TLogEventType.</summary>
   EventStr : array of string = ['INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION'];
   {$ELSE}
   EventStr : array[0..8] of string = ('INFO','SUCC','WARN','ERROR','DEBUG','DONE','TRACE','CRITICAL','EXCEPTION');
   {$ENDIF}
+  /// <summary>Carriage Return + Line Feed constant for line breaks.</summary>
   CRLF = #13#10;
 type
+  /// <summary>
+  /// Defines password complexity requirements.
+  /// </summary>
+  /// <remarks>
+  /// pfIncludeNumbers: Include numeric digits in the password
+  /// pfIncludeSigns: Include special characters in the password
+  /// </remarks>
   TPasswordComplexity = set of (pfIncludeNumbers,pfIncludeSigns);
 
+  /// <summary>
+  /// Record containing paths to common environment and system directories.
+  /// </summary>
+  /// <remarks>
+  /// Provides easy access to frequently used system paths such as temp directories,
+  /// desktop, program files, etc. Automatically populated at initialization.
+  /// </remarks>
   TEnvironmentPath = record
+    /// <summary>Path to the executable directory.</summary>
     EXEPATH : string;
     {$IFDEF MSWINDOWS}
+    /// <summary>Windows system directory path.</summary>
     WINDOWS : string;
+    /// <summary>Windows system32 directory path.</summary>
     SYSTEM : string;
+    /// <summary>Program Files directory path.</summary>
     PROGRAMFILES : string;
+    /// <summary>Common Files directory path.</summary>
     COMMONFILES : string;
+    /// <summary>System drive (typically C:).</summary>
     HOMEDRIVE : string;
+    /// <summary>Temporary files directory path.</summary>
     TEMP : string;
+    /// <summary>User profile directory path.</summary>
     USERPROFILE : string;
+    /// <summary>Installation drive.</summary>
     INSTDRIVE : string;
+    /// <summary>Current user's desktop directory path.</summary>
     DESKTOP : string;
+    /// <summary>Current user's start menu directory path.</summary>
     STARTMENU : string;
+    /// <summary>All users desktop directory path.</summary>
     DESKTOP_ALLUSERS : string;
+    /// <summary>All users start menu directory path.</summary>
     STARTMENU_ALLUSERS : string;
+    /// <summary>Startup directory path.</summary>
     STARTUP : string;
+    /// <summary>Application data directory path.</summary>
     APPDATA : String;
+    /// <summary>ProgramData directory path.</summary>
     PROGRAMDATA : string;
+    /// <summary>All users profile directory path.</summary>
     ALLUSERSPROFILE : string;
     {$ENDIF MSWINDOWS}
   end;
 
   {$IFNDEF FPC}
+  /// <summary>
+  /// Helper record for TFile class providing additional file operations.
+  /// </summary>
   TFileHelper = record helper for TFile
     {$IF DEFINED(MSWINDOWS) OR DEFINED(DELPHILINUX)}
+    /// <summary>
+    /// Checks if a file is currently in use by another process.
+    /// </summary>
+    /// <param name="FileName">Full path to the file to check.</param>
+    /// <returns>True if the file is in use, False otherwise.</returns>
     class function IsInUse(const FileName : string) : Boolean; static;
     {$ENDIF}
+    /// <summary>
+    /// Gets the size of a file in bytes.
+    /// </summary>
+    /// <param name="FileName">Full path to the file.</param>
+    /// <returns>File size in bytes, or -1 if the file doesn't exist.</returns>
     class function GetSize(const FileName: String): Int64; static;
   end;
 
+  /// <summary>
+  /// Helper record for TDirectory class providing additional directory operations.
+  /// </summary>
   TDirectoryHelper = record helper for TDirectory
+    /// <summary>
+    /// Calculates the total size of all files in a directory.
+    /// </summary>
+    /// <param name="Path">Full path to the directory.</param>
+    /// <returns>Total size in bytes of all files in the directory.</returns>
     class function GetSize(const Path: String): Int64; static;
   end;
   {$ENDIF}
@@ -150,27 +215,74 @@ type
   TCmdLineSwitchTypes = set of TCmdLineSwitchType;
   {$ENDIF}
 
+  /// <summary>
+  /// Counter record that tracks iterations up to a maximum value.
+  /// </summary>
+  /// <remarks>
+  /// Provides a simple mechanism to count up to a specific value and check when
+  /// the maximum is reached. Automatically resets after reaching the maximum.
+  /// </remarks>
   TCounter = record
   private
     fMaxValue : Integer;
     fCurrentValue : Integer;
   public
+    /// <summary>Gets the maximum value this counter can reach.</summary>
     property MaxValue : Integer read fMaxValue;
+    /// <summary>
+    /// Initializes the counter with a maximum value.
+    /// </summary>
+    /// <param name="aMaxValue">Maximum count value.</param>
     procedure Init(aMaxValue : Integer);
+    /// <summary>
+    /// Returns the current count value.
+    /// </summary>
+    /// <returns>Current count value.</returns>
     function Count : Integer;
+    /// <summary>
+    /// Checks if current count equals a specific value.
+    /// </summary>
+    /// <param name="aValue">Value to compare against.</param>
+    /// <returns>True if current count equals aValue.</returns>
     function CountIs(aValue : Integer) : Boolean;
+    /// <summary>
+    /// Increments the counter and checks if maximum is reached.
+    /// </summary>
+    /// <returns>True if maximum value is reached (counter resets), False otherwise.</returns>
     function Check : Boolean;
+    /// <summary>
+    /// Resets the counter to zero.
+    /// </summary>
     procedure Reset;
   end;
 
+  /// <summary>
+  /// Time-based counter that tracks elapsed time in milliseconds.
+  /// </summary>
+  /// <remarks>
+  /// Useful for implementing time-based events or throttling operations.
+  /// Checks if a specific time interval has elapsed since last reset.
+  /// </remarks>
   TTimeCounter = record
   private
     fCurrentTime : TDateTime;
     fDoneEvery : Integer;
   public
+    /// <summary>Gets the time interval in milliseconds.</summary>
     property DoneEvery : Integer read fDoneEvery;
+    /// <summary>
+    /// Initializes the time counter with a millisecond interval.
+    /// </summary>
+    /// <param name="MillisecondsToReach">Time interval in milliseconds.</param>
     procedure Init(MillisecondsToReach : Integer);
+    /// <summary>
+    /// Checks if the time interval has elapsed.
+    /// </summary>
+    /// <returns>True if the interval has passed (counter resets), False otherwise.</returns>
     function Check : Boolean;
+    /// <summary>
+    /// Resets the counter to current time.
+    /// </summary>
     procedure Reset;
   end;
 
@@ -182,27 +294,70 @@ type
   end;
   {$ENDIF}
 
+  /// <summary>
+  /// Helper record extending TArray<string> with utility methods.
+  /// </summary>
   TArrayOfStringHelper = record helper for TArray<string>
   public
+    /// <summary>Checks if the array has any elements.</summary>
+    /// <returns>True if array is not empty.</returns>
     function Any : Boolean; overload;
+    /// <summary>Checks if the array contains a specific value.</summary>
+    /// <param name="aValue">Value to search for.</param>
+    /// <returns>True if value exists in array.</returns>
     function Any(const aValue : string) : Boolean; overload;
+    /// <summary>Adds a value to the array.</summary>
+    /// <param name="aValue">Value to add.</param>
+    /// <returns>Index of the added element.</returns>
     function Add(const aValue : string) : Integer;
+    /// <summary>Adds a value only if it doesn't already exist.</summary>
+    /// <param name="aValue">Value to add.</param>
+    /// <param name="aCaseSense">Whether comparison is case-sensitive.</param>
+    /// <returns>Index of the element (existing or newly added).</returns>
     function AddIfNotExists(const aValue : string; aCaseSense : Boolean = False) : Integer;
+    /// <summary>Removes a value from the array.</summary>
+    /// <param name="aValue">Value to remove.</param>
+    /// <returns>True if value was found and removed.</returns>
     function Remove(const aValue : string) : Boolean;
+    /// <summary>Checks if a value exists in the array.</summary>
+    /// <param name="aValue">Value to search for.</param>
+    /// <returns>True if value exists.</returns>
     function Exists(const aValue : string) : Boolean;
+    /// <summary>Gets the number of elements in the array.</summary>
+    /// <returns>Number of elements.</returns>
     function Count : Integer;
   end;
   TDelegate<T> = reference to procedure(Value : T);
   {$ENDIF}
 
+  /// <summary>
+  /// Record representing a name-value pair.
+  /// </summary>
   TPairItem = record
+    /// <summary>Name/key of the pair.</summary>
     Name : string;
+    /// <summary>Value associated with the name.</summary>
     Value : string;
+    /// <summary>
+    /// Creates a new pair item with specified name and value.
+    /// </summary>
+    /// <param name="aName">Name/key of the pair.</param>
+    /// <param name="aValue">Value of the pair.</param>
     constructor Create(const aName, aValue : string);
   end;
 
+  /// <summary>
+  /// List class for managing name-value pairs.
+  /// </summary>
+  /// <remarks>
+  /// Provides dictionary-like functionality using a dynamic array of TPairItem.
+  /// Supports enumeration and indexed access by name.
+  /// </remarks>
   TPairList = class
   type
+    /// <summary>
+    /// Enumerator for iterating over pair items.
+    /// </summary>
     TPairEnumerator = class
       private
         fArray : ^TArray<TPairItem>;
@@ -216,251 +371,803 @@ type
   private
     fItems : TArray<TPairItem>;
   public
+    /// <summary>Gets an enumerator for the list.</summary>
     function GetEnumerator : TPairEnumerator;
+    /// <summary>Gets the value for a given name.</summary>
+    /// <param name="aName">Name to search for.</param>
+    /// <returns>Value associated with the name, or empty string if not found.</returns>
     function GetValue(const aName : string) : string;
+    /// <summary>Gets the pair item for a given name.</summary>
+    /// <param name="aName">Name to search for.</param>
+    /// <returns>TPairItem with the specified name.</returns>
     function GetPair(const aName : string) : TPairItem;
+    /// <summary>Adds a pair item to the list.</summary>
+    /// <param name="aPair">Pair item to add.</param>
+    /// <returns>Index of the added item.</returns>
     function Add(aPair : TPairItem) : Integer; overload;
+    /// <summary>Adds a name-value pair to the list.</summary>
+    /// <param name="aName">Name/key of the pair.</param>
+    /// <param name="aValue">Value of the pair.</param>
+    /// <returns>Index of the added item.</returns>
     function Add(const aName, aValue : string) : Integer; overload;
+    /// <summary>Adds or updates a name-value pair.</summary>
+    /// <param name="aName">Name/key of the pair.</param>
+    /// <param name="aValue">Value to set.</param>
     procedure AddOrUpdate(const aName, aValue : string);
+    /// <summary>Checks if a name exists in the list.</summary>
+    /// <param name="aName">Name to search for.</param>
+    /// <returns>True if name exists.</returns>
     function Exists(const aName : string) : Boolean;
+    /// <summary>Removes a pair by name.</summary>
+    /// <param name="aName">Name of the pair to remove.</param>
+    /// <returns>True if pair was found and removed.</returns>
     function Remove(const aName : string) : Boolean;
+    /// <summary>Gets the number of pairs in the list.</summary>
+    /// <returns>Number of pairs.</returns>
     function Count : Integer;
+    /// <summary>Default indexed property for accessing values by name.</summary>
     property Items[const aName : string] : string read GetValue write AddOrUpdate;
+    /// <summary>Converts the list to an array of pairs.</summary>
+    /// <returns>Array containing all pair items.</returns>
     function ToArray : TArray<TPairItem>;
+    /// <summary>Populates the list from an array of pairs.</summary>
+    /// <param name="aValue">Array of pair items to load.</param>
     procedure FromArray(aValue : TArray<TPairItem>);
+    /// <summary>Removes all pairs from the list.</summary>
     procedure Clear;
   end;
 
   {$IFDEF DELPHIXE7_UP}
+  /// <summary>
+  /// Helper record extending TDateTime with utility methods.
+  /// </summary>
   TDateTimeHelper = record helper for TDateTime
   public
+    /// <summary>Converts the datetime to SQL format string (YYYY-MM-DD hh:mm:ss).</summary>
     function ToSQLString : string;
+    /// <summary>Sets the datetime to current time.</summary>
     procedure FromNow;
+    /// <summary>Converts UTC time to local time.</summary>
+    /// <param name="aUTCTime">UTC datetime value.</param>
     procedure FromUTC(const aUTCTime : TDateTime);
+    /// <summary>Increments the datetime by specified number of days.</summary>
+    /// <param name="aValue">Number of days to increment (default 1).</param>
     function IncDay(const aValue : Cardinal = 1) : TDateTime;
+    /// <summary>Decrements the datetime by specified number of days.</summary>
+    /// <param name="aValue">Number of days to decrement (default 1).</param>
     function DecDay(const aValue : Cardinal = 1) : TDateTime;
+    /// <summary>Increments the datetime by specified number of months.</summary>
+    /// <param name="aValue">Number of months to increment (default 1).</param>
     function IncMonth(const aValue : Cardinal = 1) : TDateTime;
+    /// <summary>Decrements the datetime by specified number of months.</summary>
+    /// <param name="aValue">Number of months to decrement (default 1).</param>
     function DecMonth(const aValue : Cardinal = 1) : TDateTime;
+    /// <summary>Increments the datetime by specified number of years.</summary>
+    /// <param name="aValue">Number of years to increment (default 1).</param>
     function IncYear(const aValue : Cardinal = 1) : TDateTime;
+    /// <summary>Decrements the datetime by specified number of years.</summary>
+    /// <param name="aValue">Number of years to decrement (default 1).</param>
     function DecYear(const aValue : Cardinal = 1) : TDateTime;
+    /// <summary>Checks if this datetime equals another datetime.</summary>
     function IsEqualTo(const aDateTime : TDateTime) : Boolean;
+    /// <summary>Checks if this datetime is after another datetime.</summary>
     function IsAfter(const aDateTime : TDateTime) : Boolean;
+    /// <summary>Checks if this datetime is before another datetime.</summary>
     function IsBefore(const aDateTime : TDateTime) : Boolean;
+    /// <summary>Checks if this datetime is on the same day as another datetime.</summary>
     function IsSameDay(const aDateTime : TDateTime) : Boolean;
+    /// <summary>Checks if this datetime has the same time as another time.</summary>
     function IsSameTime(const aTime : TTime) : Boolean;
+    /// <summary>Gets the day of the week (1-7).</summary>
     function DayOfTheWeek : Word;
+    /// <summary>Converts datetime to JSON/ISO 8601 format string.</summary>
     function ToJsonFormat : string;
+    /// <summary>Converts datetime to GMT format string.</summary>
     function ToGMTFormat: string;
+    /// <summary>Converts datetime to TimeStamp.</summary>
     function ToTimeStamp : TTimeStamp;
+    /// <summary>Converts local datetime to UTC.</summary>
     function ToUTC : TDateTime;
+    /// <summary>Converts datetime to milliseconds.</summary>
     function ToMilliseconds : Int64;
+    /// <summary>Converts datetime to string.</summary>
     function ToString : string;
+    /// <summary>Extracts the date part of the datetime.</summary>
     function Date : TDate;
+    /// <summary>Extracts the time part of the datetime.</summary>
     function Time : TTime;
+    /// <summary>Checks if time is in AM (ante meridiem).</summary>
     function IsAM : Boolean;
+    /// <summary>Checks if time is in PM (post meridiem).</summary>
     function IsPM : Boolean;
   end;
 
+  /// <summary>
+  /// Helper record extending TDate with utility methods.
+  /// </summary>
   TDateHelper = record helper for TDate
   public
+    /// <summary>Converts date to string.</summary>
     function ToString : string;
   end;
 
+  /// <summary>
+  /// Helper record extending TTime with utility methods.
+  /// </summary>
   TTimeHelper = record helper for TTime
   public
+    /// <summary>Converts time to string.</summary>
     function ToString : string;
   end;
   {$ENDIF}
 
+  /// <summary>Exception raised when environment path operations fail.</summary>
   EEnvironmentPath = class(Exception);
+  /// <summary>Exception raised when shell operations fail.</summary>
   EShellError = class(Exception);
 
-  //generates a random password with complexity options
+  /// <summary>
+  /// Generates a random password with specified complexity requirements.
+  /// </summary>
+  /// <param name="PasswordLength">Desired length of the password.</param>
+  /// <param name="Complexity">Set of complexity requirements (numbers, signs).</param>
+  /// <returns>Randomly generated password string.</returns>
   function RandomPassword(const PasswordLength : Integer; Complexity : TPasswordComplexity = [pfIncludeNumbers,pfIncludeSigns]) : string;
-  //generates a random string
+  
+  /// <summary>
+  /// Generates a random alphanumeric string.
+  /// </summary>
+  /// <param name="aLength">Length of the string to generate.</param>
+  /// <returns>Random string containing letters and numbers.</returns>
   function RandomString(const aLength: Integer) : string;
-  //extracts file extension from a filename
+  
+  /// <summary>
+  /// Extracts filename without extension from a full path.
+  /// </summary>
+  /// <param name="FileName">Full path or filename.</param>
+  /// <returns>Filename without extension.</returns>
   function ExtractFileNameWithoutExt(const FileName: string): string;
-  //converts a Unix path to Windows path
+  
+  /// <summary>
+  /// Converts Unix-style path (/) to Windows-style path (\).
+  /// </summary>
+  /// <param name="UnixPath">Path with Unix separators.</param>
+  /// <returns>Path with Windows separators.</returns>
   function UnixToWindowsPath(const UnixPath: string): string;
-  //converts a Windows path to Unix path
+  
+  /// <summary>
+  /// Converts Windows-style path (\) to Unix-style path (/).
+  /// </summary>
+  /// <param name="WindowsPath">Path with Windows separators.</param>
+  /// <returns>Path with Unix separators.</returns>
   function WindowsToUnixPath(const WindowsPath: string): string;
-  //corrects malformed urls
+  
+  /// <summary>
+  /// Corrects malformed URLs by fixing slashes and encoding spaces.
+  /// </summary>
+  /// <param name="cUrl">URL to correct.</param>
+  /// <returns>Corrected URL.</returns>
   function CorrectURLPath(const cUrl : string) : string;
-  //get url parts
+  
+  /// <summary>Extracts the protocol from a URL (e.g., 'http', 'https').</summary>
   function UrlGetProtocol(const aUrl : string) : string;
+  
+  /// <summary>Extracts the host from a URL.</summary>
   function UrlGetHost(const aUrl : string) : string;
+  
+  /// <summary>Extracts the path from a URL.</summary>
   function UrlGetPath(const aUrl : string) : string;
+  
+  /// <summary>Extracts the query string from a URL.</summary>
   function UrlGetQuery(const aUrl : string) : string;
+  
+  /// <summary>Removes the protocol part from a URL.</summary>
   function UrlRemoveProtocol(const aUrl : string) : string;
+  
+  /// <summary>Removes the query string part from a URL.</summary>
   function UrlRemoveQuery(const aUrl : string) : string;
+  
+  /// <summary>Performs simple URL encoding (spaces to %20).</summary>
   function UrlSimpleEncode(const aUrl : string) : string;
-  //get typical environment paths as temp, desktop, etc
+  
+  /// <summary>
+  /// Populates the global 'path' variable with common environment paths.
+  /// </summary>
+  /// <remarks>
+  /// Automatically called during unit initialization. Fills paths like TEMP, DESKTOP, etc.
+  /// </remarks>
   procedure GetEnvironmentPaths;
+  
   {$IFDEF MSWINDOWS}
+  /// <summary>
+  /// Gets a special folder path by its CSIDL identifier.
+  /// </summary>
+  /// <param name="folderID">CSIDL folder identifier (e.g., CSIDL_DESKTOP).</param>
+  /// <returns>Full path to the special folder.</returns>
   function GetSpecialFolderPath(folderID : Integer) : string;
-  //checks if running on a 64bit OS
+  
+  /// <summary>Checks if the operating system is 64-bit.</summary>
+  /// <returns>True if running on 64-bit OS.</returns>
   function Is64bitOS : Boolean;
-  //checks if is a console app
+  
+  /// <summary>Checks if the application is compiled as a console application.</summary>
+  /// <returns>True if console application.</returns>
   function IsConsole : Boolean;
+  
+  /// <summary>Checks if the application has console output available.</summary>
+  /// <returns>True if console output is available.</returns>
   function HasConsoleOutput : Boolean;
-  //checks if compiled in debug mode
   {$ENDIF}
+  
+  /// <summary>Checks if the application is compiled in debug mode.</summary>
+  /// <returns>True if compiled with DEBUG directive.</returns>
   function IsDebug : Boolean;
+  
   {$IFDEF MSWINDOWS}
-  //checks if running as a service
+  /// <summary>Checks if the application is running as a Windows service.</summary>
+  /// <returns>True if running as a service.</returns>
   function IsService : Boolean;
-  //gets number of seconds without user interaction (mouse, keyboard)
+  
+  /// <summary>
+  /// Gets the number of seconds since last user input (keyboard or mouse).
+  /// </summary>
+  /// <returns>Seconds of idle time.</returns>
   function SecondsIdle: DWord;
-  //frees process memory not needed
+  
+  /// <summary>
+  /// Frees unused process memory to reduce memory footprint.
+  /// </summary>
   procedure FreeUnusedMem;
-  //changes screen resolution
+  
+  /// <summary>
+  /// Changes the screen resolution.
+  /// </summary>
+  /// <param name="Width">Desired screen width in pixels.</param>
+  /// <param name="Height">Desired screen height in pixels.</param>
+  /// <returns>Result code from ChangeDisplaySettings.</returns>
   function SetScreenResolution(Width, Height: integer): Longint;
   {$ENDIF MSWINDOWS}
-  //returns last day of current month
+  
+  /// <summary>Returns the last day of the current month.</summary>
+  /// <returns>TDateTime representing the last day of current month.</returns>
   function LastDayCurrentMonth: TDateTime;
+  
   {$IFDEF FPC}
+  /// <summary>
+  /// Checks if a datetime is within a specified range.
+  /// </summary>
+  /// <param name="aInclusive">If true, range endpoints are included.</param>
   function DateTimeInRange(ADateTime: TDateTime; AStartDateTime, AEndDateTime: TDateTime; aInclusive: Boolean = True): Boolean;
   {$ENDIF}
-  //checks if two datetimes are in same day
+  
+  /// <summary>
+  /// Checks if two datetimes are on the same day.
+  /// </summary>
+  /// <param name="cBefore">First datetime to compare.</param>
+  /// <param name="cNow">Second datetime to compare.</param>
+  /// <returns>True if both datetimes are on the same day.</returns>
   function IsSameDay(cBefore, cNow : TDateTime) : Boolean;
-  //change Time of a DateTime
+  
+  /// <summary>
+  /// Changes the time portion of a datetime value.
+  /// </summary>
+  /// <param name="aDate">Original datetime.</param>
+  /// <param name="aHour">New hour value.</param>
+  /// <param name="aMinute">New minute value.</param>
+  /// <param name="aSecond">New second value.</param>
+  /// <param name="aMilliSecond">New millisecond value (default 0).</param>
+  /// <returns>DateTime with modified time.</returns>
   function ChangeTimeOfADay(aDate : TDateTime; aHour, aMinute, aSecond : Word; aMilliSecond : Word = 0) : TDateTime;
-  //change Date of a DateTime
+  
+  /// <summary>
+  /// Changes the date portion of a datetime value.
+  /// </summary>
+  /// <param name="aDate">Original datetime.</param>
+  /// <param name="aYear">New year value.</param>
+  /// <param name="aMonth">New month value.</param>
+  /// <param name="aDay">New day value.</param>
+  /// <returns>DateTime with modified date.</returns>
   function ChangeDateOfADay(aDate : TDateTime; aYear, aMonth, aDay : Word) : TDateTime;
-  //returns n times a char
+  
+  /// <summary>
+  /// Creates a string by repeating a character.
+  /// </summary>
+  /// <param name="C">Character to repeat.</param>
+  /// <param name="Count">Number of repetitions.</param>
+  /// <returns>String containing the repeated character.</returns>
   function FillStr(const C : Char; const Count : Integer) : string;
+  
+  /// <summary>
+  /// Creates a string by repeating a string value.
+  /// </summary>
+  /// <param name="value">String to repeat.</param>
+  /// <param name="Count">Number of repetitions.</param>
+  /// <returns>String containing the repeated value.</returns>
   function FillStrEx(const value : string; const Count : Integer) : string;
-  //checks if string exists in array of string
+  
+  /// <summary>
+  /// Checks if a string exists in an array of strings.
+  /// </summary>
+  /// <param name="aValue">Value to search for.</param>
+  /// <param name="aInArray">Array to search in.</param>
+  /// <param name="aCaseSensitive">Whether comparison is case-sensitive (default True).</param>
+  /// <returns>True if value is found in array.</returns>
   function StrInArray(const aValue : string; const aInArray : array of string; aCaseSensitive : Boolean = True) : Boolean;
-  //checks if integer exists in array of integer
+  
+  /// <summary>
+  /// Checks if an integer exists in an array of integers.
+  /// </summary>
+  /// <param name="aValue">Value to search for.</param>
+  /// <param name="aInArray">Array to search in.</param>
+  /// <returns>True if value is found in array.</returns>
   function IntInArray(const aValue : Integer; const aInArray : array of Integer) : Boolean;
-  //check if array is empty
+  
+  /// <summary>Checks if a string array is empty.</summary>
   function IsEmptyArray(aArray : TArray<string>) : Boolean; overload;
+  
+  /// <summary>Checks if an integer array is empty.</summary>
   function IsEmptyArray(aArray : TArray<Integer>) : Boolean; overload;
-  //returns a number leading zero
+  
+  /// <summary>
+  /// Returns a number as a string with leading zeros.
+  /// </summary>
+  /// <param name="Number">Number to format.</param>
+  /// <param name="Len">Desired minimum length.</param>
+  /// <returns>String with leading zeros.</returns>
   function Zeroes(const Number, Len : Int64) : string;
-  //converts a number to thousand delimeter string
+  
+  /// <summary>
+  /// Converts a number to a string with thousand delimiters.
+  /// </summary>
+  /// <param name="Number">Number to format.</param>
+  /// <returns>Formatted number string (e.g., "1,000,000").</returns>
   function NumberToStr(const Number : Int64) : string;
-  //returns n spaces
+  
+  /// <summary>
+  /// Creates a string of spaces.
+  /// </summary>
+  /// <param name="Count">Number of spaces.</param>
+  /// <returns>String containing spaces.</returns>
   function Spaces(const Count : Integer) : string;
-  //returns current date as a string
+  
+  /// <summary>Returns the current date and time as a string.</summary>
   function NowStr : string;
-  //returns a new GUID as string
+  
+  /// <summary>
+  /// Generates a new GUID and returns it as a string.
+  /// </summary>
+  /// <returns>GUID string in format {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}.</returns>
   function NewGuidStr : string;
-  //compare a string with a wildcard pattern (? or *)
+  
+  /// <summary>
+  /// Compares a string with a wildcard pattern.
+  /// </summary>
+  /// <param name="cText">Text to match.</param>
+  /// <param name="Pattern">Pattern with wildcards (* for multiple chars, ? for single char).</param>
+  /// <returns>True if text matches pattern.</returns>
   function IsLike(cText, Pattern: string) : Boolean;
-  //Upper case for first letter
+  
+  /// <summary>
+  /// Capitalizes the first letter of a string.
+  /// </summary>
+  /// <param name="s">String to capitalize.</param>
+  /// <returns>String with first letter uppercase.</returns>
   function Capitalize(s: string): string;
+  
+  /// <summary>
+  /// Capitalizes the first letter of each word in a string.
+  /// </summary>
+  /// <param name="s">String to capitalize.</param>
+  /// <returns>String with each word capitalized.</returns>
   function CapitalizeWords(s: string): string;
-  //returns current logged user
+  
+  /// <summary>Gets the currently logged-in username.</summary>
+  /// <returns>Username string.</returns>
   function GetLoggedUserName : string;
-  //returns computer name
+  
+  /// <summary>Gets the computer name.</summary>
+  /// <returns>Computer name string.</returns>
   function GetComputerName : string;
-  //check if remote desktop session
+  
   {$IFDEF MSWINDOWS}
+  /// <summary>Checks if the session is a remote desktop connection.</summary>
+  /// <returns>True if remote desktop session.</returns>
   function IsRemoteSession : Boolean;
   {$ENDIF}
-  //extract domain and user name from user login
+  
+  /// <summary>
+  /// Extracts domain and username from a login string.
+  /// </summary>
+  /// <param name="aUser">User string (formats: DOMAIN\User or User@domain.com).</param>
+  /// <param name="oDomain">Output parameter for domain.</param>
+  /// <param name="oUser">Output parameter for username.</param>
+  /// <returns>True if domain was extracted, False otherwise.</returns>
   function ExtractDomainAndUser(const aUser : string; out oDomain, oUser : string) : Boolean;
-  //Changes incorrect delims in path
+  
+  /// <summary>
+  /// Normalizes path delimiters to a specific character.
+  /// </summary>
+  /// <param name="cPath">Path to normalize.</param>
+  /// <param name="Delim">Desired delimiter character (\ or /).</param>
+  /// <returns>Path with normalized delimiters.</returns>
   function NormalizePathDelim(const cPath : string; const Delim : Char) : string;
-  //combine paths normalized with delim
+  
+  /// <summary>
+  /// Combines two paths with a specified delimiter.
+  /// </summary>
+  /// <param name="aFirstPath">First path segment.</param>
+  /// <param name="aSecondPath">Second path segment.</param>
+  /// <param name="aDelim">Path delimiter to use.</param>
+  /// <returns>Combined path.</returns>
   function CombinePaths(const aFirstPath, aSecondPath: string; aDelim : Char): string;
-  //Removes firs segment of a path
+  
+  /// <summary>
+  /// Removes the first segment from a path.
+  /// </summary>
+  /// <param name="cdir">Path to process.</param>
+  /// <returns>Path without first segment.</returns>
   function RemoveFirstPathSegment(const cdir : string) : string;
-  //Removes last segment of a path
+  
+  /// <summary>
+  /// Removes the last segment from a path.
+  /// </summary>
+  /// <param name="cDir">Path to process.</param>
+  /// <returns>Path without last segment.</returns>
   function RemoveLastPathSegment(const cDir : string) : string;
-  //returns path delimiter if found
+  
+  /// <summary>
+  /// Detects and returns the path delimiter used in a path.
+  /// </summary>
+  /// <param name="aPath">Path to analyze.</param>
+  /// <returns>Path delimiter (\ or /) or empty string if none found.</returns>
   function GetPathDelimiter(const aPath : string) : string;
-  //returns first segment of a path
+  
+  /// <summary>
+  /// Extracts the first segment from a path.
+  /// </summary>
+  /// <param name="aPath">Path to process.</param>
+  /// <returns>First path segment.</returns>
   function GetFirstPathSegment(const aPath : string) : string;
-  //returns last segment of a path
+  
+  /// <summary>
+  /// Extracts the last segment from a path.
+  /// </summary>
+  /// <param name="aPath">Path to process.</param>
+  /// <returns>Last path segment.</returns>
   function GetLastPathSegment(const aPath : string) : string;
-  //finds swith in commandline params
+  
+  /// <summary>
+  /// Checks if a command-line switch exists.
+  /// </summary>
+  /// <param name="Switch">Switch name to find (without - or /).</param>
+  /// <returns>True if switch was found in command line parameters.</returns>
   function ParamFindSwitch(const Switch : string) : Boolean;
-  //gets value for a switch if exists
+  
+  /// <summary>
+  /// Gets the value of a command-line switch.
+  /// </summary>
+  /// <param name="Switch">Switch name (without - or /).</param>
+  /// <param name="cvalue">Output parameter for switch value.</param>
+  /// <returns>True if switch was found and value retrieved.</returns>
   function ParamGetSwitch(const Switch : string; var cvalue : string) : Boolean;
-  //returns app name (filename based)
+  
+  /// <summary>
+  /// Gets the application name based on the executable filename.
+  /// </summary>
+  /// <returns>Application name without extension.</returns>
   function GetAppName : string;
-  //returns app version (major & minor)
+  
+  /// <summary>
+  /// Gets the application version string (major.minor).
+  /// </summary>  
+  /// <returns>Version string (e.g., "1.0").</returns>
   function GetAppVersionStr: string;
-  //returns app version full (major, minor, release & compiled)
+  
+  /// <summary>
+  /// Gets the full application version string (major.minor.release.build).
+  /// </summary>
+  /// <returns>Full version string (e.g., "1.0.0.0").</returns>
   function GetAppVersionFullStr: string;
-  //convert UTC DateTime to Local DateTime
+  
+  /// <summary>
+  /// Converts UTC datetime to local datetime.
+  /// </summary>
+  /// <param name="GMTTime">UTC datetime value.</param>
+  /// <returns>Local datetime value.</returns>
   function UTCToLocalTime(GMTTime: TDateTime): TDateTime;
-  //convert Local DateTime to UTC DateTime
+  
+  /// <summary>
+  /// Converts local datetime to UTC datetime.
+  /// </summary>
+  /// <param name="LocalTime">Local datetime value.</param>
+  /// <returns>UTC datetime value.</returns>
   function LocalTimeToUTC(LocalTime : TDateTime): TDateTime;
-  //convert DateTime to GTM Time string
+  
+  /// <summary>
+  /// Converts datetime to GMT format string.
+  /// </summary>
+  /// <param name="aDate">DateTime to convert.</param>
+  /// <returns>GMT formatted string.</returns>
   function DateTimeToGMT(aDate : TDateTime) : string;
-  //convert GMT Time string to DateTime
+  
+  /// <summary>
+  /// Converts GMT format string to datetime.
+  /// </summary>
+  /// <param name="aDate">GMT formatted string.</param>
+  /// <returns>TDateTime value.</returns>
   function GMTToDateTime(aDate : string) : TDateTime;
-  //convert DateTime to Json Date format
+  
+  /// <summary>
+  /// Converts datetime to JSON/ISO 8601 date format.
+  /// </summary>
+  /// <param name="aDateTime">DateTime to convert.</param>
+  /// <returns>ISO 8601 formatted string.</returns>
   function DateTimeToJsonDate(aDateTime : TDateTime) : string;
-  //convert Json Date format to DateTime
+  
+  /// <summary>
+  /// Converts JSON/ISO 8601 date format to datetime.
+  /// </summary>
+  /// <param name="aJsonDate">ISO 8601 formatted string.</param>
+  /// <returns>TDateTime value.</returns>
   function JsonDateToDateTime(const aJsonDate : string) : TDateTime;
-  //count number of digits of a Integer
+  
+  /// <summary>
+  /// Counts the number of digits in an integer.
+  /// </summary>
+  /// <param name="anInt">Integer to analyze.</param>
+  /// <returns>Number of digits.</returns>
   function CountDigits(anInt: Cardinal): Cardinal; inline;
-  //count times a string is present in other string
+  
+  /// <summary>
+  /// Counts occurrences of a substring in a string.
+  /// </summary>
+  /// <param name="aFindStr">Substring to find.</param>
+  /// <param name="aSourceStr">String to search in.</param>
+  /// <returns>Number of occurrences.</returns>
   function CountStr(const aFindStr, aSourceStr : string) : Integer;
-  //save stream to file
+  
+  /// <summary>
+  /// Saves a stream to a file.
+  /// </summary>
+  /// <param name="aStream">Stream to save.</param>
+  /// <param name="aFilename">Target filename.</param>
   procedure SaveStreamToFile(aStream : TStream; const aFilename : string);
-  //save stream to string
+  
+  /// <summary>
+  /// Converts a stream to a string using specified encoding.
+  /// </summary>
+  /// <param name="aStream">Stream to convert.</param>
+  /// <param name="aEncoding">Text encoding to use.</param>
+  /// <returns>String content.</returns>
   function StreamToString(const aStream: TStream; const aEncoding: TEncoding): string;
+  
+  /// <summary>
+  /// Converts a stream to a string (auto-detecting type).
+  /// </summary>
+  /// <param name="aStream">Stream to convert.</param>
+  /// <returns>String content.</returns>
   function StreamToStringEx(aStream : TStream) : string;
-  //save string to stream
+  
+  /// <summary>
+  /// Writes a string to a stream using specified encoding.
+  /// </summary>
+  /// <param name="aStr">String to write.</param>
+  /// <param name="aStream">Target stream.</param>
+  /// <param name="aEncoding">Text encoding to use.</param>
   procedure StringToStream(const aStr : string; aStream : TStream; const aEncoding: TEncoding);
+  
+  /// <summary>
+  /// Writes a string to a stream directly.
+  /// </summary>
+  /// <param name="aStr">String to write.</param>
+  /// <param name="aStream">Target stream.</param>
   procedure StringToStreamEx(const aStr : string; aStream : TStream);
-  //returns a real comma separated text from stringlist
+  
+  /// <summary>
+  /// Converts a TStringList to a comma-separated string.
+  /// </summary>
+  /// <param name="aList">StringList to convert.</param>
+  /// <returns>Comma-separated string.</returns>
   function CommaText(aList : TStringList) : string; overload;
-  //returns a real comma separated text from array of string
+  
+  /// <summary>
+  /// Converts an array of strings to a comma-separated string.
+  /// </summary>
+  /// <param name="aArray">Array to convert.</param>
+  /// <returns>Comma-separated string.</returns>
   function CommaText(aArray : TArray<string>) : string; overload;
-  //returns a string CRLF separated from array of string
+  
+  /// <summary>
+  /// Converts an array of strings to a CRLF-separated string.
+  /// </summary>
+  /// <param name="aArray">Array to convert.</param>
+  /// <returns>CRLF-separated string.</returns>
   function ArrayToString(aArray : TArray<string>) : string; overload;
-  //returns a string with separator from array of string
+  
+  /// <summary>
+  /// Converts an array of strings to a string with custom separator.
+  /// </summary>
+  /// <param name="aArray">Array to convert.</param>
+  /// <param name="aSeparator">Separator string.</param>
+  /// <returns>Separated string.</returns>
   function ArrayToString(aArray : TArray<string>; aSeparator : string) : string; overload;
-  //returns a string CRLF separated from array of Integer
+  
+  /// <summary>
+  /// Converts an array of integers to a CRLF-separated string.
+  /// </summary>
+  /// <param name="aArray">Array to convert.</param>
+  /// <returns>CRLF-separated string.</returns>
   function ArrayToString(aArray : TArray<Integer>) : string; overload;
-  //returns a string with separator from array of Integer
+  
+  /// <summary>
+  /// Converts an array of integers to a string with custom separator.
+  /// </summary>
+  /// <param name="aArray">Array to convert.</param>
+  /// <param name="aSeparator">Separator string.</param>
+  /// <returns>Separated string.</returns>
   function ArrayToString(aArray : TArray<Integer>; aSeparator : string) : string; overload;
-  //converts TStrings to array
+  
+  /// <summary>
+  /// Converts a TStrings to an array of strings.
+  /// </summary>
+  /// <param name="aStrings">TStrings to convert.</param>
+  /// <returns>Array of strings.</returns>
   function StringsToArray(aStrings : TStrings) : TArray<string>; overload;
-  //converts string comma or semicolon separated to array
+  
+  /// <summary>
+  /// Splits a comma or semicolon-separated string into an array.
+  /// </summary>
+  /// <param name="aString">String to split.</param>
+  /// <returns>Array of strings.</returns>
   function StringsToArray(const aString : string) : TArray<string>; overload;
   {$IFDEF MSWINDOWS}
-  //process messages on console applications
+  /// <summary>
+  /// Processes pending Windows messages in console applications.
+  /// </summary>
+  /// <remarks>
+  /// Allows console applications to process Windows messages, similar to Application.ProcessMessages.
+  /// </remarks>
   procedure ProcessMessages;
-  //get last error message
+  
+  /// <summary>
+  /// Gets the last Windows error message.
+  /// </summary>
+  /// <returns>Formatted error message string.</returns>
   function GetLastOSError : String;
   {$ENDIF}
+  
   {$IF DEFINED(FPC) AND DEFINED(MSWINDOWS)}
   function GetLastInputInfo(var plii: TLastInputInfo): BOOL;stdcall; external 'user32' name 'GetLastInputInfo';
   {$ENDIF}
+  
+  /// <summary>
+  /// Removes the last character from a string.
+  /// </summary>
+  /// <param name="aText">String to process.</param>
+  /// <returns>String without last character.</returns>
   function RemoveLastChar(const aText : string) : string;
+  
+  /// <summary>
+  /// Converts a datetime to SQL format string (YYYY-MM-DD hh:mm:ss).
+  /// </summary>
+  /// <param name="aDateTime">DateTime to convert.</param>
+  /// <returns>SQL formatted datetime string.</returns>
   function DateTimeToSQL(aDateTime : TDateTime) : string;
+  
+  /// <summary>
+  /// Checks if a string represents a valid integer.
+  /// </summary>
+  /// <param name="aValue">String to check.</param>
+  /// <returns>True if string is a valid integer.</returns>
   function IsInteger(const aValue : string) : Boolean;
+  
+  /// <summary>
+  /// Checks if a string represents a valid floating-point number.
+  /// </summary>
+  /// <param name="aValue">String to check.</param>
+  /// <returns>True if string is a valid float.</returns>
   function IsFloat(const aValue : string) : Boolean;
+  
+  /// <summary>
+  /// Checks if a string represents a valid boolean value.
+  /// </summary>
+  /// <param name="aValue">String to check.</param>
+  /// <returns>True if string is a valid boolean.</returns>
   function IsBoolean(const aValue : string) : Boolean;
-  //extract a substring and deletes from source string
+  
+  /// <summary>
+  /// Extracts a substring from a string and removes it from the source.
+  /// </summary>
+  /// <param name="vSource">Source string (modified by this function).</param>
+  /// <param name="aIndex">Starting index (1-based).</param>
+  /// <param name="aCount">Number of characters to extract.</param>
+  /// <returns>Extracted substring.</returns>
   function ExtractStr(var vSource : string; aIndex : Integer; aCount : Integer) : string;
-  //get first string between string delimiters
+  
+  /// <summary>
+  /// Extracts a substring between two delimiters.
+  /// </summary>
+  /// <param name="aSource">Source string.</param>
+  /// <param name="aFirstDelimiter">Starting delimiter.</param>
+  /// <param name="aLastDelimiter">Ending delimiter.</param>
+  /// <returns>Substring between delimiters.</returns>
   function GetSubString(const aSource, aFirstDelimiter, aLastDelimiter : string) : string;
-  //get double quoted or dequoted string
+  
+  /// <summary>
+  /// Adds double quotes around a string, escaping existing quotes.
+  /// </summary>
+  /// <param name="str">String to quote.</param>
+  /// <returns>Double-quoted string.</returns>
   function DbQuotedStr(const str : string): string;
+  
+  /// <summary>
+  /// Removes double quotes from a quoted string.
+  /// </summary>
+  /// <param name="str">Quoted string.</param>
+  /// <returns>Unquoted string.</returns>
   function UnDbQuotedStr(const str: string) : string;
-  //get simple quoted or dequoted string
+  
+  /// <summary>
+  /// Adds single quotes around a string.
+  /// </summary>
+  /// <param name="str">String to quote.</param>
+  /// <returns>Single-quoted string.</returns>
   function SpQuotedStr(const str : string): string;
+  
+  /// <summary>
+  /// Removes single quotes from a quoted string.
+  /// </summary>
+  /// <param name="str">Quoted string.</param>
+  /// <returns>Unquoted string.</returns>
   function UnSpQuotedStr(const str : string): string;
+  
+  /// <summary>
+  /// Removes specified quote characters from a string.
+  /// </summary>
+  /// <param name="str">Quoted string.</param>
+  /// <param name="aQuote">Quote character to remove.</param>
+  /// <returns>Unquoted string.</returns>
   function UnQuotedStr(const str : string; const aQuote : Char) : string;
-  //ternary operator
+  
+  /// <summary>
+  /// Ternary operator for strings (if-then-else expression).
+  /// </summary>
+  /// <param name="aCondition">Condition to evaluate.</param>
+  /// <param name="aIfIsTrue">Value if condition is true.</param>
+  /// <param name="aIfIsFalse">Value if condition is false.</param>
+  /// <returns>Selected value based on condition.</returns>
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : string) : string; overload;
+  
+  /// <summary>
+  /// Ternary operator for integers (if-then-else expression).
+  /// </summary>
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Integer) : Integer; overload;
+  
+  /// <summary>
+  /// Ternary operator for extended (float) values (if-then-else expression).
+  /// </summary>
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : Extended) : Extended; overload;
+  
+  /// <summary>
+  /// Ternary operator for objects (if-then-else expression).
+  /// </summary>
   function Ifx(aCondition : Boolean; const aIfIsTrue, aIfIsFalse : TObject) : TObject; overload;
 
 var
+  /// <summary>
+  /// Global variable containing commonly used environment and system paths.
+  /// </summary>
+  /// <remarks>
+  /// Automatically populated during unit initialization by calling GetEnvironmentPaths.
+  /// </remarks>
   path : TEnvironmentPath;
-  //Enabled if QuickService is defined
+  
+  /// <summary>
+  /// Indicates if the application is running as a Quick.Service application.
+  /// </summary>
+  /// <remarks>
+  /// Set to True when using the QuickService framework.
+  /// </remarks>
   IsQuickServiceApp : Boolean;
 
 implementation
