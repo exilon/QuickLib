@@ -629,11 +629,11 @@ begin
                or (CompareText(member.Value.AsString, 'null') = 0)
                or (Trim(member.Value.AsString) = '') then
             begin
-              // If the property already holds an object, nil the reference (the
-              // serializer does not own the object, so we only clear the pointer;
-              // the owner class destructor is responsible for freeing it).
+              // Nil the property reference.
+              // TValue.From(Pointer(nil)) produces a TValue<Pointer> which
+              // Delphi RTTI accepts as nil for any class-typed property.
               {$IFNDEF FPC}
-              aProperty.SetValue(aObject, TValue.Empty);
+              aProperty.SetValue(aObject, TValue.From(Pointer(nil)));
               {$ELSE}
               SetObjectProp(aObject, aName, nil);
               {$ENDIF}

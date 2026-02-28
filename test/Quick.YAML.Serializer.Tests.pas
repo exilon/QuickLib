@@ -323,6 +323,18 @@ type
     property Child2 : TNullableChild read fChild2 write fChild2;
   end;
 
+  // Deep-nested null: grandparent → owner (null) → child
+  TNullableGrandparent = class
+  private
+    fName  : string;
+    fOwner : TNullableOwner;
+  public
+    destructor Destroy; override;
+  published
+    property Name  : string         read fName  write fName;
+    property Owner : TNullableOwner read fOwner write fOwner;
+  end;
+
 // ──────────────────────────────────────────────────────────────────
 
   [TestFixture]
@@ -447,6 +459,12 @@ destructor TNullableOwner.Destroy;
 begin
   fChild.Free;
   fChild2.Free;
+  inherited;
+end;
+
+destructor TNullableGrandparent.Destroy;
+begin
+  fOwner.Free;
   inherited;
 end;
 
@@ -1676,6 +1694,103 @@ begin
     Assert.IsNull(obj.Child2, 'Child2 must be nil after round-trip');
   finally
     obj.Free;
+  end;
+end;
+
+procedure TYamlSerializerTests.Test_Deserialize_NullPair_AlreadyInitializedPropertyBecomesNil;
+const
+  // The owner has an already-created Child; YAML says null → must be set to nil
+  YAML_NULL_OVERRIDE =
+    'id: 7'        + #13#10 +
+    'child: null'  + #13#10 +
+    'child2: null';
+var
+  obj    : TNullableOwner;
+  child1 : TNullableChild;
+  child2 : TNullableChild;
+begin
+  // Pre-create the owner with explicitly assigned children so the deserialiser
+  // hits the "property already has an object" branch (aProperty.GetValue <> nil).
+  // We keep local references to free the children ourselves, because the
+  // serialiser only clears the pointer – it does not free the replaced object.
+  obj    := TNullableOwner.Create;
+  child1 := TNullableChild.Create;
+  child2 := TNullableChild.Create;
+  try
+    obj.Child  := child1;
+    obj.Child2 := child2;
+    // Deserialise into the existing object – null pairs must clear the properties
+    fSerializer.YamlToObject(obj, YAML_NULL_OVERRIDE);
+    Assert.AreEqual(7, obj.Id, 'Id must be 7');
+    // Issue #147 (variant): a pre-existing object must be cleared to nil when YAML is null
+    Assert.IsNull(obj.Child,  'Pre-existing Child must be nil when YAML pair is null');
+    Assert.IsNull(obj.Child2, 'Pre-existing Child2 must be nil when YAML pair is null');
+  finally
+    // The serialiser zeroed obj.Child/Child2, so free the originals via locals
+    child1.Free;
+    child2.Free;
+    obj.Free;
+  end;
+end;
+
+procedure TYamlSerializerTests.Test_Deserialize_NullPair_EmptyScalarTreatedAsNull;
+const
+  YAML_EXPLICIT_NULLS =
+    'id: 5'        + #13#10 +
+    'child: null'  + #13#10 +
+    'child2: null';
+var
+  obj : TNullableOwner;
+begin
+  obj := fSerializer.YamlToObject(TNullableOwner, YAML_EXPLICIT_NULLS) as TNullableOwner;
+  try
+    Assert.AreEqual(5, obj.Id, 'Id must be 5');
+    Assert.IsNull(obj.Child,  'Child must be nil when YAML value is null');
+    Assert.IsNull(obj.Child2, 'Child2 must be nil when YAML value is null');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYamlSerializerTests.Test_Deserialize_NullPair_MixedNullAndNonNull;
+const
+  // One child is null, the other has real data – both branches in one shot
+  YAML_MIXED =
+    'id: 3'         + #13#10 +
+    'child: null'   + #13#10 +
+    'child2:'       + #13#10 +
+    '  id: 42'      + #13#10 +
+    '  text: hello';
+var
+  obj : TNullableOwner;
+begin
+  obj := fSerializer.YamlToObject(TNullableOwner, YAML_MIXED) as TNullableOwner;
+  try
+    Assert.AreEqual(3, obj.Id, 'Id must be 3');
+    Assert.IsNull(obj.Child, 'Null child must remain nil');
+    Assert.IsNotNull(obj.Child2, 'Non-null child must be deserialised');
+    Assert.AreEqual(42,      obj.Child2.Id,   'Child2.Id must be 42');
+    Assert.AreEqual('hello', obj.Child2.Text, 'Child2.Text must be hello');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYamlSerializerTests.Test_Deserialize_NullPair_DeepNestedNull;
+const
+  // Grandparent → Owner (null): the nested owner must not be constructed
+  YAML_DEEP_NULL =
+    'name: root' + #13#10 +
+    'owner: null';
+var
+  gp : TNullableGrandparent;
+begin
+  gp := fSerializer.YamlToObject(TNullableGrandparent, YAML_DEEP_NULL) as TNullableGrandparent;
+  try
+    Assert.AreEqual('root', gp.Name,  'Name must be root');
+    Assert.IsNull(gp.Owner, 'Deep-nested null owner must remain nil');
+  finally
+    gp.Free;
   end;
 end;
 
