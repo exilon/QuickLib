@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2022 Kike Pérez
+  Copyright (c) 2015-2022 Kike Pï¿½rez
 
   Unit        : Quick.Data.Redis
   Description : Redis client
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.0
   Created     : 22/02/2020
-  Modified    : 07/03/2022
+  Modified    : 28/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -144,7 +144,7 @@ type
     function RedisZRANGE(const aKey : string; aStartPosition, aEndPosition : Int64) : TArray<string>;
     function RedisZRANGEBYSCORE(const aKey : string; aMinScore, aMaxScore : Int64) : TArray<TRedisSortedItem>;
     function RedisLLEN(const aKey : string): Integer;
-    function RedisTTL(const aKey: string): Integer;
+    function RedisTTL(const aKey, aValue : string): Integer;
     function RedisAUTH(const aPassword : string) : Boolean;
     function RedisPING : Boolean;
     function RedisQUIT : Boolean;
@@ -381,7 +381,9 @@ var
 begin
   rediscmd := TRedisCommand.Create('SET')
                .AddArgument(aKey)
-               .AddArgument(aValue)
+               .AddArgument(aValue);
+  if aTTLMs > 0 then
+    rediscmd := rediscmd
                .AddArgument('PX')
                .AddArgument(aTTLMs);
   Result := Command(rediscmd.ToCommand).IsDone;
@@ -468,7 +470,8 @@ begin
     Result := response.Response.ToInteger;
   end;
 end;
-function TRedisClient.RedisTTL(const aKey : string): Integer;
+
+function TRedisClient.RedisTTL(const aKey, aValue : string): Integer;
 var
   rediscmd : IRedisCommand;
   response : IRedisResponse;
@@ -476,7 +479,7 @@ begin
   Result := 0;
   rediscmd := TRedisCommand.Create('TTL')
                .AddArgument(aKey)
-               ;
+               .AddArgument(aValue);
   response := Command(rediscmd.ToCommand);
   if response.IsDone then
   begin
