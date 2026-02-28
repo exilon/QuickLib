@@ -5,7 +5,7 @@
   Author      : Kike P�rez
   Version     : 1.0
   Created     : 12/04/2019
-  Modified    : 05/08/2021
+  Modified    : 27/02/2026
   This file is part of QuickLib: https://github.com/exilon/QuickLib
  ***************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -192,6 +192,7 @@ begin
     TValue.Make(@pArr,aTypeInfo, Result);
     rDynArray := ctx.GetType(Result.TypeInfo) as TRTTIDynamicArrayType;
 
+    i := -1;
     try
       for i := 0 to aYamlArray.Count - 1 do
       begin
@@ -1561,6 +1562,11 @@ function TYamlSerializer.YamlToObject(aType: TClass; const aYaml: string): TObje
 var
   Yaml: TYamlObject;
 begin
+  if aYaml.Trim = '' then
+  begin
+    Result := nil;
+    Exit;
+  end;
   Yaml := TYamlObject.ParseYamlValue(aYaml) as TYamlObject;
   try
     Result := fRTTIYaml.DeserializeClass(aType,Yaml);
@@ -1592,6 +1598,11 @@ function TYamlSerializer.ObjectToYaml(aObject : TObject): string;
 var
   Yaml: TYamlObject;
 begin
+  if aObject = nil then
+  begin
+    Result := '';
+    Exit;
+  end;
   Yaml := fRTTIYaml.Serialize(aObject);
   try
     Result := Yaml.ToYaml;

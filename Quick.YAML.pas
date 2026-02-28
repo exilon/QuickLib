@@ -1,13 +1,13 @@
-{ ***************************************************************************
+﻿{ ***************************************************************************
 
-  Copyright (c) 2015-2022 Kike P�rez
+  Copyright (c) 2015-2026 Kike Pérez
 
   Unit        : Quick.YAML
   Description : YAML Object parser
   Author      : Kike P�rez
-  Version     : 1.1
+  Version     : 1.2
   Created     : 17/04/2019
-  Modified    : 07/03/2022
+  Modified    : 27/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -203,6 +203,9 @@ type
     function AddPair(const aPair : TYamlPair): TYamlObject; overload;
     function AddPair(const aName : string; const aValue : TYamlValue): TYamlObject; overload;
     function AddPair(const aName : string; const aValue : string): TYamlObject; overload;
+    function AddPair(const aName : string; aValue: Integer): TYamlObject; overload;
+    function AddPair(const aName : string; aValue: double): TYamlObject; overload;
+    function AddPair(const aName : string; aValue: boolean): TYamlObject; overload;
     function RemovePair(const aPairName: string): TYamlPair;
     function GetEnumerator: TEnumerator; inline;
     property Pairs[const aIndex: Integer]: TYamlPair read GetPair;
@@ -294,6 +297,24 @@ end;
 function TYamlObject.AddPair(const aName, aValue: string): TYamlObject;
 begin
   if not aName.IsEmpty and (not aValue.IsEmpty) then AddPair(TYamlPair.Create(aName,aValue));
+  Result := Self;
+end;
+
+function TYamlObject.AddPair(const aName : string; aValue: Integer): TYamlObject;
+begin
+  AddPair(TYamlPair.Create(aName,aValue));
+  Result := Self;
+end;
+
+function TYamlObject.AddPair(const aName : string; aValue: double): TYamlObject;
+begin
+  AddPair(TYamlPair.Create(aName,aValue));
+  Result := Self;
+end;
+
+function TYamlObject.AddPair(const aName : string; aValue: boolean): TYamlObject;
+begin
+  AddPair(TYamlPair.Create(aName,aValue.ToInteger));
   Result := Self;
 end;
 
@@ -435,27 +456,49 @@ begin
   begin
     value := yaml[vIndex].Trim;
 
-    name := ParsePairName(value);
-    if (name.IsEmpty) or (value.IsEmpty) or (value.StartsWith('#')) or (value.StartsWith(#9)) then Exit(nil)
-    //else if value.StartsWith('#') then Exit(TYamlComment.Create(value))
-    else if value.StartsWith('-') then
+    if value.IsEmpty or value.StartsWith('#') or value.StartsWith(#9) then Exit(nil);
+
+    if value.StartsWith('-') then
     begin
-      yaml[vIndex] := StringReplace(yaml[vIndex],'-','',[]).TrimLeft;
-      yamlType := ytObject;
-      Dec(vIndex);
+      // strip the leading dash and whitespace
+      var itemValue := value.Substring(1).Trim;
+      if itemValue = '' then
+      begin
+        // dash only line: next lines are an object block
+        yaml[vIndex] := StringReplace(yaml[vIndex],'-','',[]).TrimLeft;
+        yamlType := ytObject;
+        Dec(vIndex);
+      end
+      else if itemValue.IndexOf(':') >= 0 then
+      begin
+        // dash followed by key:value -> treat as object block
+        yaml[vIndex] := StringReplace(yaml[vIndex],'-','',[]).TrimLeft;
+        yamlType := ytObject;
+        Dec(vIndex);
+      end
+      else
+      begin
+        // plain scalar array item: - reading, - gaming, etc.
+        Exit(ParseArrayValue(itemValue));
+      end;
     end
-    else if value.EndsWith(':') then
+    else
     begin
-      if yaml[vIndex + 1].TrimLeft.StartsWith('-') then yamlType := ytArray
-        else yamlType := ytObject;
-    end
-    else if value.IndexOf(':') < value.Length then
-    begin
-      value := ParsePairValue(value);
-      if (value.StartsWith('[')) and (value.EndsWith(']')) then yamlType := ytScalarArray
-        else yamlType := ytScalar;
-    end
-    else yamlType := TYamlType.ytScalar;
+      name := ParsePairName(value);
+      if name.IsEmpty then Exit(nil)
+      else if value.EndsWith(':') then
+      begin
+        if yaml[vIndex + 1].TrimLeft.StartsWith('-') then yamlType := ytArray
+          else yamlType := ytObject;
+      end
+      else if value.IndexOf(':') < value.Length then
+      begin
+        value := ParsePairValue(value);
+        if (value.StartsWith('[')) and (value.EndsWith(']')) then yamlType := ytScalarArray
+          else yamlType := ytScalar;
+      end
+      else yamlType := TYamlType.ytScalar;
+    end;
 
     case yamlType of
       ytArray : //is array
@@ -867,7 +910,7 @@ end;
 
 procedure TYamlArray.AddDescendant(const aDescendant: TYamlAncestor);
 begin
-  fElements.Add(TYamlValue(aDescendant));
+  if aDescendant <> nil then fElements.Add(TYamlValue(aDescendant));
 end;
 
 constructor TYamlArray.Create;
@@ -879,6 +922,7 @@ end;
 constructor TYamlArray.Create(const aFirstElem: TYamlValue);
 begin
   inherited Create;
+  fElements := TList<TYamlValue>.Create;
   AddElement(aFirstElem);
 end;
 
