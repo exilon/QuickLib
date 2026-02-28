@@ -1,10 +1,10 @@
-{ ***************************************************************************
+ï»¿{ ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2021 Kike PÃšrez
 
   Unit        : Quick.Conditions
   Description : Conditions validator
-  Author      : Kike Pérez
+  Author      : Kike PÃšrez
   Version     : 2.0
   Created     : 05/05/2021
   Modified    : 11/05/2021
@@ -53,6 +53,7 @@ type
     procedure ThrowException(const aMsg : string); overload;
     procedure ThrowException(const aMsg : string; aValues : array of const); overload;
     procedure ThrowException(aExceptionClass : ExceptClass; const aMsg : string); overload;
+    procedure ThrowCustomMessage(const aMsg : string);
   end;
 
   IStringCondition = interface(ICondition)
@@ -413,7 +414,7 @@ function TStringCondition.IsEmpty(const aCustomMessage : string): IStringConditi
 begin
   if not fValue.IsEmpty then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentNilException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be empty');
   end;
   Result := Self;
@@ -428,7 +429,7 @@ function TStringCondition.IsNotEmpty(const aCustomMessage : string): IStringCond
 begin
   if fValue.IsEmpty then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentNilException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be empty');
   end;
   Result := Self;
@@ -443,7 +444,7 @@ function TStringCondition.StartsWith(const aText, aCustomMessage : string; aIgno
 begin
   if not fValue.StartsWith(aText,aIgnoreCase) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must start with "%s"',[aText])
   end;
   Result := Self;
@@ -458,7 +459,7 @@ function TStringCondition.DoesNotStartsWith(const aText, aCustomMessage: string;
 begin
   if fValue.StartsWith(aText,aIgnoreCase) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not start with "%s"',[aText]);
   end;
   Result := Self;
@@ -473,7 +474,7 @@ function TStringCondition.EndsWith(const aText, aCustomMessage: string; aIgnoreC
 begin
   if not fValue.EndsWith(aText,aIgnoreCase) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must end with "%s"',[aText]);
   end;
   Result := Self;
@@ -488,7 +489,7 @@ function TStringCondition.DoesNotEndsWith(const aText, aCustomMessage: string; a
 begin
   if fValue.EndsWith(aText,aIgnoreCase) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be end with "%s"',[aText]);
   end;
   Result := Self;
@@ -505,7 +506,7 @@ begin
   begin
     if not ContainsText(fValue,aText) then
     begin
-      if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+      if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
         else ThrowException('must contain "%s"',[aText]);
     end;
   end
@@ -513,7 +514,7 @@ begin
   begin
     if not fValue.Contains(aText) then
     begin
-      if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+      if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
         else ThrowException('must contain "%s"',[aText]);
     end;
   end;
@@ -531,7 +532,7 @@ begin
   begin
     if ContainsText(fValue,aText) then
     begin
-      if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+      if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
         else ThrowException('should not contain "%s"',[aText]);
     end;
   end
@@ -539,7 +540,7 @@ begin
   begin
     if fValue.Contains(aText) then
     begin
-      if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+      if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
         else ThrowException('should not contain "%s"',[aText]);
     end;
   end;
@@ -555,7 +556,7 @@ function TStringCondition.HasLength(aLen: Integer; const aCustomMessage : string
 begin
   if fValue.Length <> aLen then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be %d length',[aLen]);
   end;
   Result := Self;
@@ -570,7 +571,7 @@ function TStringCondition.DoesNotHasLength(aLen: Integer; const aCustomMessage :
 begin
   if fValue.Length = aLen then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be %d length',[aLen]);
   end;
   Result := Self;
@@ -585,7 +586,7 @@ function TStringCondition.IsShorterThan(aLen: Integer; const aCustomMessage : st
 begin
   if fValue.Length >= aLen then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be shorten than %d',[aLen]);
   end;
   Result := Self;
@@ -600,7 +601,7 @@ function TStringCondition.IsShorterOrEqual(aLen: Integer; const aCustomMessage :
 begin
   if fValue.Length > aLen then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be shorter or equal to %d',[aLen]);
   end;
   Result := Self;
@@ -615,7 +616,7 @@ function TStringCondition.IsLongerOrEqual(aLen: Integer; const aCustomMessage : 
 begin
   if fValue.Length < aLen then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be longer or equal to %d',[aLen]);
   end;
   Result := Self;
@@ -630,7 +631,7 @@ function TStringCondition.IsLongerThan(aLen: Integer; const aCustomMessage : str
 begin
   if fValue.Length <= aLen then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be longer than %d',[aLen]);
   end;
   Result := Self;
@@ -645,7 +646,7 @@ function TStringCondition.HasLengthRange(aMin, aMax: Integer; const aCustomMessa
 begin
   if (fValue.Length < aMin) or (fValue.Length > aMax) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentOutOfRangeException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be in %d-%d length range',[aMin,aMax]);
   end;
   Result := Self;
@@ -660,7 +661,7 @@ function TStringCondition.IsUpperCase(const aCustomMessage : string): IStringCon
 begin
   if fValue.ToUpper <> fValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be upper case');
   end;
   Result := Self;
@@ -675,7 +676,7 @@ function TStringCondition.IsLowerCase(const aCustomMessage : string): IStringCon
 begin
   if fValue.ToLower <> fValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be lower case');
   end;
   Result := Self;
@@ -690,7 +691,7 @@ function TStringCondition.IsNotUpperCase(const aCustomMessage : string): IString
 begin
   if fValue.ToUpper = fValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be upper case');
   end;
   Result := Self;
@@ -705,7 +706,7 @@ function TStringCondition.IsNotLowerCase(const aCustomMessage : string): IString
 begin
   if fValue.ToLower = fValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be lower case');
   end;
   Result := Self;
@@ -720,7 +721,7 @@ function TStringCondition.Evaluate(aExpression: Boolean; const aCustomMessage : 
 begin
   if not aExpression then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else  ThrowException('must meet condition');
   end;
 end;
@@ -749,7 +750,7 @@ function TIntegerCondition.IsEqualTo(aValue: Int64; const aCustomMessage : strin
 begin
   if fValue <> aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be equal to %d',[aValue]);
   end;
   Result := Self;
@@ -764,7 +765,7 @@ function TIntegerCondition.IsGreaterOrEqual(aValue: Int64; const aCustomMessage 
 begin
   if fValue < aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be greather or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -779,7 +780,7 @@ function TIntegerCondition.IsGreaterThan(aValue: Int64; const aCustomMessage : s
 begin
   if fValue <= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be greather than %d',[aValue]);
   end;
   Result := Self;
@@ -794,7 +795,7 @@ function TIntegerCondition.IsInRange(aMin, aMax: Int64; const aCustomMessage : s
 begin
   if (fValue < aMin) or (fValue > aMax) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentOutOfRangeException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be in %d-%d range',[aMin,aMax]);
   end;
   Result := Self;
@@ -809,7 +810,7 @@ function TIntegerCondition.IsLessOrEqual(aValue: Int64; const aCustomMessage : s
 begin
   if fValue > aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be less or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -824,7 +825,7 @@ function TIntegerCondition.IsLessThan(aValue: Int64; const aCustomMessage : stri
 begin
   if fValue >= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be less than %d',[aValue]);
   end;
   Result := Self;
@@ -839,7 +840,7 @@ function TIntegerCondition.IsNotEqualTo(aValue: Int64; const aCustomMessage : st
 begin
   if fValue = aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be equal to %d',[aValue]);
   end;
   Result := Self;
@@ -854,7 +855,7 @@ function TIntegerCondition.IsNotGreaterOrEqual(aValue: Int64; const aCustomMessa
 begin
   if fValue >= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be greater or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -869,7 +870,7 @@ function TIntegerCondition.IsNotGreaterThan(aValue: Int64; const aCustomMessage 
 begin
   if fValue > aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be greater than %d',[aValue]);
   end;
   Result := Self;
@@ -884,7 +885,7 @@ function TIntegerCondition.IsNotInRange(aMin, aMax: Int64; const aCustomMessage 
 begin
   if (fValue >= aMin) and (fValue <= aMax) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentOutOfRangeException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be in range %d-%d',[aMin,aMax]);
   end;
   Result := Self;
@@ -899,7 +900,7 @@ function TIntegerCondition.IsNotLessOrEqual(aValue: Int64; const aCustomMessage 
 begin
   if fValue <= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be less or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -914,7 +915,7 @@ function TIntegerCondition.IsNotLessThan(aValue: Int64; const aCustomMessage : s
 begin
   if fValue < aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be less than %d',[aValue]);
   end;
   Result := Self;
@@ -929,7 +930,7 @@ function TIntegerCondition.Evaluate(aExpression: Boolean; const aCustomMessage :
 begin
   if not aExpression then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must meet condition');
   end;
 end;
@@ -958,7 +959,7 @@ function TFloatCondition.IsEqualTo(aValue: Extended; const aCustomMessage : stri
 begin
   if fValue <> aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be equal to %d',[aValue]);
   end;
   Result := Self;
@@ -973,7 +974,7 @@ function TFloatCondition.IsGreaterOrEqual(aValue: Extended; const aCustomMessage
 begin
   if fValue < aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be greather or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -988,7 +989,7 @@ function TFloatCondition.IsGreaterThan(aValue: Extended; const aCustomMessage : 
 begin
   if fValue <= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be greather than %d',[aValue]);
   end;
   Result := Self;
@@ -1003,8 +1004,8 @@ function TFloatCondition.IsInRange(aMin, aMax: Extended; const aCustomMessage : 
 begin
   if (fValue < aMin) or (fValue > aMax) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentOutOfRangeException,aCustomMessage)
-      else ThrowException('must be in %d-%d range',[aMin,aMax]);
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
+      else ThrowException('must be in %g-%g range',[aMin,aMax]);
   end;
   Result := Self;
 end;
@@ -1018,7 +1019,7 @@ function TFloatCondition.IsLessOrEqual(aValue: Extended; const aCustomMessage : 
 begin
   if fValue > aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be less or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -1033,7 +1034,7 @@ function TFloatCondition.IsLessThan(aValue: Extended; const aCustomMessage : str
 begin
   if fValue >= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be less than %d',[aValue]);
   end;
   Result := Self;
@@ -1048,7 +1049,7 @@ function TFloatCondition.IsNotEqualTo(aValue: Extended; const aCustomMessage : s
 begin
   if fValue = aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be equal to %d',[aValue]);
   end;
   Result := Self;
@@ -1063,7 +1064,7 @@ function TFloatCondition.IsNotGreaterOrEqual(aValue: Extended; const aCustomMess
 begin
   if fValue >= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be greater or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -1078,7 +1079,7 @@ function TFloatCondition.IsNotGreaterThan(aValue: Extended; const aCustomMessage
 begin
   if fValue > aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be greater than %d',[aValue]);
   end;
   Result := Self;
@@ -1093,7 +1094,7 @@ function TFloatCondition.IsNotInRange(aMin, aMax: Extended; const aCustomMessage
 begin
   if (fValue >= aMin) and (fValue <= aMax) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentOutOfRangeException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be in range %d-%d',[aMin,aMax]);
   end;
   Result := Self;
@@ -1108,7 +1109,7 @@ function TFloatCondition.IsNotLessOrEqual(aValue: Extended; const aCustomMessage
 begin
   if fValue <= aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be less or equal to %d',[aValue]);
   end;
   Result := Self;
@@ -1123,7 +1124,7 @@ function TFloatCondition.IsNotLessThan(aValue: Extended; const aCustomMessage : 
 begin
   if fValue < aValue then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be less than %d',[aValue]);
   end;
   Result := Self;
@@ -1138,7 +1139,7 @@ function TFloatCondition.Evaluate(aExpression: Boolean; const aCustomMessage : s
 begin
   if not aExpression then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must meet condition');
   end;
 end;
@@ -1167,7 +1168,7 @@ function TObjectCondition.IsNull(const aCustomMessage: string): IObjectCondition
 begin
   if fValue <> nil then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentNilException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be null');
   end;
   Result := Self;
@@ -1182,7 +1183,7 @@ function TObjectCondition.IsNotNull(const aCustomMessage: string): IObjectCondit
 begin
   if fValue = nil then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentNilException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be null');
   end;
   Result := Self;
@@ -1197,7 +1198,7 @@ function TObjectCondition.IsOfType(aClass: TClass; const aCustomMessage: string)
 begin
   if not(fValue is aClass) then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must be of type "%s"',[aClass.ClassName]);
   end;
   Result := Self;
@@ -1212,7 +1213,7 @@ function TObjectCondition.DoesNotOfType(aClass: TClass; const aCustomMessage: st
 begin
   if fValue is aClass then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('should not be of type "%s"',[aClass.ClassName]);
   end;
   Result := Self;
@@ -1227,7 +1228,7 @@ function TObjectCondition.Evaluate(aExpression: Boolean; const aCustomMessage: s
 begin
   if not aExpression then
   begin
-    if not aCustomMessage.IsEmpty then ThrowException(EArgumentException,aCustomMessage)
+    if not aCustomMessage.IsEmpty then ThrowCustomMessage(aCustomMessage)
       else ThrowException('must meet condition');
   end;
   Result := Self;
@@ -1266,6 +1267,19 @@ procedure TCondition.ThrowException(aExceptionClass : ExceptClass; const aMsg : 
 begin
   if fExceptionClass <> nil then raise fExceptionClass.Create(aMsg)
     else raise aExceptionClass.Create(aMsg);
+end;
+
+procedure TCondition.ThrowCustomMessage(const aMsg : string);
+var
+  rexception : ExceptClass;
+begin
+  if fExceptionClass <> nil then raise fExceptionClass.Create(aMsg)
+  else
+  begin
+    if fPostCondition then rexception := EPostConditionError
+      else rexception := EPreConditionError;
+    raise rexception.Create(aMsg);
+  end;
 end;
 
 end.
