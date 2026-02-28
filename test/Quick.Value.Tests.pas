@@ -142,6 +142,14 @@ type
     procedure Test_DataType_Reflects_Assignment;
     [Test]
     procedure Test_ClearResetsDataType;
+    {$IFNDEF FPC}
+    [Test]
+    procedure Test_ImplicitOperator_IInterface_Assign;
+    [Test]
+    procedure Test_ImplicitOperator_IInterface_Read;
+    [Test]
+    procedure Test_AsInterface_NilAfterClear;
+    {$ENDIF}
   end;
 
 implementation
@@ -763,6 +771,39 @@ begin
   Assert.IsFalse(v.IsInteger, 'After clear: IsInteger must be False');
   Assert.IsFalse(v.IsString, 'After clear: IsString must be False');
 end;
+
+{$IFNDEF FPC}
+procedure TQuickValueTests.Test_ImplicitOperator_IInterface_Assign;
+var
+  v   : TFlexValue;
+  src : IInterface;
+begin
+  src := TInterfacedObject.Create;
+  v   := src;                          // implicit IInterface → TFlexValue
+  Assert.IsTrue(v.AsInterface = src, 'AsInterface must return the same reference');
+end;
+
+procedure TQuickValueTests.Test_ImplicitOperator_IInterface_Read;
+var
+  v   : TFlexValue;
+  src : IInterface;
+  got : IInterface;
+begin
+  src := TInterfacedObject.Create;
+  v   := src;
+  got := v;                            // implicit TFlexValue → IInterface
+  Assert.IsTrue(got = src, 'Implicit read must return the original interface reference');
+end;
+
+procedure TQuickValueTests.Test_AsInterface_NilAfterClear;
+var
+  v : TFlexValue;
+begin
+  v.AsInterface := TInterfacedObject.Create;
+  v.Clear;
+  Assert.IsNull(v.AsInterface, 'AsInterface must be nil after Clear');
+end;
+{$ENDIF}
 
 initialization
   TDUnitX.RegisterTestFixture(TQuickValueTests);

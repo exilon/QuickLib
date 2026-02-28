@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.5
   Created     : 07/01/2019
-  Modified    : 20/04/2020
+  Modified    : 28/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -303,6 +303,10 @@ type
     class operator Implicit(Value : Pointer) : TFlexValue;
     class operator Implicit(Value : Variant) : TFlexValue;
     class operator Implicit(Value : TVarRec) : TFlexValue;
+    {$IFNDEF FPC}
+    class operator Implicit(Value : IInterface) : TFlexValue;
+    class operator Implicit(Value : TFlexValue) : IInterface;
+    {$ENDIF}
     class operator Equal(a : TFlexValue; b : string) : Boolean;
     class operator Equal(a : TFlexValue; b : Integer) : Boolean;
     class operator Equal(a : TFlexValue; b : Int64) : Boolean;
@@ -771,6 +775,18 @@ class operator TFlexValue.Implicit(Value: TVarRec): TFlexValue;
 begin
   Result.AsVarRec := Value;
 end;
+
+{$IFNDEF FPC}
+class operator TFlexValue.Implicit(Value: IInterface): TFlexValue;
+begin
+  Result.AsInterface := Value;
+end;
+
+class operator TFlexValue.Implicit(Value: TFlexValue): IInterface;
+begin
+  Result := Value.AsInterface;
+end;
+{$ENDIF}
 
 class operator TFlexValue.Equal(a: TFlexValue; b: string): Boolean;
 begin
