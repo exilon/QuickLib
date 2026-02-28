@@ -5,7 +5,7 @@
   Author      : Kike P�rez
   Version     : 1.0
   Created     : 12/04/2019
-  Modified    : 27/02/2026
+  Modified    : 28/02/2026
   This file is part of QuickLib: https://github.com/exilon/QuickLib
  ***************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -620,7 +620,25 @@ begin
           end;
         tkClass :
           begin
-            //if (member.YamlValue is TYamlObject) then
+            // Issue #147: if the YAML value for this property is explicitly null
+            // (or an empty scalar), the property must be set to nil.
+            // The YAML parser represents 'null' as a TYamlString with value 'null'
+            // rather than a TYamlNull instance, so we compare the string value.
+            // An empty scalar ('child:' with no value) is also treated as null.
+            if (member.Value = nil) or (member.Value is TYamlNull)
+               or (CompareText(member.Value.AsString, 'null') = 0)
+               or (Trim(member.Value.AsString) = '') then
+            begin
+              // If the property already holds an object, nil the reference (the
+              // serializer does not own the object, so we only clear the pointer;
+              // the owner class destructor is responsible for freeing it).
+              {$IFNDEF FPC}
+              aProperty.SetValue(aObject, TValue.Empty);
+              {$ELSE}
+              SetObjectProp(aObject, aName, nil);
+              {$ENDIF}
+              Exit;
+            end;
             begin
               Yaml := TYamlObject(TYamlObject.ParseYamlValue(member.ToYaml));
               try

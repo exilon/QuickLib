@@ -5,7 +5,7 @@
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 27/02/2026
-  Modified    : 27/02/2026
+  Modified    : 28/02/2026
   This file is part of QuickLib: https://github.com/exilon/QuickLib
  ***************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -300,8 +300,29 @@ type
     property Tags        : TArray<string> read fTags       write fTags;
   end;
 
-// ──────────────────────────────────────────────────────────────────
-//  Test fixture
+  // Model for issue #147 – null YAML pair must not construct an empty object
+  TNullableChild = class
+  private
+    fText : string;
+    fId   : Integer;
+  published
+    property Text : string  read fText write fText;
+    property Id   : Integer read fId   write fId;
+  end;
+
+  TNullableOwner = class
+  private
+    fId     : Integer;
+    fChild  : TNullableChild;
+    fChild2 : TNullableChild;
+  public
+    destructor Destroy; override;
+  published
+    property Id     : Integer        read fId     write fId;
+    property Child  : TNullableChild read fChild  write fChild;
+    property Child2 : TNullableChild read fChild2 write fChild2;
+  end;
+
 // ──────────────────────────────────────────────────────────────────
 
   [TestFixture]
@@ -370,6 +391,14 @@ type
     [Test] procedure Test_Complex_RoundTrip_Employee;
     [Test] procedure Test_Complex_GeoPoint_FloatPrecision;
     [Test] procedure Test_Complex_MultipleStringArrays;
+
+    // ── Issue #147: null YAML pair must leave property nil ────────
+    [Test] procedure Test_Deserialize_NullPair_ObjectPropertyRemainsNil;
+    [Test] procedure Test_Deserialize_NullPair_ListPropertyRemainsNil;
+    [Test] procedure Test_Deserialize_NullPair_AlreadyInitializedPropertyBecomesNil;
+    [Test] procedure Test_Deserialize_NullPair_EmptyScalarTreatedAsNull;
+    [Test] procedure Test_Deserialize_NullPair_MixedNullAndNonNull;
+    [Test] procedure Test_Deserialize_NullPair_DeepNestedNull;
   end;
 
 implementation
@@ -411,6 +440,13 @@ end;
 destructor TDeepModel.Destroy;
 begin
   fCompany.Free;
+  inherited;
+end;
+
+destructor TNullableOwner.Destroy;
+begin
+  fChild.Free;
+  fChild2.Free;
   inherited;
 end;
 
@@ -1586,6 +1622,60 @@ begin
     end;
   finally
     org.Free;
+  end;
+end;
+
+// ── Issue #147: null YAML pair must leave object property nil ────────────
+
+procedure TYamlSerializerTests.Test_Deserialize_NullPair_ObjectPropertyRemainsNil;
+const
+  // Use CRLF line endings: on Windows TYamlObject.ParseYamlValue splits on #13
+  // so LF-only constants result in a single unparseable line.
+  YAML_WITH_NULLS =
+    'id: 1'        + #13#10 +
+    'child: null'  + #13#10 +
+    'child2: null';
+var
+  obj : TNullableOwner;
+begin
+  // deserialise a YAML where nested object properties are explicitly null
+  obj := fSerializer.YamlToObject(TNullableOwner, YAML_WITH_NULLS) as TNullableOwner;
+  try
+    Assert.AreEqual(1, obj.Id, 'Id must be 1');
+    // Issue #147: Child must stay nil, not be constructed as an empty object
+    Assert.IsNull(obj.Child,  'Child property must be nil when YAML pair is null');
+    Assert.IsNull(obj.Child2, 'Child2 property must be nil when YAML pair is null');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYamlSerializerTests.Test_Deserialize_NullPair_ListPropertyRemainsNil;
+var
+  src  : TNullableOwner;
+  yaml : string;
+  obj  : TNullableOwner;
+begin
+  // Verify the fix via round-trip: serialise an owner with nil children,
+  // then deserialise – the children must remain nil (issue #147)
+  src := TNullableOwner.Create;
+  try
+    src.Id := 99;
+    // Child and Child2 remain nil (never assigned)
+    yaml := fSerializer.ObjectToYaml(src);
+  finally
+    src.Free;
+  end;
+  // YAML should contain 'null' for the object properties
+  Assert.IsTrue(yaml.Contains('null'), 'Serialised YAML must contain null for nil objects');
+  obj := fSerializer.YamlToObject(TNullableOwner, yaml) as TNullableOwner;
+  try
+    Assert.AreEqual(99, obj.Id, 'Id must round-trip correctly');
+    // Issue #147: nil object properties must remain nil after deserialisation
+    Assert.IsNull(obj.Child,  'Child must be nil after round-trip');
+    Assert.IsNull(obj.Child2, 'Child2 must be nil after round-trip');
+  finally
+    obj.Free;
   end;
 end;
 
