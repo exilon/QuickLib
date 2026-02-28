@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2025 Kike Pérez
 
   Unit        : Quick.Arrays.Helper
   Description : Array helpers
   Author      : Kike Pérez
   Version     : 1.0
   Created     : 24/03/2019
-  Modified    : 29/03/2019
+  Modified    : 10/05/2025
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -34,7 +34,7 @@ unit Quick.Arrays.Helper;
 interface
 
 uses
-  Generics.Defaults;
+  Generics.Defaults, System.SysUtils;
 
 type
 
@@ -44,6 +44,7 @@ type
     class procedure Add(var aArray : TArray<T>; aItem : T); static;
     class procedure Insert(var aArray : TArray<T>; aItem : T; aIndex : Integer); static;
     class procedure Remove(var aArray : TArray<T>; aIndex : Integer); static;
+    class procedure Clear(var aArray : TArray<T>);
     class function Contains(var aArray : TArray<T>; aItem : T) : Boolean;
     class function IndexOf(var aArray : TArray<T>; aItem : T) : Integer;
   end;
@@ -57,8 +58,10 @@ type
     procedure Add(const aValue : string);
     procedure Insert(const aValue : string; aIndex : Integer);
     procedure Remove(aIndex : Integer);
+    procedure Clear;
     function Contains(const aItem : string) : Boolean;
     function IndexOf(const aItem : string) : Integer;
+    procedure Sort;
   end;
 
   {$IFDEF FPC}
@@ -70,8 +73,10 @@ type
     procedure Add(aValue : Integer);
     procedure Insert(const aValue : Integer; aIndex : Integer);
     procedure Remove(aIndex : Integer);
+    procedure Clear;
     function Contains(aItem : Integer) : Boolean;
     function IndexOf(aItem : Integer) : Integer;
+    procedure Sort;
   end;
 
 
@@ -131,6 +136,11 @@ begin
   Result := -1;
 end;
 
+class procedure TArrayHelper<T>.Clear(var aArray : TArray<T>);
+begin
+  SetLength(aArray, 0);
+end;
+
 {  TStringArrayHelper  }
 
 function TStringArrayHelper.Count : Integer;
@@ -163,6 +173,26 @@ begin
   Result := TArrayHelper<string>.IndexOf(Self,aItem);
 end;
 
+procedure TStringArrayHelper.Clear;
+begin
+  TArrayHelper<string>.Clear(Self);
+end;
+
+procedure TStringArrayHelper.Sort;
+var
+  i, j : Integer;
+  tmp: string;
+begin
+  for i := Low(Self) to High(Self) - 1 do
+    for j := i + 1 to High(Self) do
+      if Self[i] > Self[j] then
+      begin
+        tmp := Self[i];
+        Self[i] := Self[j];
+        Self[j] := tmp;
+      end;
+end;
+
 {  TIntegerArrayHelper  }
 
 function TIntegerArrayHelper.Count : Integer;
@@ -185,6 +215,21 @@ begin
   TArrayHelper<Integer>.Remove(Self,aIndex);
 end;
 
+procedure TIntegerArrayHelper.Sort;
+var
+  i, j : Integer;
+  tmp: Integer;
+begin
+  for i := Low(Self) to High(Self) - 1 do
+    for j := i + 1 to High(Self) do
+      if Self[i] > Self[j] then
+      begin
+        tmp := Self[i];
+        Self[i] := Self[j];
+        Self[j] := tmp;
+      end;
+end;
+
 function TIntegerArrayHelper.Contains(aItem : Integer) : Boolean;
 begin
   Result := TArrayHelper<Integer>.Contains(Self,aItem);
@@ -193,6 +238,11 @@ end;
 function TIntegerArrayHelper.IndexOf(aItem : Integer) : Integer;
 begin
   Result := TArrayHelper<Integer>.IndexOf(Self,aItem);
+end;
+
+procedure TIntegerArrayHelper.Clear;
+begin
+  TArrayHelper<Integer>.Clear(Self);
 end;
 
 end.
