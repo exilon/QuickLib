@@ -105,8 +105,7 @@ end;
 destructor TFileMonitor.Destroy;
 begin
   if not Terminated then Terminate;
-  if fEnabled then
-    Self.WaitFor;
+  Self.WaitFor;
   fTickEvent.SetEvent;
   fTickEvent.Free;
   inherited;

@@ -1,6 +1,6 @@
 ![alt text](docs/QuickLib.png "QuickLib") 
 
-QuickLib is a delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 12 Athens supported.
+QuickLib is a delphi/Firemonkey(Windows, Linux, Android, OSX & IOS) and fpc(Windows & Linux) library containing interesting and quick to implement functions, created to simplify application development and crossplatform support and improve productivity. Delphi XE8 - Delphi 13 Florence supported.
 
 ## Give it a star
 Please "star" this project in GitHub! It costs nothing but helps to reference the code.
@@ -28,16 +28,16 @@ If you find this project useful, please consider making a donation.
 * **Benchmark**: Time elapsed control and benchmark functions.
 * **Filesystem**: Process and Services control, file modify monitors and helpers, etc...
 * **FailControl**: Fail and Retry policies.
-* **Caching:**: Cache string or objects to retrieve fast later.
+* **Caching:** Cache string or objects to retrieve fast later.
 * **Templating:** Simple string templating with dictionaries.
-* **Debuging:** Utils to debug your code.
+* **Debugging:** Utils to debug your code.
 * **Parameters:** Work with commandline parameters.
 
 **Main units description:**
 
 * **Quick.Commons:** Functions frequently needed in the day to day of a developer. 
 * **Quick.AppService:** Allow a console app to run as console mode or service mode with same code simplifying debug tasks.
-* **Quick.Azure/Amazon:** Simplifies blob iteraction with Azure and Amazon Cloud Storage.
+* **Quick.Azure/Amazon:** Simplifies blob interaction with Azure and Amazon Cloud Storage.
 * **Quick.Network:** CIDR and IP Range functions.
 * **Quick.Chrono:** Chronometer and Benchmark a piece of code is simple.
 * **Quick.Console:** Write log messages to console with colors and more...
@@ -74,7 +74,8 @@ If you find this project useful, please consider making a donation.
 
 **Updates:**
 
-* NEW: RAD Studio 12 supported
+* NEW: RAD Studio 13 Florence supported
+* NEW: RAD Studio 12 Athens supported
 * NEW: RAD Studio 11 supported
 * NEW: Condition checks
 * NEW: Commonly used RegEx validations
@@ -140,7 +141,7 @@ end;
 
 **Quick.Azure/Amazon:**
 --
-Simplifies blob iteraction with Azure and Amazon Cloud Storage.
+Simplifies blob interaction with Azure and Amazon Cloud Storage.
 
 ```delphi
 //connect to a Azure blobstorage
@@ -180,7 +181,7 @@ Functions frequently needed in the everyday of a developer.
 //coverts UTC time TDateTime to Local date time
 UTCToLocalTime(MyUTCTime);
     
-//generate a 10 char length random password with alfanumeric and signs.
+//generate a 10 char length random password with alphanumeric and signs.
 RandomPassword(10,[pfIncludeNumbers,pfIncludeSigns]);
 
 //Capitalize every word of a phrase
@@ -335,7 +336,7 @@ FileMonitor.Filename := '.\myfile.txt';
 //check file changes every 2 seconds
 FileMonitor.Interval := 2000;
 //watch for deleted or modified file events
-FileMonitor.Notifies := [mnFileModified, mnFileDeleted)];
+FileMonitor.Notifies := [mnFileModified, mnFileDeleted];
 FileMonitor.OnFileChange := MyFileChangeFunction;
 FileMonitor.Enabled := True;
 ```
@@ -386,9 +387,9 @@ Thread safe classes.
 
 **TAnonymousThread:** Creates anonymous thread defining unchained Execute and OnTerminate methods. Use Execute_Sync and OnTerminate_Sync methods if code needs to update UI.
   - **Execute:** Specify code to execute on start.
-  - **Execute_Sync:** Like Execute but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **Execute_Sync:** Like Execute but runs code with synchronized thread method (avoids problems if your code updates UI).
   - **OnTerminate:** Specify code to execute when task finishes.
-  - **OnTerminate_Sync:** Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnTerminate_Sync:** Like OnTerminate but runs code with synchronized thread method (avoids problems if your code updates UI).
   - **Start:** Starts thread execution.
 ```delphi
 //simple anonymousthread
@@ -411,19 +412,19 @@ TAnonymousThread.Execute(
 
 **TRunTask:** Launch an autofree single task thread with fault & retry control policies. Params can be passed and created into code.
 - *Define code to execute:*
-  - **Execute:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on termination task) and method than will be executed. 
-  - **Execute_Sync:** Like Execute but runs code with synchronize thread method (avoids problems if your code updates UI).
+  - **Execute:** Specify Task name, parameters to pass to anonymous method (if OwnedParams=true, task will free params on task termination) and method that will be executed.
+  - **Execute_Sync:** Like Execute but runs code with synchronized thread method (avoids problems if your code updates UI).
   - **SetParameter:** Defines values or objects needed by your task.
 - *Define events to control:*
   - **OnInitialize:** Specify code to run before main execute task (this code only runs one time, OnExecute can be retried more than one time)
   - **OnRetry:** Specify code to run when execution fails and decide if needs to retry or cancel next retries.
   - **OnTerminate:** Specify code to execute when task finishes.
-  - **OnTerminate_Sync:** Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnTerminate_Sync:** Like OnTerminate but runs code with synchronized thread method (avoids problems if your code updates UI).
   - **OnException:** Specify code to execute when task generates an exception.
 - *Define fail/retry policies:*
-  - **RetryForever:** If execution fails, code will be retry forever until task executes ok.
-  - **Retry:** If execution fails, code will be retry x times.
-  - **WaitAndRetry:** If execution fails, code will be retry x times, and wait x millisecons before each retry. You can specify number of retries and wait time between retries.
+  - **RetryForever:** If execution fails, code will be retried forever until task executes ok.
+  - **Retry:** If execution fails, code will be retried x times.
+  - **WaitAndRetry:** If execution fails, code will be retried x times, and will wait x milliseconds before each retry. You can specify number of retries and wait time between retries.
   - **Run:** Starts task execution.
 ```delphi
   TRunTask.Execute(
@@ -464,23 +465,17 @@ TAnonymousThread.Execute(
     .Run;
 ```
 
-**TBackgroundsTasks:** Launch tasks in background allowing number of concurrent workers with fault and retry control policies. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
+**TBackgroundTasks:** Launch tasks in background allowing number of concurrent workers with fault and retry control policies. Use AddTask_Sync and OnTerminate_Sync methods if code needs to update UI.
 - *Add a task to execute:*
-  - **AddTask:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
-  - **AddTask_Sync:** Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
-  - **SetParameter:** Defines values or objects needed by your task. Every parameter will be accesible into anomymous methods defines as task[<name>] or task.[index]
+  - **AddTask:** Specify Task name, parameters to pass to anonymous method (if OwnedParams=true, task will free params on task expiration) and method that will be executed.
+  - **AddTask_Sync:** Like AddTask but runs code with synchronized thread method (avoids problems if your code updates UI).
+  - **SetParameter:** Defines values or objects needed by your task. Every parameter will be accessible into anonymous methods defined as task[<name>] or task.[index]
 - *Define events to control:*
   - **OnInitialize:** Specify code to run before main execute task (this code only runs one time, OnExecute can be retried more than one time)
   - **OnRetry:** Specify code to run when execution fails and decide if needs to retry or cancel next retries.
   - **OnTerminate:** Specify code to execute when task finishes.
-  - **OnTerminate_Sync:* Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnTerminate_Sync:** Like OnTerminate but runs code with synchronized thread method (avoids problems if your code updates UI).
   - **OnException:** Specify code to execute when task generates an exception.
-- *Define fail/retry policies:*
-  - **RetryForever:** If execution fails, code will be retry forever until task executes ok.
-  - **Retry:** If execution fails, code will be retry x times. Allow define array of milliseconds as wait time.
-  - **WaitAndRetry:** If execution fails, code will be retry x times, and wait x millisecons before each retry. You can specify number of retries and wait time between retries.
-- *Begin execution:*
-  - **Start:** Starts tasks execution.
 ```delphi
     backgroundtasks := TBackgroundTasks.Create(10);
     for i := 1 to 100 do
@@ -513,14 +508,14 @@ TAnonymousThread.Execute(
 **TScheduledTasks:** Alternative to Timer. You can assign tasks with start time, repeat options and expiration date and fail and retry control policies. Use AddTask_Sync, OnTerminate_Sync and OnExpired_Sync if code needs to update UI.
 You can assign anonymous methods to execute, exception, terminate and expiration events.
 - *Add a task to execute:*
-  - **AddTask:** Specify Task name, parameters to pass to anonymous method(If OwnedParams=true, task will free params on expiration task) and method than will be executed. 
-  - **AddTask_Sync:** Like AddTask but runs code with synchronize thread method (avoids problems if your code updates UI).
-  - **SetParameter:** Defines values or objects needed by your task. Every parameter will be accesible into anomymous methods defines as task[<name>] or task.[index]
+  - **AddTask:** Specify Task name, parameters to pass to anonymous method (if OwnedParams=true, task will free params on task expiration) and method that will be executed.
+  - **AddTask_Sync:** Like AddTask but runs code with synchronized thread method (avoids problems if your code updates UI).
+  - **SetParameter:** Defines values or objects needed by your task. Every parameter will be accessible into anonymous methods defined as task[<name>] or task.[index]
 - *Define events to control:*
   - **OnInitialize:** Specify code to run before main execute task (this code only runs one time, OnExecute can be retried more than one time)
   - **OnRetry:** Specify code to run when execution fails and decide if needs to retry or cancel next retries.
   - **OnTerminate:** Specify code to execute when task finishes.
-  - **OnTerminate_Sync:** Like OnTerminate but runs code with syncronized thread method (avoids problems if your code updates UI).
+  - **OnTerminate_Sync:** Like OnTerminate but runs code with synchronized thread method (avoids problems if your code updates UI).
   - **OnExpire:** Specify code to execute when task expiration reached or task was cancelled.
   - **OnExpire_Sync:** Like OnExpire but runs code with synchronized thread method (avoids problems if your code updates UI).
   - **OnException:** Specify code to execute when task generates an exception.
@@ -538,9 +533,9 @@ You can assign anonymous methods to execute, exception, terminate and expiration
   - **RepeatEveryDay:** Repeat task every day at same hour.
   - **RepeatEveryWeek:** Repeat task every week at same hour.
 - *Define fail/retry policies:*
-  - **RetryForever:** If execution fails, code will be retry forever until task executes ok.
-  - **Retry:** If execution fails, code will be retry x times.
-  - **WaitAndRetry:** If execution fails, code will be retry x times, and wait x millisecons before each retry. You can specify number of retries and wait time between retries.
+  - **RetryForever:** If execution fails, code will be retried forever until task executes ok.
+  - **Retry:** If execution fails, code will be retried x times.
+  - **WaitAndRetry:** If execution fails, code will be retried x times, and will wait x milliseconds before each retry. You can specify number of retries and wait time between retries.
 - *Start/Stop scheduler:*
   - **Start:** Starts scheduler.
   - **Stop:** Stops scheduler.
@@ -584,12 +579,12 @@ scheduledtasks.Start;
   - **NumRetries:** Number of retries done.
   - **MaxRetries:** Number of maximum retries allowed before mark task as failed.
   - **LastException:** Return last exception of a failed task.
-  - **CircuitBreaked:** Return true if max retries has been reached or user cancelled into OnRetry event.
+  - **CircuitBreaker:** Returns true if max retries have been reached or user cancelled in OnRetry event.
   - **IsEnabled:** Return status of task.
 
 **Quick.FaultControl:**
 --
-Manages fail and retry policies, defining max retries, wait time beetween retries and circuit break mecanism.
+Manages fail and retry policies, defining max retries, wait time between retries and circuit break mechanism.
 
 **Quick.Process:**
 --
@@ -926,7 +921,7 @@ Caches objects or strings with an expiration time, to avoid generate this info e
 cache.SetValue('mystring','hello world');
 
 //set string to cache with expiration to 10 seconds
-cache.SetValue('mystring','this cache will expire in 10 seconds';
+cache.SetValue('mystring','this cache will expire in 10 seconds', 10000);
 
 //set object to cache
 cache.SetValue('Obj1',valueobj);
@@ -1316,7 +1311,7 @@ QuickParameters uses custom attributes to define special parameter conditions:
 
 - **ParamCommand(number):** Defines static position into commandline for single parameters.
 
-- **ParamName(name,alias):** Define a diferent name for parameter. Allows to use special characters not allowed for class properties (like file-name or config.file). Optional Alias argument defines an alternative (normally short name) parameter name.
+- **ParamName(name,alias):** Define a different name for parameter. Allows to use special characters not allowed for class properties (like file-name or config.file). Optional Alias argument defines an alternative (normally short name) parameter name.
 
 - **ParamHelp(helptext,valuename):** Defines a commandline help text and value name in usage section.
 
@@ -1328,7 +1323,7 @@ QuickParameters uses custom attributes to define special parameter conditions:
 
 - **ParamRequired:** Defines a parameter as required. If param not found, an exception will be raised.
 
-QuickParameter automatically checks for value types. If you define a parameter value as Integer, and pass an alfanumeric, an exception will be raised.
+QuickParameter automatically checks for value types. If you define a parameter value as Integer, and pass an alphanumeric string, an exception will be raised.
 
 Help customization:
 You can define your own color customization with ColorizeHelp. Enabled property will use custom colors, otherwise b/w will be used.
@@ -1375,6 +1370,14 @@ Arguments:
 --
 Commonly used validations.
 ```delphi
+//check if a string is a valid email address
+if IsValidEmail('user@example.com') then ...
+
+//check if a string matches a valid IPv4 address
+if IsValidIP('192.168.1.1') then ...
+
+//check if a URL is well-formed
+if IsValidUrl('https://www.example.com/path?q=1') then ...
 ```
 
 **Quick.Conditions:**

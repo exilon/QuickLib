@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pï¿½rez
 
   Unit        : Quick.Threads
   Description : Thread safe collections
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 14/06/2022
+  Modified    : 28/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -123,12 +123,12 @@ type
       fList: TObjectList<T>;
       fLock: TObject;
       fDuplicates: TDuplicates;
-      function GetItem(aIndex : Integer) : T;
-      procedure SetItem(aIndex : Integer; aValue : T);
+      function GetItem(aIndex : NativeInt) : T;
+      procedure SetItem(aIndex : NativeInt; aValue : T);
     public
       constructor Create(OwnedObjects : Boolean);
       destructor Destroy; override;
-      property Items[Index : Integer] : T read GetItem write SetItem ; default;
+      property Items[Index : NativeInt] : T read GetItem write SetItem ; default;
       procedure Add(const Item: T);
       procedure Clear;
       function LockList: TObjectList<T>;
@@ -688,7 +688,9 @@ begin
       if TypeInfo(T) = TypeInfo(TObject) then PObject(@obj){$ifndef FPC}{$IFDEF  DELPHIRX12_UP}.Free{$ELSE}.DisposeOf{$ENDIF}{$ELSE}.Free{$ENDIF};
     end;
 
-    SetLength(FQueue,0);
+    SetLength(FQueue, 0);
+    FQueueSize := 0;
+    FQueueOffset := 0;
   finally
     FQueueLock.Leave;
   end;
@@ -1098,7 +1100,7 @@ begin
   end;
 end;
 
-function TThreadObjectList<T>.GetItem(aIndex: Integer): T;
+function TThreadObjectList<T>.GetItem(aIndex: NativeInt): T;
 begin
   LockList;
   try
@@ -1129,7 +1131,7 @@ begin
   end;
 end;
 
-procedure TThreadObjectList<T>.SetItem(aIndex: Integer; aValue: T);
+procedure TThreadObjectList<T>.SetItem(aIndex: NativeInt; aValue: T);
 begin
   LockList;
   try
@@ -2348,6 +2350,7 @@ var
 begin
   task := TWorkTask.Create(aParamArray,aOwnedParams,aTaskProc);
   task.ExecuteWithSync := False;
+  task.Run;
   Result := task;
   worker := TSimpleWorker.Create(task);
   worker.Start;
@@ -2360,6 +2363,7 @@ var
 begin
   task := TWorkTask.Create(aParamArray,aOwnedParams,aTaskProc);
   task.ExecuteWithSync := True;
+  task.Run;
   Result := task;
   worker := TSimpleWorker.Create(task);
   worker.Start;
