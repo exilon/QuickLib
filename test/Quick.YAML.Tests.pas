@@ -69,6 +69,18 @@ type
     [Test] procedure TestGetValue_NonExisting_ReturnsNil;
     [Test] procedure TestParseYamlValue_Object;
     [Test] procedure TestParseYamlValue_Array;
+
+    // Issue #114: escape sequences in double-quoted scalars
+    [Test] procedure TestEscape_DoubleQuote;
+    [Test] procedure TestEscape_Backslash;
+    [Test] procedure TestEscape_Newline;
+    [Test] procedure TestEscape_Tab;
+    [Test] procedure TestEscape_UnicodeU4;
+    [Test] procedure TestEscape_UnicodeU8;
+    [Test] procedure TestEscape_HexX2;
+    [Test] procedure TestEscape_CommonControlChars;
+    [Test] procedure TestEscape_UnquotedStringUnchanged;
+    [Test] procedure TestEscape_InArrayItem;
   end;
 
 implementation
@@ -574,6 +586,169 @@ begin
     Assert.AreEqual(2, TYamlArray(result).Count, 'Array should have 2 items');
   finally
     result.Free;
+  end;
+end;
+
+// ── Issue #114: escape sequences in double-quoted scalars ────────────────
+
+procedure TYAMLTest.TestEscape_DoubleQuote;
+const
+  YAML = 'value: "\"hello\""'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('"hello"', obj.Values['value'].AsString,
+      'Escaped double-quote (\" inside double-quoted scalar) must decode to "');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_Backslash;
+const
+  YAML = 'path: "C:\\Users\\test"'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('C:\Users\test', obj.Values['path'].AsString,
+      'Escaped backslash (\\) must decode to a single backslash');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_Newline;
+const
+  YAML = 'msg: "line1\nline2"'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('line1'#10'line2', obj.Values['msg'].AsString,
+      'Escape \n must decode to LF');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_Tab;
+const
+  YAML = 'msg: "col1\tcol2"'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('col1'#9'col2', obj.Values['msg'].AsString,
+      'Escape \t must decode to TAB');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_UnicodeU4;
+const
+  // \u0022 is U+0022 = double-quote character
+  YAML = 'ch: "\u0022"'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('"', obj.Values['ch'].AsString,
+      'Escape \u0022 must decode to the double-quote character (issue #114)');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_UnicodeU8;
+const
+  // \U00000041 = 'A'
+  YAML = 'ch: "\U00000041"'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('A', obj.Values['ch'].AsString,
+      'Escape \U00000041 must decode to ''A''');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_HexX2;
+const
+  // \x41 = 0x41 = 'A'
+  YAML = 'ch: "\x41"'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('A', obj.Values['ch'].AsString,
+      'Escape \x41 must decode to ''A''');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_CommonControlChars;
+const
+  YAML = 'ctrl: "\r\n"'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual(#13#10, obj.Values['ctrl'].AsString,
+      'Escape \r\n must decode to CR+LF');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_UnquotedStringUnchanged;
+const
+  // An unquoted value must NOT have its backslashes interpreted
+  YAML = 'raw: C:\Users\test'#13#10;
+var
+  obj : TYamlObject;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    Assert.AreEqual('C:\Users\test', obj.Values['raw'].AsString,
+      'Unquoted scalar must be returned verbatim without escape processing');
+  finally
+    obj.Free;
+  end;
+end;
+
+procedure TYAMLTest.TestEscape_InArrayItem;
+const
+  YAML =
+    'items:'#13#10 +
+    '  - "\u0041"'#13#10 +
+    '  - "\u0042"'#13#10;
+var
+  obj  : TYamlObject;
+  arr  : TYamlArray;
+begin
+  obj := TYamlObject.Create(YAML);
+  try
+    arr := obj.Values['items'] as TYamlArray;
+    Assert.AreEqual('A', arr.Items[0].AsString,
+      'Array item \u0041 must decode to ''A''');
+    Assert.AreEqual('B', arr.Items[1].AsString,
+      'Array item \u0042 must decode to ''B''');
+  finally
+    obj.Free;
   end;
 end;
 

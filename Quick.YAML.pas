@@ -7,7 +7,7 @@
   Author      : Kike P�rez
   Version     : 1.2
   Created     : 17/04/2019
-  Modified    : 27/02/2026
+  Modified    : 28/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -186,6 +186,7 @@ type
     class function ParsePairValue(const aPair : string) : string;
     class function ParseArrayValue(const aValue : string) : TYamlValue;
     class function GetItemLevel(const aValue : string) : Integer;
+    class function DecodeYamlEscapes(const aValue : string) : string;
     function ParseToYaml(aIndent : Integer) : string;
   protected
     procedure AddDescendant(const aDescendent: TYamlAncestor); override;
@@ -326,6 +327,7 @@ end;
 constructor TYamlObject.Create(const aData: string);
 begin
   inherited Create;
+  fMembers := TList<TYamlPair>.Create;
   ParseYaml(aData);
 end;
 
@@ -420,12 +422,99 @@ end;
 
 class function TYamlObject.ParseArrayValue(const aValue: string): TYamlValue;
 var
-  nint : Int64;
+  nint   : Int64;
   nfloat : Double;
+  dequoted : string;
 begin
-  if TryStrToInt64(aValue,nint) then Result := TYamlInteger.Create(nint)
-  else if TryStrToFloat(aValue,nfloat) then Result := TYamlFloat.Create(nfloat)
+  // Decode escape sequences for double-quoted array scalars (YAML 1.2 §7.3.1)
+  if aValue.StartsWith('"') and aValue.EndsWith('"') then
+  begin
+    // Strip the outer double-quotes manually (do NOT use AnsiDequotedStr which
+    // uses Delphi's ""–style escaping, incompatible with YAML \ escaping)
+    dequoted := DecodeYamlEscapes(Copy(aValue, 2, Length(aValue) - 2));
+    Result := TYamlString.Create(dequoted);
+    Exit;
+  end;
+  if TryStrToInt64(aValue, nint) then Result := TYamlInteger.Create(nint)
+  else if TryStrToFloat(aValue, nfloat) then Result := TYamlFloat.Create(nfloat)
   else Result := TYamlString.Create(aValue);
+end;
+
+class function TYamlObject.DecodeYamlEscapes(const aValue: string): string;
+// Processes YAML 1.2 escape sequences (§7.3.1) that appear inside
+// double-quoted scalars.  Called after the outer quotes have been stripped
+// manually (NOT via AnsiDequotedStr, which uses Delphi's ""-style escaping).
+var
+  i   : Integer;
+  len : Integer;
+  ch  : Char;
+  hex : string;
+begin
+  Result := '';
+  i      := Low(aValue);
+  len    := High(aValue);
+  while i <= len do
+  begin
+    ch := aValue[i];
+    if (ch = '\') and (i < len) then
+    begin
+      Inc(i);
+      case aValue[i] of
+        '0'  : Result := Result + #0;          // null
+        'a'  : Result := Result + #7;          // bell
+        'b'  : Result := Result + #8;          // backspace
+        't',
+        #9   : Result := Result + #9;          // horizontal tab
+        'n'  : Result := Result + #10;         // line feed
+        'v'  : Result := Result + #11;         // vertical tab
+        'f'  : Result := Result + #12;         // form feed
+        'r'  : Result := Result + #13;         // carriage return
+        'e'  : Result := Result + #$1B;        // escape
+        ' '  : Result := Result + ' ';         // space
+        '"'  : Result := Result + '"';         // double quote
+        ''''  : Result := Result + '''';       // single quote
+        '/'  : Result := Result + '/';         // solidus (JSON compat)
+        '\' : Result := Result + '\';         // reverse solidus
+        'N'  : Result := Result + #$C2#$85;    // Unicode next line (U+0085)
+        '_'  : Result := Result + #$C2#$A0;    // non-breaking space (U+00A0)
+        'L'  : Result := Result + #$E2#$80#$A8; // line separator (U+2028)
+        'P'  : Result := Result + #$E2#$80#$A9; // paragraph separator (U+2029)
+        'x'  :  // \xXX  – 2-digit hex
+          begin
+            if i + 2 <= len then
+            begin
+              hex    := Copy(aValue, i + 1, 2);
+              Result := Result + Chr(StrToIntDef('$' + hex, Ord('?')));
+              Inc(i, 2);
+            end;
+          end;
+        'u'  :  // \uXXXX  – 4-digit Unicode
+          begin
+            if i + 4 <= len then
+            begin
+              hex    := Copy(aValue, i + 1, 4);
+              Result := Result + Chr(StrToIntDef('$' + hex, Ord('?')));
+              Inc(i, 4);
+            end;
+          end;
+        'U'  :  // \UXXXXXXXX  – 8-digit Unicode
+          begin
+            if i + 8 <= len then
+            begin
+              hex    := Copy(aValue, i + 1, 8);
+              Result := Result + Chr(StrToIntDef('$' + hex, Ord('?')));
+              Inc(i, 8);
+            end;
+          end;
+      else
+        // Unknown escape: pass through literally (backslash + char)
+        Result := Result + '\' + aValue[i];
+      end;
+    end
+    else
+      Result := Result + ch;
+    Inc(i);
+  end;
 end;
 
 class function TYamlObject.ParsePairName(const aPair: string): string;
@@ -434,8 +523,17 @@ begin
 end;
 
 class function TYamlObject.ParsePairValue(const aPair: string): string;
+var
+  raw : string;
 begin
-  Result := AnsiDequotedStr(Copy(aPair,aPair.IndexOf(':')+2,aPair.Length).Trim, '"');
+  raw := Copy(aPair, aPair.IndexOf(':') + 2, aPair.Length).Trim;
+  // Apply YAML escape sequences only for double-quoted scalars (YAML 1.2 §7.3.1)
+  if raw.StartsWith('"') and raw.EndsWith('"') then
+    // Strip the outer double-quotes manually (do NOT use AnsiDequotedStr which
+    // uses Delphi's ""–style escaping, incompatible with YAML \ escaping)
+    Result := DecodeYamlEscapes(Copy(raw, 2, Length(raw) - 2))
+  else
+    Result := AnsiDequotedStr(raw, '"');
 end;
 
 class function TYamlObject.ParseValue(yaml : TList<string>; var vIndex : Integer): TYamlAncestor;

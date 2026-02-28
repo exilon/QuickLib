@@ -93,7 +93,9 @@ uses
   Quick.MemoryCache.Compressor.GZip in 'Quick.MemoryCache.Compressor.GZip.pas',
   Quick.MemoryCache.Tests in 'Quick.MemoryCache.Tests.pas',
   Quick.Pooling in 'Quick.Pooling.pas',
-  Quick.Pooling.Tests in 'Quick.Pooling.Tests.pas';
+  Quick.Pooling.Tests in 'Quick.Pooling.Tests.pas',
+  Quick.Data.Redis in 'Quick.Data.Redis.pas',
+  Quick.Data.Redis.Tests in 'Quick.Data.Redis.Tests.pas';
 
 {$R *.RES}
 
