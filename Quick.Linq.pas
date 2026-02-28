@@ -1,13 +1,13 @@
-{ ***************************************************************************
+ï»¿{ ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pï¿½rez
 
   Unit        : Quick.Linq
   Description : Arrays and Generic Lists Linq functions
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.0
   Created     : 04/04/2019
-  Modified    : 27/01/2022
+  Modified    : 27/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -336,6 +336,7 @@ begin
         var
           field : string;
         begin
+          Result := 0;
           for field in fOrderBy do
           begin
             Result := Compare(field,A,B);
@@ -475,7 +476,7 @@ begin
     begin
       Result.Add(obj);
       Inc(i);
-      if i > aLimit then Exit;
+      if i >= aLimit then Exit;
     end;
   end;
 end;
@@ -514,7 +515,7 @@ begin
             vtWideString : value := WideString(aValues[i].VWideString);
             {$ENDIF}
             {$IFDEF UNICODE}
-            vtUnicodeString: AsString := string(aValues[i].VUnicodeString);
+            vtUnicodeString: value := string(aValues[i].VUnicodeString);
             {$ENDIF UNICODE}
             vtInteger : value := aValues[i].VInteger;
             vtInt64 : value := aValues[i].VInt64^;
@@ -633,6 +634,7 @@ function TLinqArray<T>.Any(const aMatchString: string; aUseRegEx: Boolean): Bool
 begin
   fMatchString := aMatchString;
   fUseRegEx := aUseRegEx;
+  Result := High(fArray) >= 0;
 end;
 
 function TLinqArray<T>.Count: Integer;
@@ -683,6 +685,7 @@ function TLinqArray<T>.OrderAscending: ILinqArray<T>;
 var
   comparer : IComparer<T>;
 begin
+  Result := Self;
   comparer := TLinqComparer.Create(True);
   TArray.Sort<T>(fArray,comparer);
 end;
@@ -691,6 +694,7 @@ function TLinqArray<T>.OrderDescending: ILinqArray<T>;
 var
   comparer : IComparer<T>;
 begin
+  Result := Self;
   comparer := TLinqComparer.Create(False);
   TArray.Sort<T>(fArray,comparer);
 end;
@@ -714,6 +718,7 @@ var
 begin
   //DoOrderBy(fList);
   if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
+  Result := Default(T);
   for value in fArray do
   begin
     if Validate(value) then Exit(value);
@@ -727,6 +732,7 @@ var
 begin
   //DoOrderBy(fList);
   if fMatchString.IsEmpty then raise ELinqNotValidExpression.Create('Not valid expression defined!');
+  found := Default(T);
   for value in fArray do
   begin
     if Validate(value) then found := value;
@@ -740,10 +746,10 @@ var
   limit : Integer;
 begin
   Result := [];
-  if aLimit > High(fArray) then limit := High(fArray)
+  if aLimit > High(fArray) + 1 then limit := High(fArray) + 1
     else limit := aLimit;
-  SetLength(Result,limit);
-  for i := Low(fArray) to limit do
+  SetLength(Result, limit);
+  for i := 0 to limit - 1 do
   begin
     Result[i] := fArray[i];
   end;
@@ -753,9 +759,14 @@ function TLinqArray<T>.Update(const aNewValue: T): Integer;
 var
   i : Integer;
 begin
+  Result := 0;
   for i := Low(fArray) to High(fArray) do
   begin
-    if Validate(fArray[i]) then fArray[i] := aNewValue;
+    if Validate(fArray[i]) then
+    begin
+      fArray[i] := aNewValue;
+      Inc(Result);
+    end;
   end;
 end;
 

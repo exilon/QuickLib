@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2020 Kike Pï¿½rez
 
   Unit        : Quick.Lists
   Description : Generic Lists functions
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.2
   Created     : 04/11/2018
-  Modified    : 12/03/2020
+  Modified    : 28/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -37,7 +37,6 @@ uses
   Classes,
   SysUtils,
   RTTI,
-  TypInfo,
   Generics.Collections,
   Generics.Defaults,
   Quick.RTTI.Utils,
@@ -218,7 +217,8 @@ procedure TIndexList<T>.Remove(const aIndexName: string);
 var
   sdict : TSearchDictionary<Variant,T>;
 begin
-  if not fDictionaryIndex.ContainsKey(aIndexName) then raise Exception.CreateFmt('Cannot remove an inexistent "%s" search dictionary!',[aIndexName]);
+  if not fDictionaryIndex.ContainsKey(aIndexName.ToLower) then raise Exception.CreateFmt('Cannot remove an inexistent "%s" search dictionary!',[aIndexName]);
+  sdict := fDictionaryIndex[aIndexName.ToLower];
   fList.Remove(sdict);
   fDictionaryIndex.Remove(aIndexName.ToLower);
   sdict.Free;
@@ -261,7 +261,7 @@ begin
     end
     else
     begin
-      if (val <> nil) and (GetStrProp(TObject(val),aFieldName) = aValue) then Exit(val);
+      if (val <> nil) and (TRTTI.GetPropertyValue(TObject(val),aFieldName).AsString = aValue) then Exit(val);
     end;
   end;
 end;
@@ -273,13 +273,14 @@ begin
   Result := nil;
   for val in List do
   begin
+    if val = nil then Continue;
     if aClassField = TClassField.cfField then
     begin
       if TRTTI.GetFieldValue(TObject(val),aFieldName).AsInt64 = aValue then Exit(val);
     end
     else
     begin
-      if GetInt64Prop(TObject(val),aFieldName) = aValue then Exit(val);
+      if TRTTI.GetPropertyValue(TObject(val),aFieldName).AsInt64 = aValue then Exit(val);
     end;
   end;
 end;
@@ -291,13 +292,14 @@ begin
   Result := nil;
   for val in List do
   begin
+    if val = nil then Continue;
     if aClassField = TClassField.cfField then
     begin
       if TRTTI.GetFieldValue(TObject(val),aFieldName).AsExtended = aValue then Exit(val);
     end
     else
     begin
-      if GetFloatProp(TObject(val),aFieldName) = aValue then Exit(val);
+      if TRTTI.GetPropertyValue(TObject(val),aFieldName).AsExtended = aValue then Exit(val);
     end;
   end;
 end;
@@ -309,13 +311,14 @@ begin
   Result := nil;
   for val in List do
   begin
+    if val = nil then Continue;
     if aClassField = TClassField.cfField then
     begin
       if TRTTI.GetFieldValue(TObject(val),aFieldName).AsExtended = aValue then Exit(val);
     end
     else
     begin
-      if GetFloatProp(TObject(val),aFieldName) = aValue then Exit(val);
+      if TRTTI.GetPropertyValue(TObject(val),aFieldName).AsExtended = aValue then Exit(val);
     end;
   end;
 end;
