@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2021 Kike PÃ©rez
 
   Unit        : Quick.AutoMapper
   Description : Auto Mapper object properties
-  Author      : Kike Pérez
+  Author      : Kike PÃ©rez
   Version     : 1.5
   Created     : 25/08/2018
-  Modified    : 07/04/2021
+  Modified    : 27/02/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -182,6 +182,7 @@ var
   ctx : TRttiContext;
   rType : TRttiType;
   tgtprop : TRttiProperty;
+  tgtfield : TRttiField;
   mapname : string;
   obj : TObject;
   manualmapping : Boolean;
@@ -304,6 +305,133 @@ begin
           {$ENDIF}
         end
         else raise EAutoMapperError.CreateFmt('Target object "%s" not autocreated by class',[tgtprop.Name]);
+      end;
+    end;
+  end;
+
+  for tgtfield in ctx.GetType(aTgtObj.ClassInfo).GetFields do
+  begin
+    if tgtfield.Visibility in [mvPublic, mvPublished] then
+    begin
+      if not tgtfield.FieldType.IsInstance then
+      begin
+        if Assigned(aCustomMapping) and (not Assigned(aDoMappingProc)) then
+        begin
+          if aCustomMapping.GetMap(tgtfield.Name,mapname) then
+          begin
+            {$IFNDEF PROPERTYPATH_MODE}
+              if rType.GetField(mapname) <> nil then
+              begin
+                try
+                  tgtfield.SetValue(aTgtObj,rType.GetField(mapname).GetValue(aSrcObj));
+                except
+                  on E : Exception do raise EAutoMapperError.CreateFmt('Error mapping field "%s" : %s',[tgtfield.Name,e.message]);
+                end;
+              end
+              else if rType.GetProperty(mapname) <> nil then
+              begin
+                try
+                  tgtfield.SetValue(aTgtObj,rType.GetProperty(mapname).GetValue(aSrcObj));
+                except
+                  on E : Exception do raise EAutoMapperError.CreateFmt('Error mapping field "%s" : %s',[tgtfield.Name,e.message]);
+                end;
+              end
+              else raise EAutoMapperError.CreateFmt('No valid custom mapping (Source: %s - Target: %s)',[mapname,tgtfield.Name]);
+            {$ELSE}
+              if not TRTTI.PathExists(aSrcObj,mapname) then raise EAutoMapperError.CreateFmt('No valid custom mapping (Source: %s - Target: %s)',[mapname,tgtfield.Name]);
+              TRTTI.SetPathValue(aTgtObj,tgtfield.Name,TRTTI.GetPathValue(aSrcObj,mapname));
+            {$ENDIF}
+          end
+          else
+          begin
+            if rType.GetField(tgtfield.Name) <> nil then
+            begin
+              try
+                tgtfield.SetValue(aTgtObj,rType.GetField(tgtfield.Name).GetValue(aSrcObj));
+              except
+                on E : Exception do raise EAutoMapperError.CreateFmt('Error mapping field "%s" : %s',[tgtfield.Name,e.message]);
+              end;
+            end
+            else if rType.GetProperty(tgtfield.Name) <> nil then
+            begin
+              try
+                tgtfield.SetValue(aTgtObj,rType.GetProperty(tgtfield.Name).GetValue(aSrcObj));
+              except
+                on E : Exception do raise EAutoMapperError.CreateFmt('Error mapping field "%s" : %s',[tgtfield.Name,e.message]);
+              end;
+            end;
+          end;
+        end
+        else
+        begin
+          try
+            if Assigned(aDoMappingProc) then
+            begin
+              {$IFNDEF FPC}
+              aDoMappingProc(objvalue.AsType<Tm>,tgtfield.Name,value);
+              manualmapping := not value.IsEmpty;
+              {$ELSE}
+              aDoMappingProc(aSrcObj,tgtfield.Name,value);
+              manualmapping := not varType(value) = varEmpty;
+              {$ENDIF}
+            end
+            else manualmapping := False;
+
+            if manualmapping then
+            begin
+              tgtfield.SetValue(aTgtObj,value);
+            end
+            else
+            begin
+              if rType.GetField(tgtfield.Name) <> nil then tgtfield.SetValue(aTgtObj,rType.GetField(tgtfield.Name).GetValue(aSrcObj))
+              else if rType.GetProperty(tgtfield.Name) <> nil then tgtfield.SetValue(aTgtObj,rType.GetProperty(tgtfield.Name).GetValue(aSrcObj));
+            end;
+          except
+            on E : Exception do raise EAUtoMapperError.CreateFmt('Error mapping field "%s" : %s',[tgtfield.Name,e.message]);
+          end;
+        end;
+      end
+      else
+      begin
+        obj := tgtfield.GetValue(aTgtObj).AsObject;
+        if obj = nil then
+        begin
+           if tgtfield.FieldType.IsInstance then
+           begin
+             obj := tgtfield.FieldType.AsInstance.MetaclassType.Create;
+           end;
+        end;
+
+        if obj <> nil then
+        begin
+          try
+             if (rType.GetField(tgtfield.Name) <> nil) and (not rType.GetField(tgtfield.Name).GetValue(aSrcObj).IsEmpty) then
+               clname := rType.GetField(tgtfield.Name).GetValue(aSrcObj).AsObject.ClassName
+             else if (rType.GetProperty(tgtfield.Name) <> nil) and (not rType.GetProperty(tgtfield.Name).GetValue(aSrcObj).IsEmpty) then
+               clname := rType.GetProperty(tgtfield.Name).GetValue(aSrcObj).AsObject.ClassName
+             else Continue;
+          except
+            on E : Exception do raise EAUtoMapperError.CreateFmt('Error mapping field "%s" : %s',[tgtfield.Name,e.message]);
+          end;
+
+          if clname.StartsWith('TList') then
+          begin
+             if rType.GetField(tgtfield.Name) <> nil then TListMapper.Map(rType.GetField(tgtfield.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
+             else TListMapper.Map(rType.GetProperty(tgtfield.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping);
+          end
+          else if clname.StartsWith('TObjectList') then
+          begin
+             if rType.GetField(tgtfield.Name) <> nil then TObjListMapper.Map(rType.GetField(tgtfield.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
+             else TObjListMapper.Map(rType.GetProperty(tgtfield.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping);
+          end
+          else
+          begin
+             if rType.GetField(tgtfield.Name) <> nil then TObjMapper.Map(rType.GetField(tgtfield.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping)
+             else TObjMapper.Map(rType.GetProperty(tgtfield.Name).GetValue(aSrcObj).AsObject,obj,aCustomMapping);
+          end;
+          tgtfield.SetValue(aTgtObj, obj);
+        end
+        else raise EAutoMapperError.CreateFmt('Target object "%s" not autocreated by class',[tgtfield.Name]);
       end;
     end;
   end;
@@ -443,56 +571,58 @@ end;
 class procedure TListMapper.Map(aSrcList, aTgtList: TObject; aCustomMapping: TCustomMapping);
 {$IFNDEF FPC}
 var
-  rtype: TRttiType;
-  rtype2 : TRttiType;
-  typinfo : PTypeInfo;
-  methToArray: TRttiMethod;
-  value: TValue;
-  valuecop : TValue;
-  obj : TObject;
-  i : Integer;
-  rprop : TRttiProperty;
-  ctx : TRttiContext;
+  rtype    : TRttiType;
+  propCount: TRttiProperty;
+  propItems: TRttiIndexedProperty;
+  typinfo  : PTypeInfo;
+  obj      : TObject;
+  i, cnt   : Integer;
+  idxVal   : TValue;
+  elemVal  : TValue;
+  ctx      : TRttiContext;
 begin
-  rtype := ctx.GetType(aSrcList.ClassInfo);
-  methToArray := rtype.GetMethod('ToArray');
-  if Assigned(methToArray) then
+  // Use Count property + Items[] indexed property â€” works for any TList<T>
+  // regardless of whether ToArray is exposed via RTTI.
+  rtype     := ctx.GetType(aSrcList.ClassInfo);
+  propCount := rtype.GetProperty('Count');
+  propItems := rtype.GetIndexedProperty('Items');
+  if (propCount = nil) or (propItems = nil) then Exit;
+
+  cnt      := propCount.GetValue(aSrcList).AsInteger;
+  typinfo  := propItems.PropertyType.Handle;
+
+  case typinfo.Kind of
+    tkChar, tkString, tkWChar, tkWString, tkUString : TList<string>(aTgtList).Capacity   := cnt;
+    tkInteger, tkInt64                              : TList<Integer>(aTgtList).Capacity   := cnt;
+    tkFloat                                         : TList<Double>(aTgtList).Capacity   := cnt;
+    tkEnumeration                                   : TList<Boolean>(aTgtList).Capacity   := cnt;
+    tkClass                                         : TList<TObject>(aTgtList).Capacity   := cnt;
+    tkRecord :
+      begin
+        // fall back to object-level mapping for record-element lists
+        TObjMapper.Map(aSrcList, aTgtList, aCustomMapping);
+        Exit;
+      end;
+  end;
+
+  for i := 0 to cnt - 1 do
   begin
-    value := methToArray.Invoke(aSrcList,[]);
-    Assert(value.IsArray);
+    idxVal  := TValue.From<Integer>(i);
+    elemVal := propItems.GetValue(aSrcList, [idxVal]);
 
-    rtype2 := ctx.GetType(aTgtList.ClassInfo);
-    rProp := rtype2.GetProperty('List');
-    typinfo := GetTypeData(rProp.PropertyType.Handle).DynArrElType^;
-
-    case typinfo.Kind of
-      tkChar, tkString, tkWChar, tkWString : TList<string>(aTgtList).Capacity := value.GetArrayLength;
-      tkInteger, tkInt64 : TList<Integer>(aTgtList).Capacity := value.GetArrayLength;
-      tkFloat : TList<Extended>(aTgtList).Capacity := value.GetArrayLength;
-      tkRecord :
-        begin
-          TObjMapper.Map(aSrcList,aTgtList,aCustomMapping);
-          exit;
-        end;
-      else TList<TObject>(aTgtList).Capacity := value.GetArrayLength;
-    end;
-
-    for i := 0 to value.GetArrayLength - 1 do
+    if typinfo.Kind = tkClass then
     begin
-      if typinfo.Kind = tkClass then
-      begin
-        obj := typinfo.TypeData.ClassType.Create;
-        TObjMapper.Map(value.GetArrayElement(i).AsObject,obj,aCustomMapping);
-        TList<TObject>(aTgtList).Add(obj);
-      end
-      else
-      begin
-        valuecop := value.GetArrayElement(i);
-        case typinfo.Kind of
-          tkChar, tkString, tkWChar, tkWString : TList<string>(aTgtList).Add(valuecop.AsString);
-          tkInteger, tkInt64 : TList<Integer>(aTgtList).Add(valuecop.AsInt64);
-          tkFloat : TList<Extended>(aTgtList).Add(valuecop.AsExtended);
-        end;
+      obj := typinfo.TypeData.ClassType.Create;
+      TObjMapper.Map(elemVal.AsObject, obj, aCustomMapping);
+      TList<TObject>(aTgtList).Add(obj);
+    end
+    else
+    begin
+      case typinfo.Kind of
+        tkChar, tkString, tkWChar, tkWString, tkUString : TList<string>(aTgtList).Add(elemVal.AsString);
+        tkInteger, tkInt64                              : TList<Integer>(aTgtList).Add(elemVal.AsInt64);
+        tkFloat                                         : TList<Double>(aTgtList).Add(elemVal.AsExtended);
+        tkEnumeration                                   : TList<Boolean>(aTgtList).Add(elemVal.AsBoolean);
       end;
     end;
   end;
@@ -518,35 +648,31 @@ end;
 {$IFNDEF FPC}
 class procedure TObjListMapper.Map<Tm>(aSrcObjList : TObject; aTgtObjList : TObject; aDoMappingProc : TMappingProc<Tm>; aCustomMapping : TCustomMapping = nil);
 var
-  rtype: TRttiType;
-  rtype2 : TRttiType;
-  typinfo : PTypeInfo;
-  methToArray: TRttiMethod;
-  value: TValue;
-  obj : TObject;
-  i : Integer;
-  rprop : TRttiProperty;
-  ctx : TRttiContext;
+  rtype    : TRttiType;
+  typinfo  : PTypeInfo;
+  propCount: TRttiProperty;
+  propItems: TRttiIndexedProperty;
+  obj      : TObject;
+  i, cnt   : Integer;
+  idxVal   : TValue;
+  ctx      : TRttiContext;
 begin
-  rtype := ctx.GetType(aSrcObjList.ClassInfo);
-  methToArray := rtype.GetMethod('ToArray');
-  if Assigned(methToArray) then
+  rtype     := ctx.GetType(aSrcObjList.ClassInfo);
+  propCount := rtype.GetProperty('Count');
+  propItems := rtype.GetIndexedProperty('Items');
+  if (propCount = nil) or (propItems = nil) then Exit;
+
+  cnt     := propCount.GetValue(aSrcObjList).AsInteger;
+  typinfo := propItems.PropertyType.Handle;
+
+  TObjectList<TObject>(aTgtObjList).Capacity := cnt;
+
+  for i := 0 to cnt - 1 do
   begin
-    value := methToArray.Invoke(aSrcObjList,[]);
-    Assert(value.IsArray);
-
-    rtype2 := ctx.GetType(aTgtObjList.ClassInfo);
-    rProp := rtype2.GetProperty('List');
-    typinfo := GetTypeData(rProp.PropertyType.Handle).DynArrElType^;
-
-    TObjectList<TObject>(aTgtObjList).Capacity := value.GetArrayLength;
-
-    for i := 0 to value.GetArrayLength - 1 do
-    begin
-      obj := typinfo.TypeData.ClassType.Create;
-      TObjMapper.Map<Tm>(value.GetArrayElement(i).AsObject,obj,aDoMappingProc,aCustomMapping);
-      TObjectList<TObject>(aTgtObjList).Add(obj);
-    end;
+    idxVal := TValue.From<Integer>(i);
+    obj    := typinfo.TypeData.ClassType.Create;
+    TObjMapper.Map<Tm>(propItems.GetValue(aSrcObjList, [idxVal]).AsObject, obj, aDoMappingProc, aCustomMapping);
+    TObjectList<TObject>(aTgtObjList).Add(obj);
   end;
 end;
 {$ELSE}
