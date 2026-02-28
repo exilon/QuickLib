@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 20/01/2024
+  Modified    : 05/07/2025
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -912,9 +912,9 @@ begin
   {$ENDIF}
   if not GetConsoleScreenBufferInfo(hStdOut, BufferInfo) then
   begin
-    {$IFNDEF FPC}
-    SetInOutRes(GetLastError);
-    {$ENDIF}
+    // Do NOT set InOutRes here — the handle may be a pipe (redirected stdout)
+    // which is valid but not a console. Setting InOutRes(6) would break all
+    // subsequent Pascal I/O (Writeln etc.) causing EInOutError in callers.
     Exit;
   end;
   ConsoleRect.Left := 0;
