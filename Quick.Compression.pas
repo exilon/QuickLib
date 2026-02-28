@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pï¿½rez
 
   Unit        : Quick.Compression
   Description : Compression functions
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.2
   Created     : 14/08/2018
   Modified    : 05/09/2019
@@ -97,24 +97,18 @@ end;
 function CompressString(const aStr : string; aCompressionLevel : TCompressionLevel = zcDefault) : string;
 var
   instream : TStringStream;
-  zipstream : TMemoryStream;
   outstream : TStringStream;
 begin
-  instream := TStringStream.Create(aStr,TEncoding.UTF8);
+  if aStr.IsEmpty then Exit('');
+  instream := TStringStream.Create(aStr, TEncoding.UTF8);
   try
-    zipstream := TMemoryStream.Create;
+    outstream := TStringStream.Create('', TEncoding.ANSI);
     try
-      ZCompressStream(instream,zipstream,aCompressionLevel);
-      zipstream.Position := 0;
-      outstream := TStringStream.Create('',TEncoding.UTF8);
-      try
-        outstream.CopyFrom(zipstream,0);
-        Result := string(outstream.DataString);
-      finally
-        outstream.Free;
-      end;
+      ZCompressStream(instream, outstream, aCompressionLevel);
+      outstream.Position := 0;
+      Result := outstream.DataString;
     finally
-      zipstream.Free;
+      outstream.Free;
     end;
   finally
     instream.Free;
@@ -124,24 +118,19 @@ end;
 function DecompressString(const aStr: string) : string;
 var
   instream : TStringStream;
-  zipstream : TMemoryStream;
   outstream : TStringStream;
 begin
-  instream := TStringStream.Create(aStr,TEncoding.UTF8);
+  if aStr.IsEmpty then Exit('');
+  instream := TStringStream.Create(aStr, TEncoding.ANSI);
   try
-    zipstream := TStringStream.Create;
+    outstream := TStringStream.Create('', TEncoding.UTF8);
     try
-      zipstream.CopyFrom(instream,0);
-      outstream := TStringStream.Create('',TEncoding.UTF8);
-      try
-        ZDecompressStream(zipstream,outstream);
-        outstream.Position := 0;
-        Result := string(outstream.DataString);
-      finally
-        outstream.Free;
-      end;
+      instream.Position := 0;
+      ZDecompressStream(instream, outstream);
+      outstream.Position := 0;
+      Result := outstream.DataString;
     finally
-      zipstream.Free;
+      outstream.Free;
     end;
   finally
     instream.Free;
