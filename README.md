@@ -15,6 +15,24 @@ If you find this project useful, please consider making a donation.
 
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=BKLKPNEYKSBKL)
 
+## Testing
+
+QuickLib includes a comprehensive DUnitX test suite covering all major units. Tests are located in the `test/` folder and can be compiled and run with RAD Studio.
+
+```
+Tests Found:   917
+Tests Passed:  917
+Tests Failed:  0
+Tests Errored: 0
+```
+
+To run the tests, open `test/QuickLib.dproj` in RAD Studio, build and run, or compile from the command line:
+
+```bat
+msbuild test\QuickLib.dproj /p:Config=Debug /p:Platform=Win64 /p:DCC_Define=CONSOLE_TESTRUNNER
+test\Win64\Debug\QuickLib.exe
+```
+
 **Areas of functionality:**
   
 * **Mapping**: Map fields from a class to other class, copy objects, etc..
