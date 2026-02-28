@@ -1,0 +1,11 @@
+AppName: MyApp
+Version: 2
+Debug: false
+Database:
+  Host: localhost
+  Port: 5432
+  Name: mydb
+  MaxConnections: 10
+Logging:
+  Level: llWarning
+  FilePath: logs/app.log
