@@ -95,7 +95,9 @@ uses
   Quick.Pooling in 'Quick.Pooling.pas',
   Quick.Pooling.Tests in 'Quick.Pooling.Tests.pas',
   Quick.Data.Redis in 'Quick.Data.Redis.pas',
-  Quick.Data.Redis.Tests in 'Quick.Data.Redis.Tests.pas';
+  Quick.Data.Redis.Tests in 'Quick.Data.Redis.Tests.pas',
+  Quick.Process in 'Quick.Process.pas',
+  Quick.Process.Tests in 'Quick.Process.Tests.pas';
 
 {$R *.RES}
 

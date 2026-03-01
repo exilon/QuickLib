@@ -736,16 +736,8 @@ begin
 end;
 
 procedure TTestQuickCommons.TestEnvironmentFunctions;
-var
-  userName: string;
 begin
-  userName := GetLoggedUserName;
-  {$IFNDEF MSWINDOWS}
-  // On Linux, getlogin may return empty in container/CI environments; accept $USER as fallback
-  if userName.IsEmpty then userName := GetEnvironmentVariable('USER');
-  if userName.IsEmpty then userName := GetEnvironmentVariable('USERNAME');
-  {$ENDIF}
-  Assert.IsNotEmpty(userName, 'Get logged user failed');
+  Assert.IsNotEmpty(GetLoggedUserName, 'Get logged user failed');
   Assert.IsNotEmpty(GetComputerName, 'Get computer name failed');
 end;
 
