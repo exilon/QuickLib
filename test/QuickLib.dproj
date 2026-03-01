@@ -223,6 +223,8 @@
         <DCCReference Include="Quick.Pooling.Tests.pas"/>
         <DCCReference Include="Quick.Data.Redis.pas"/>
         <DCCReference Include="Quick.Data.Redis.Tests.pas"/>
+        <DCCReference Include="Quick.Parameters.pas"/>
+        <DCCReference Include="Quick.Parameters.Tests.pas"/>
         <DCCReference Include="Quick.Process.pas"/>
         <DCCReference Include="Quick.Process.Tests.pas"/>
         <BuildConfiguration Include="Base">

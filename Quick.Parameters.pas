@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pï¿½rez
 
   Unit        : Quick.Parameters
   Description : Map comandline to class
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.4
   Created     : 12/07/2020
-  Modified    : 01/08/2021
+  Modified    : 01/03/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -188,6 +188,7 @@ type
     function GetHelp : TStringList;
     property Help : Boolean read fHelp write fHelp;
     function ExistsParam(const aParam : string): Boolean; overload;
+    function ExistsParam(const aParam, aValueSeparator : string): Boolean; overload;
   end;
   {$M-}
 
@@ -322,6 +323,21 @@ begin
   param := TParam.Create;
   param.Name := aParam;
   param.Alias := '';
+  try
+    Result := ExistParam(param,param.Name);
+  finally
+    param.Free;
+  end;
+end;
+
+function TParameters.ExistsParam(const aParam, aValueSeparator : string): Boolean;
+var
+  param : TParam;
+begin
+  param := TParam.Create;
+  param.Name := aParam;
+  param.Alias := '';
+  param.ValueSeparator := aValueSeparator;
   try
     Result := ExistParam(param,param.Name);
   finally
