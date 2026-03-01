@@ -107,7 +107,6 @@ var
   dstlen : LongWord;
   uncompressed : TBytes;
   compressed : TBytes;
-  i : Integer;
 begin
   try
     compressed := TEncoding.ANSI.GetBytes(aCompressed);

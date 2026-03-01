@@ -7,7 +7,7 @@
   Author      : Kike Pérez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 01/12/2025
+  Modified    : 01/03/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -46,6 +46,7 @@ interface
     Quick.Files,
       {$IFDEF LINUX}
       FileInfo,
+      BaseUnix,
       {$ENDIF}
     {$ELSE}
     IOUtils,
@@ -75,6 +76,7 @@ interface
     {$ENDIF}
     {$IFDEF POSIX}
     Posix.Unistd,
+    Posix.Pwd,
     {$ENDIF}
     DateUtils;
 
@@ -1748,8 +1750,19 @@ function GetLoggedUserName : string;
   end;
 {$ELSE}
   {$IF DEFINED(FPC) AND DEFINED(LINUX)}
+  var
+    pw : PPasswordRecord;
   begin
-    Result := GetEnvironmentVariable('USERNAME');
+    // Prefer environment variables (fast path) then fall back to /etc/passwd
+    // via fpgetpwuid(), which works even in containers with no env vars set.
+    Result := GetEnvironmentVariable('USER');
+    if Result.IsEmpty then Result := GetEnvironmentVariable('LOGNAME');
+    if Result.IsEmpty then Result := GetEnvironmentVariable('USERNAME');
+    if Result.IsEmpty then
+    begin
+      pw := fpgetpwuid(fpgetuid);
+      if pw <> nil then Result := string(pw^.pw_name);
+    end;
   end;
   {$ELSE}
   var
@@ -1757,6 +1770,9 @@ function GetLoggedUserName : string;
     plogin : PAnsiChar;
     {$ELSE}
     plogin : MarshaledAString;
+    {$ENDIF}
+    {$IFDEF POSIX}
+    pw : PPasswd;
     {$ENDIF}
   begin
     {$IFDEF POSIX}
@@ -1767,6 +1783,16 @@ function GetLoggedUserName : string;
       {$ELSE}
       Result := Copy(plogin,1,Length(Trim(plogin)));
       {$ENDIF}
+      // getlogin returns empty in containers/CI (no controlling terminal).
+      // Fall back to env vars, then to getpwuid() which reads /etc/passwd.
+      if Result.IsEmpty then Result := GetEnvironmentVariable('USER');
+      if Result.IsEmpty then Result := GetEnvironmentVariable('LOGNAME');
+      if Result.IsEmpty then Result := GetEnvironmentVariable('USERNAME');
+      if Result.IsEmpty then
+      begin
+        pw := getpwuid(getuid);
+        if pw <> nil then Result := string(pw^.pw_name);
+      end;
     except
       Result := 'N/A';
     end;

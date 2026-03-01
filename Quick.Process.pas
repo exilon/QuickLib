@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2021 Kike Pï¿½rez
 
   Unit        : Quick.Process
   Description : Process functions
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 08/07/2021
+  Modified    : 01/03/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -53,20 +53,31 @@ uses
     Process,
     {$ENDIF}
   {$ELSE}
-  Posix.Base,
-  Posix.Fcntl,
+    {$IFDEF FPC}
+    crt,
+    {$ELSE}
+    Posix.Base,
+    Posix.Fcntl,
+    {$ENDIF}
   {$ENDIF}
   Classes,
   DateUtils,
   SysUtils,
   Quick.Commons;
 
-  {$IFDEF DELPHILINUX}
+  {$IF DEFINED(DELPHILINUX) OR (DEFINED(FPC) AND DEFINED(LINUX))}
   type
     TStreamHandle = pointer;
+  {$IFDEF FPC}
+  // FPC links libc automatically via crt; just declare the externals
+  function popen(const command: PAnsiChar; const _type: PAnsiChar): TStreamHandle; cdecl; external 'c' name 'popen';
+  function pclose(filehandle: TStreamHandle): int32; cdecl; external 'c' name 'pclose';
+  function fgets(buffer: pointer; size: int32; Stream: TStreamHandle): pointer; cdecl; external 'c' name 'fgets';
+  {$ELSE}
   function popen(const command: PAnsiChar; const _type: PAnsiChar): TStreamHandle; cdecl; external libc name _PU + 'popen';
   function pclose(filehandle: TStreamHandle): int32; cdecl; external libc name _PU + 'pclose';
-  function fgets(buffer: pointer; size: int32; Stream: TStreamHAndle): pointer; cdecl; external libc name _PU + 'fgets';
+  function fgets(buffer: pointer; size: int32; Stream: TStreamHandle): pointer; cdecl; external libc name _PU + 'fgets';
+  {$ENDIF}
   {$ENDIF}
 
 
@@ -77,7 +88,7 @@ uses
   function KillProcess(const aProcessName : string) : Integer; overload;
   {$ENDIF}
   function KillProcess(aProcessId : Cardinal) : Boolean; overload;
-  //run process as Admin privilegies
+  //run process with elevated privileges
   {$IFDEF MSWINDOWS}
   function RunAsAdmin(hWnd: HWND; const aFilename, aParameters: string): Boolean;
   //impersonate logon
@@ -98,9 +109,18 @@ uses
   //executes an aplication and wait for terminate
   function ExecuteAndWait(const aFilename, aCommandLine: string): Boolean;
   function ShellExecuteAndWait(const aOperation, aFileName, aParameter, aDirectory : string; aShowMode : Word; aWaitForTerminate: Boolean) : LongInt;
+  {$ELSE}
+  // On Linux/macOS: prepends sudo and runs via shell; returns True if exit code = 0
+  function RunAsAdmin(const aFilename, aParameters: string): Boolean;
   {$ENDIF}
   //runs a command and gets console output
   function RunCommand(const aFilename, aParameters : string) : TStringList;
+  {$IF NOT DEFINED(MSWINDOWS)}
+  //get a list of running processes
+  function GetProcessList : TStringList;
+  //determine if a process is running
+  function IsProcessRunning(const aProcessName : string) : Boolean;
+  {$ENDIF}
   {$IFDEF MSWINDOWS}
   {$IFNDEF FPC}
   //execute an application and return handle
@@ -292,6 +312,25 @@ begin
   sl := RunCommand('kill',aProcessId.ToString);
   try
     Result := True;
+  finally
+    sl.Free;
+  end;
+end;
+{$ENDIF}
+
+{$IFNDEF MSWINDOWS}
+function RunAsAdmin(const aFilename, aParameters: string): Boolean;
+var
+  sl : TStringList;
+begin
+  // sudo returns exit code 0 on success; RunCommand captures stdout but
+  // a non-empty result (or no exception) means the command was launched.
+  if aParameters.IsEmpty then
+    sl := RunCommand('sudo', aFilename)
+  else
+    sl := RunCommand('sudo', aFilename + ' ' + aParameters);
+  try
+    Result := True; // if popen/pclose didn't raise, sudo was invoked
   finally
     sl.Free;
   end;
@@ -499,17 +538,19 @@ begin
 end;
 {$ELSE}
 var
-  Handle: TStreamHandle;
-  Data: array[0..511] of uint8;
-  command : PAnsiChar;
+  Handle : TStreamHandle;
+  Data   : array[0..511] of uint8;
+  command : AnsiString;
 begin
   Result := TStringList.Create;
   try
-    if aParameters.IsEmpty then command := PAnsiChar(AnsiString(aFilename))
-      else command := PAnsiChar(AnsiString(aFilename + ' ' + aParameters));
-    Handle := popen(command, 'r');
+    if aParameters.IsEmpty then command := AnsiString(aFilename)
+      else command := AnsiString(aFilename + ' ' + aParameters);
+    Handle := popen(PAnsiChar(command), 'r');
+    if Handle = nil then Exit;
     try
-      while fgets(@Data[0], Sizeof(Data), Handle) <> nil do Result.Add(Utf8ToString(@Data[0]));
+      while fgets(@Data[0], SizeOf(Data), Handle) <> nil do
+        Result.Add(TrimRight(Utf8ToString(@Data[0])));
     finally
       pclose(Handle);
     end;
@@ -517,11 +558,31 @@ begin
     on E: Exception do
     begin
       Result.Free;
-      Exception.CreateFmt('RunCommand: %s',[e.Message]);
+      raise Exception.CreateFmt('RunCommand: %s', [e.Message]);
     end;
   end;
 end;
+{$ENDIF}
 
+{$IF NOT DEFINED(MSWINDOWS)}
+function GetProcessList : TStringList;
+begin
+  // 'ps -e -o comm --no-headers' lists process names one per line on Linux
+  Result := RunCommand('ps', '-e -o comm --no-headers');
+end;
+
+function IsProcessRunning(const aProcessName : string) : Boolean;
+var
+  sl : TStringList;
+begin
+  // pgrep -x matches the exact process name; exit code 0 = found
+  sl := RunCommand('pgrep', '-x ' + aProcessName);
+  try
+    Result := sl.Count > 0;
+  finally
+    sl.Free;
+  end;
+end;
 {$ENDIF}
 
 {$IFDEF MSWINDOWS}

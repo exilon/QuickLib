@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2019 Kike Pï¿½rez
 
   Unit        : Quick.Files
   Description : Files functions
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 16/11/2020
+  Modified    : 01/03/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -874,14 +874,17 @@ end;
 var
   fs : TFileStream;
 begin
+  // On POSIX, try to open exclusively. Success means no other process holds it
+  // open, so the file is NOT in use.  Failure means it IS in use.
+  Result := False;
+  if not FileExists(aFileName) then Exit;
   try
-    fs := TFileStream.Create(aFileName, fmOpenReadWrite, fmShareExclusive);
-    Result := True;
+    fs := TFileStream.Create(aFileName, fmOpenReadWrite or fmShareExclusive);
     fs.Free;
+    Result := False; // opened OK -> not in use
   except
-    Result := False;
+    Result := True;  // could not open exclusively -> in use
   end;
-
 end;
 {$ENDIF}
 
