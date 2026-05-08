@@ -1,13 +1,12 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Chrono
   Description : Chronometers time elapsed and estimated time to do a task
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.5
-  Created     : 27/08/2015
-  Modified    : 06/05/2021
+  Created     : 27/08/2024
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

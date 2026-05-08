@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Compression.LZO
   Description : LZO Compressor
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.8
   Created     : 15/09/2019
-  Modified    : 22/09/2019
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

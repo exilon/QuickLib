@@ -1,13 +1,13 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike PÚrez
+  Copyright (c) 2016-2026 Kike PÚrez
 
   Unit        : Quick.Conditions
   Description : Conditions validator
   Author      : Kike PÚrez
   Version     : 2.0
   Created     : 05/05/2021
-  Modified    : 11/05/2021
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

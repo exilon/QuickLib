@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Options
   Description : Configuration group settings
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 18/10/2019
-  Modified    : 15/12/2021
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

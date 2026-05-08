@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.MemoryCache.Compressor.LZO
   Description : Compress Cache data
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 15/07/2019
   Modified    : 22/09/2019

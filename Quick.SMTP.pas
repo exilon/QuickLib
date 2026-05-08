@@ -1,13 +1,13 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.SMTP
   Description : Send Emails
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 12/10/2017
-  Modified    : 08/09/2021
+  Modified    : 20/04/2021
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

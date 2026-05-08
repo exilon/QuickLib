@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Data.Base
   Description : Data Metrics
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 08/04/2019
-  Modified    : 08/04/2019
+  Modified    : 08/05/2026
 
   This file is part of QuickLogger: https://github.com/exilon/QuickLogger
 

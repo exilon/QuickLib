@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.MemoryCache.Serializer.Json
   Description : Cache Json serializer
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 14/07/2019
-  Modified    : 02/11/2019
+  Modified    : 15/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

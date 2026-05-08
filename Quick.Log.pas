@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Log
   Description : Threadsafe Log
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.19
   Created     : 10/04/2016
-  Modified    : 10/02/2022
+  Modified    : 21/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Logger.Intf
   Description : Quick Logger Interface
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 11/09/2019
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

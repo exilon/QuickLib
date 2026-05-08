@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Files
   Description : Files functions
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 01/03/2026
+  Modified    : 16/02/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

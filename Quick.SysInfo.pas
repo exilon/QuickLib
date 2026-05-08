@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.SysInfo
   Description : System Info functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.2
   Created     : 17/05/2018
-  Modified    : 05/12/2019
+  Modified    : 14/09/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

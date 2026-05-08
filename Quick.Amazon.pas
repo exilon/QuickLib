@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Amazon
   Description : Amazon object operations
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.4
   Created     : 18/11/2016
-  Modified    : 18/11/2021
+  Modified    : 01/12/2024
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Url.Utils
   Description : Common Url utils
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 2.0
   Created     : 17/03/2021
-  Modified    : 17/03/2021
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

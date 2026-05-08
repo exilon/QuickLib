@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Mapper.Intf
   Description : Quick Mapper Interface
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.8
   Created     : 07/02/2020
   Modified    : 14/02/2020

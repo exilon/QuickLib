@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.HttpServer.Request
   Description : Http Server Request
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 07/02/2021
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

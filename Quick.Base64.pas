@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2017 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Base64
   Description : Base64 functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.1
   Created     : 08/11/2017
   Modified    : 14/08/2018

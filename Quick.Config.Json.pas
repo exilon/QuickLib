@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Config.Json
   Description : Save config to JSON file
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 21/10/2017
-  Modified    : 10/03/2021
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

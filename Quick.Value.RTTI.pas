@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Value.RTTI
   Description : FlexValue Helper for RTTI
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 06/05/2019
-  Modified    : 26/06/2020
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

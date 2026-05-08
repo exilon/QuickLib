@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2014-2017 Kike Pérez
+  Copyright (c) 2014-2026 Kike Perez
 
   Unit        : Quick.WebBrowser
   Description : Web browser functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 10/02/2014
   Modified    : 03/11/2016
@@ -98,7 +98,7 @@ procedure WB_SetBorderStyle(Sender: TObject; BorderStyle: String);
   'dashed'       Border is a dashed line. (as of IE 5.5)
   'solid'        Border is a solid line.
   'double'       Border is a double line
-  'groove'       3-D groove is drawn //Está se ve perfecto en Windows 7 y Windows 8
+  'groove'       3-D groove is drawn //Estï¿½ se ve perfecto en Windows 7 y Windows 8
   'ridge'        3-D ridge is drawn
   'inset'        3-D inset is drawn
   'window-inset' Border is the same as inset, but is surrounded by an additional single line

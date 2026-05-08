@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2022 Kike P�rez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Data.Redis
   Description : Redis client
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 22/02/2020
-  Modified    : 28/02/2026
+  Modified    : 12/07/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

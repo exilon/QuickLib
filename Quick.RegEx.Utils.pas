@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.RegEx.Utils
   Description : Common string validations
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 2.0
   Created     : 07/04/2021
-  Modified    : 07/04/2021
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -52,7 +52,7 @@ type
     /// <summary> Validates password complexity (Should have 1 lowercase letter, 1 uppercase letter, 1 number,
     /// 1 special character and be at least 8 characters long) </summary>
     class function IsPasswordComplex(const aPassword : string) : Boolean;
-    /// <summary> Validate username (may include _ and – with min and max length restriction) </summary>
+    /// <summary> Validate username (may include _ and ï¿½ with min and max length restriction) </summary>
     class function IsValidUsername(const aUsername: string; aMinLength : Integer = 3; aMaxLength : Integer = 18): Boolean;
     // <summary> Validates Url with optional protocol </summary>
     class function IsValidUrl(const aUrl: string; aProtocolOptional : Boolean): Boolean;

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Expression
   Description : Expression parser & validator
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 04/05/2019
-  Modified    : 06/02/2021
+  Modified    : 12/03/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

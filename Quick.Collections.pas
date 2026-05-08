@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Collections
   Description : Generic Collections
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.2
   Created     : 07/03/2020
-  Modified    : 27/01/2022
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

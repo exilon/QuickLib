@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Compression
   Description : Compression functions
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.2
   Created     : 14/08/2018
   Modified    : 05/09/2019

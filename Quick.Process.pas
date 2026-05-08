@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Process
   Description : Process functions
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 14/07/2017
-  Modified    : 01/03/2026
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

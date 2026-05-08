@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.RTTI.fpc.Compatibility (only freepascal)
   Description : Delphi compatibility RTTI functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 20/08/2018
-  Modified    : 25/08/2019
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

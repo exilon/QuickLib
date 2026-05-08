@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.JSON.Utils
   Description : Json utils
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.4
   Created     : 21/09/2018
-  Modified    : 09/03/2021
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

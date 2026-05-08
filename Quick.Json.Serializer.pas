@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2022 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.JSON.Serializer
   Description : Json Serializer
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.12
   Created     : 21/05/2018
-  Modified    : 17/05/2022
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

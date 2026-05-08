@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.HttpClient
   Description : Json Http Client
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.1
   Created     : 22/05/2018
-  Modified    : 02/08/2021
+  Modified    : 02/05/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

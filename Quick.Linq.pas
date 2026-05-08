@@ -1,13 +1,13 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Linq
   Description : Arrays and Generic Lists Linq functions
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 04/04/2019
-  Modified    : 27/02/2026
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

@@ -1,13 +1,13 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Value
   Description : Autofree value record
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 07/01/2019
-  Modified    : 28/02/2026
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

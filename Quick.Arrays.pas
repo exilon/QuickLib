@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Arrays
   Description : Multifuntional Arrays
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.2
   Created     : 24/03/2019
-  Modified    : 16/10/2019
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

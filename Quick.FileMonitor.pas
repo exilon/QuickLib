@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2021 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.FileMonitor
   Description : Watch for single file changes
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.2
   Created     : 11/09/2017
-  Modified    : 10/05/2021
+  Modified    : 29/01/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

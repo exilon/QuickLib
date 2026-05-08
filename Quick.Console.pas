@@ -1,13 +1,13 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2016-2024 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Console
   Description : Console output with colors and optional file log
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.9
   Created     : 10/05/2017
-  Modified    : 05/07/2025
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2018 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.JSONRecord
   Description : Serializable class
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.2
   Created     : 05/05/2018
-  Modified    : 06/11/2018
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

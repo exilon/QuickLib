@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Parameters
   Description : Map comandline to class
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.4
   Created     : 12/07/2020
-  Modified    : 01/03/2026
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

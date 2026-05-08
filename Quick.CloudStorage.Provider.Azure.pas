@@ -1,13 +1,12 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.CloudStorage.Provider.Azure
   Description : CloudStorage Azure provider
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.8
   Created     : 14/10/2018
-  Modified    : 07/10/2019
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

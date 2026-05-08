@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Pooling
   Description : Pooling objects
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.9
   Created     : 28/02/2020
-  Modified    : 29/02/2020
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Json.fpc.Compatibility (only freepascal)
   Description : Delphi Json compatibility functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 27/05/2019
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

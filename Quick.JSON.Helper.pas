@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2020 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.JSON.Helper
   Description : Utils for working with JSON
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.1
   Created     : 27/01/2017
-  Modified    : 16/01/2020
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

@@ -1,13 +1,12 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2023 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Azure
   Description : Azure blobs operations
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.4
-  Created     : 27/08/2015
-  Modified    : 14/07/2023
+  Created     : 27/08/2024
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

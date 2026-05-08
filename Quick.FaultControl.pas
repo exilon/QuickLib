@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2019 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.FaultControl
   Description : Thread workers retry and circuit break
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 20/06/2019
-  Modified    : 02/12/2019
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -200,16 +200,24 @@ begin
 end;
 
 procedure TFaultControl.FailedExecution(aException: Exception);
+var
+  excToRaise : Exception;
 begin
   fTaskFailed := True;
-  //free older exception
+  //free older exception (only safe when we own it, i.e. it was stored without being raised)
   if Assigned(fLastException) then fLastException.Free;
   fLastException := aException;
-  if fMaxRetries = 0 then raise aException
+  if fMaxRetries = 0 then
+  begin
+    fLastException := nil;  //RTL takes ownership on raise; clear to prevent double-free on next call
+    raise aException;
+  end
   else if fNumRetries = fMaxRetries then
   begin
     aException.Message := Format('Max %d retries reached: %s',[fMaxRetries,aException.Message]);
-    raise fLastException;
+    excToRaise := fLastException;
+    fLastException := nil;  //RTL takes ownership on raise; clear to prevent double-free on next call
+    raise excToRaise;
   end;
 end;
 

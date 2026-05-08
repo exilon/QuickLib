@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Lists
   Description : Generic Lists functions
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.2
   Created     : 04/11/2018
-  Modified    : 28/02/2026
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

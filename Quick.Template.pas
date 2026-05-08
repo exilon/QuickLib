@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Template
   Description : String Replace Templates
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 2.0
   Created     : 01/04/2020
-  Modified    : 31/03/2022
+  Modified    : 30/06/2020
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

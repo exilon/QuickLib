@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Data.InfluxDB
   Description : InfluxDB data provider
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 05/04/2019
-  Modified    : 21/04/2020
+  Modified    : 08/05/2026
 
   This file is part of QuickLogger: https://github.com/exilon/QuickLogger
 

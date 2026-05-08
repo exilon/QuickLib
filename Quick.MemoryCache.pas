@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2021 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.MemoryCache
   Description : Cache objects with expiration control
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 14/07/2019
-  Modified    : 17/05/2021
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2025 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Arrays.Helper
   Description : Array helpers
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 24/03/2019
   Modified    : 10/05/2025

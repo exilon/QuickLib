@@ -1,13 +1,13 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2016-2025 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Commons
   Description : Common functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 2.0
   Created     : 14/07/2017
-  Modified    : 01/03/2026
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

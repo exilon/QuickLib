@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Config.Registry
   Description : Save config to Windows Registry
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 21/10/2017
   Modified    : 12/04/2019

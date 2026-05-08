@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Debug.Utils
   Description : Debug Utils
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.9
   Created     : 05/06/2020
   Modified    : 07/07/2020

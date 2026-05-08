@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2015-2019 Kike Pérez
+  Copyright (c) 2015-2026 Kike Perez
 
   Unit        : Quick.Config.Base
   Description : Quick Config Base classes
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 26/01/2017
-  Modified    : 12/02/2019
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 

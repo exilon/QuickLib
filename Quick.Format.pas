@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2018 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Format
   Description : String Format functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.4
   Created     : 14/07/2017
-  Modified    : 19/07/2018
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
