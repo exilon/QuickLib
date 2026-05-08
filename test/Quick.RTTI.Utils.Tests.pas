@@ -5,6 +5,9 @@ interface
 uses
   DUnitX.TestFramework,
   System.SysUtils,
+  System.Diagnostics,
+  System.Classes,
+  System.SyncObjs,
   System.Generics.Collections,
   RTTI,
   Quick.RTTI.Utils;
@@ -38,6 +41,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+    function FullName: string;
   published
     property Name: string read fName write fName;
     property Age: Integer read fAge write fAge;
@@ -110,6 +114,22 @@ type
     [Test]
     procedure Test_GetProperty_NonExisting_ReturnsNil;
 
+    // TryGetProperty / TryGetMethod
+    [Test]
+    procedure Test_TryGetProperty_Existing_ReturnsTrue;
+    [Test]
+    procedure Test_TryGetProperty_NonExisting_ReturnsFalse;
+    [Test]
+    procedure Test_TryGetProperty_CaseInsensitive_ReturnsTrue;
+    [Test]
+    procedure Test_TryGetMethod_Existing_ReturnsTrue;
+    [Test]
+    procedure Test_TryGetMethod_NonExisting_ReturnsFalse;
+
+    // Benchmark (Phase D)
+    [Test]
+    procedure Test_ZZ_Benchmark_RttiCache;
+
     // GetProperties (inheritance order)
     [Test]
     procedure Test_GetProperties_FirstBase_BasePropertiesFirst;
@@ -147,6 +167,11 @@ destructor TPerson.Destroy;
 begin
   fAddress.Free;
   inherited;
+end;
+
+function TPerson.FullName: string;
+begin
+  Result := Name;
 end;
 
 { TQuickRTTIUtilsTests }
@@ -302,6 +327,213 @@ var
 begin
   prop := TRTTI.GetProperty(fPerson, 'NonExisting');
   Assert.IsNull(prop, 'GetProperty for non-existing property should return nil');
+end;
+
+procedure TQuickRTTIUtilsTests.Test_TryGetProperty_Existing_ReturnsTrue;
+var
+  prop: TRttiProperty;
+begin
+  Assert.IsTrue(TRTTI.TryGetProperty(fPerson, 'Name', prop));
+  Assert.IsNotNull(prop);
+  Assert.AreEqual('Name', prop.Name);
+end;
+
+procedure TQuickRTTIUtilsTests.Test_TryGetProperty_NonExisting_ReturnsFalse;
+var
+  prop: TRttiProperty;
+begin
+  Assert.IsFalse(TRTTI.TryGetProperty(fPerson, 'Nope', prop));
+  Assert.IsNull(prop);
+end;
+
+procedure TQuickRTTIUtilsTests.Test_TryGetProperty_CaseInsensitive_ReturnsTrue;
+var
+  prop: TRttiProperty;
+begin
+  Assert.IsTrue(TRTTI.TryGetProperty(TypeInfo(TPerson), 'name', prop));
+  Assert.IsNotNull(prop);
+  Assert.AreEqual('Name', prop.Name);
+end;
+
+procedure TQuickRTTIUtilsTests.Test_TryGetMethod_Existing_ReturnsTrue;
+var
+  m: TRttiMethod;
+begin
+  Assert.IsTrue(TRTTI.TryGetMethod(fPerson, 'FullName', m));
+  Assert.IsNotNull(m);
+  Assert.AreEqual('FullName', m.Name);
+end;
+
+procedure TQuickRTTIUtilsTests.Test_TryGetMethod_NonExisting_ReturnsFalse;
+var
+  m: TRttiMethod;
+begin
+  Assert.IsFalse(TRTTI.TryGetMethod(TypeInfo(TPerson), 'NoMethod', m));
+  Assert.IsNull(m);
+end;
+
+procedure TQuickRTTIUtilsTests.Test_ZZ_Benchmark_RttiCache;
+const
+  WARMUP = 2000;
+  N = 200000;
+  NUMTHREADS = 8;
+  N_MT = 100000;
+var
+  i: Integer;
+  sw: TStopwatch;
+  prop: TRttiProperty;
+  method: TRttiMethod;
+  ctx: TRttiContext;
+  rtype: TRttiType;
+  startEvent: TEvent;
+  threads: array of TThread;
+  readyCount: Integer;
+  totalOpsMt: Int64;
+  elapsedUncachedTryGetPropertyMs: Int64;
+  elapsedUncachedTryGetMethodMs: Int64;
+  elapsedUncachedPropertyExistsMs: Int64;
+  elapsedMtTryGetPropertyMs: Int64;
+  elapsedTryGetPropertyMs: Int64;
+  elapsedTryGetMethodMs: Int64;
+  elapsedPropertyExistsMs: Int64;
+
+  function Speedup(const uncachedMs, cachedMs: Int64): Double;
+  begin
+    if cachedMs <= 0 then
+      Exit(0);
+    Result := uncachedMs / cachedMs;
+  end;
+
+  function OpsPerSec(const ops, elapsedMs: Int64): Double;
+  begin
+    if elapsedMs <= 0 then
+      Exit(0);
+    Result := ops / (elapsedMs / 1000.0);
+  end;
+begin
+  // Warm-up RTTI + caches
+  for i := 1 to WARMUP do
+  begin
+    TRTTI.TryGetProperty(fPerson, 'Name', prop);
+    TRTTI.TryGetMethod(fPerson, 'FullName', method);
+    TRTTI.PropertyExists(TypeInfo(TPerson), 'Name');
+  end;
+
+  sw := TStopwatch.StartNew;
+  for i := 1 to N do
+    TRTTI.TryGetProperty(fPerson, 'Name', prop);
+  sw.Stop;
+  elapsedTryGetPropertyMs := sw.ElapsedMilliseconds;
+
+  sw := TStopwatch.StartNew;
+  for i := 1 to N do
+    TRTTI.TryGetMethod(fPerson, 'FullName', method);
+  sw.Stop;
+  elapsedTryGetMethodMs := sw.ElapsedMilliseconds;
+
+  sw := TStopwatch.StartNew;
+  for i := 1 to N do
+    TRTTI.PropertyExists(TypeInfo(TPerson), 'Name');
+  sw.Stop;
+  elapsedPropertyExistsMs := sw.ElapsedMilliseconds;
+
+  // Uncached baseline (direct RTTI lookups)
+  ctx := TRttiContext.Create;
+  try
+    sw := TStopwatch.StartNew;
+    for i := 1 to N do
+    begin
+      rtype := ctx.GetType(fPerson.ClassInfo);
+      prop := rtype.GetProperty('Name');
+    end;
+    sw.Stop;
+    elapsedUncachedTryGetPropertyMs := sw.ElapsedMilliseconds;
+
+    sw := TStopwatch.StartNew;
+    for i := 1 to N do
+    begin
+      rtype := ctx.GetType(fPerson.ClassInfo);
+      method := rtype.GetMethod('FullName');
+    end;
+    sw.Stop;
+    elapsedUncachedTryGetMethodMs := sw.ElapsedMilliseconds;
+
+    sw := TStopwatch.StartNew;
+    for i := 1 to N do
+    begin
+      rtype := ctx.GetType(TypeInfo(TPerson));
+      prop := rtype.GetProperty('Name');
+    end;
+    sw.Stop;
+    elapsedUncachedPropertyExistsMs := sw.ElapsedMilliseconds;
+  finally
+    ctx.Free;
+  end;
+
+  // Multi-thread cached throughput (TryGetProperty)
+  startEvent := TEvent.Create(nil, True, False, '');
+  try
+    readyCount := 0;
+    SetLength(threads, NUMTHREADS);
+    for i := 0 to NUMTHREADS - 1 do
+    begin
+      threads[i] := TThread.CreateAnonymousThread(
+        procedure
+        var
+          j: Integer;
+          p: TRttiProperty;
+        begin
+          TInterlocked.Increment(readyCount);
+          startEvent.WaitFor(INFINITE);
+          for j := 1 to N_MT do
+            TRTTI.TryGetProperty(fPerson, 'Name', p);
+        end);
+      threads[i].FreeOnTerminate := False;
+      threads[i].Start;
+    end;
+
+    while readyCount < NUMTHREADS do
+      TThread.Sleep(1);
+
+    sw := TStopwatch.StartNew;
+    startEvent.SetEvent;
+    for i := 0 to NUMTHREADS - 1 do
+    begin
+      threads[i].WaitFor;
+      threads[i].Free;
+    end;
+    sw.Stop;
+    elapsedMtTryGetPropertyMs := sw.ElapsedMilliseconds;
+  finally
+    startEvent.Free;
+  end;
+  totalOpsMt := Int64(NUMTHREADS) * Int64(N_MT);
+
+  // Visible in test run output/console runner
+  Writeln('');
+  Writeln('RTTI Cache Benchmark (Quick.RTTI.Utils):');
+  Writeln(Format('  TryGetProperty x%d (cached)   : %d ms', [N, elapsedTryGetPropertyMs]));
+  Writeln(Format('  TryGetProperty x%d (uncached) : %d ms', [N, elapsedUncachedTryGetPropertyMs]));
+  Writeln(Format('    Speedup: %.2fx', [Speedup(elapsedUncachedTryGetPropertyMs, elapsedTryGetPropertyMs)]));
+
+  Writeln(Format('  TryGetMethod   x%d (cached)   : %d ms', [N, elapsedTryGetMethodMs]));
+  Writeln(Format('  TryGetMethod   x%d (uncached) : %d ms', [N, elapsedUncachedTryGetMethodMs]));
+  Writeln(Format('    Speedup: %.2fx', [Speedup(elapsedUncachedTryGetMethodMs, elapsedTryGetMethodMs)]));
+
+  Writeln(Format('  PropertyExists x%d (cached)   : %d ms', [N, elapsedPropertyExistsMs]));
+  Writeln(Format('  PropertyExists x%d (uncached) : %d ms', [N, elapsedUncachedPropertyExistsMs]));
+  Writeln(Format('    Speedup: %.2fx', [Speedup(elapsedUncachedPropertyExistsMs, elapsedPropertyExistsMs)]));
+
+  Writeln(Format('  TryGetProperty MT x%d (threads=%d) : %d ms', [N_MT, NUMTHREADS, elapsedMtTryGetPropertyMs]));
+  Writeln(Format('    Throughput: %.0f ops/s', [OpsPerSec(totalOpsMt, elapsedMtTryGetPropertyMs)]));
+
+  Assert.IsTrue(elapsedTryGetPropertyMs >= 0);
+  Assert.IsTrue(elapsedTryGetMethodMs >= 0);
+  Assert.IsTrue(elapsedPropertyExistsMs >= 0);
+  Assert.IsTrue(elapsedUncachedTryGetPropertyMs >= 0);
+  Assert.IsTrue(elapsedUncachedTryGetMethodMs >= 0);
+  Assert.IsTrue(elapsedUncachedPropertyExistsMs >= 0);
+  Assert.IsTrue(elapsedMtTryGetPropertyMs >= 0);
 end;
 
 { GetProperties (inheritance order) }
