@@ -365,12 +365,14 @@ end;
 
 procedure CursorOn;
 begin
-  //not implemented yet
+  Write(AEC, '?25h');
+  Flush(Output);
 end;
 
 procedure CursorOff;
 begin
-  //not implemented yet
+  Write(AEC, '?25l');
+  Flush(Output);
 end;
 
 function ReadKey : Char;
