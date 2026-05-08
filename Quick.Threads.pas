@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.Threads
   Description : Thread safe collections
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.5
   Created     : 09/03/2018
-  Modified    : 28/02/2026
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -219,7 +219,7 @@ type
 
   TParamList = TObjectList<TParamValue>;
 
-  TWorkTaskStatus = (wtsPending, wtsAssigned, wtsRunning, wtsDone, wtsException);
+  TWorkTaskStatus = (wtsPending, wtsAssigned, wtsRunning, wtsDone, wtsException, wtsSkipped, wtsDeleted);
 
   TScheduleMode = (smRunOnce, smRepeatMode);
 
@@ -298,6 +298,20 @@ type
     procedure Run;
   end;
 
+  THistoryEntry = record
+    ExecTime      : TDateTime;
+    DurationMs    : Integer;
+    Status        : string;
+    ErrorMessage  : string;
+    ExceptionType : string;
+  end;
+
+  /// <summary>Called synchronously (from the task thread) whenever a new
+  /// execution entry is appended to the ring buffer. Use it to forward
+  /// entries to a persistent store.</summary>
+  THistoryEntryProc = reference to procedure(const aTaskName : string;
+                                              const aEntry    : THistoryEntry);
+
   IScheduledTask = interface(ITask)
   ['{AE551638-ECDE-4F64-89BF-F07BFCB9C9F7}']
     function OnInitialize(aTaskProc : TTaskProc) : IScheduledTask;
@@ -336,6 +350,34 @@ type
     property Name : string read GetTaskName;
     function SetParameter(const aName : string; aValue : TFlexValue; aOwned : Boolean) : IScheduledTask; overload;
     function SetParameter(const aName : string; aValue : TFlexValue) : IScheduledTask; overload;
+    function GetLastExecution : TDateTime;
+    function GetNextExecution : TDateTime;
+    function GetExecutionTimes : Integer;
+    function GetTimeInterval : Integer;
+    function GetTimeMeasure : TTimeMeasure;
+    function GetScheduleMode : TScheduleMode;
+    property LastExecution : TDateTime read GetLastExecution;
+    property NextExecution : TDateTime read GetNextExecution;
+    property ExecutionTimes : Integer read GetExecutionTimes;
+    property TimeInterval : Integer read GetTimeInterval;
+    property TimeMeasure : TTimeMeasure read GetTimeMeasure;
+    property ScheduleMode : TScheduleMode read GetScheduleMode;
+    procedure TriggerNow;
+    function GetHistory : TArray<THistoryEntry>;
+    property History : TArray<THistoryEntry> read GetHistory;
+    procedure DisallowConcurrentExecution;
+    procedure AllowConcurrentExecution;
+    function IsOverlapAllowed : Boolean;
+    procedure Remove;
+    function GetRetryDelay : Integer;
+    function GetRetryMultiplier : Double;
+    property RetryDelay : Integer read GetRetryDelay;
+    property RetryMultiplier : Double read GetRetryMultiplier;
+    /// <summary>Restore persisted execution stats (e.g. after app restart).</summary>
+    procedure RestoreStats(aExecutionTimes : Integer; aLastExecution : TDateTime);
+    /// <summary>Register a callback fired on every completed execution.
+    /// Called from the task worker thread — implementation must be thread-safe.</summary>
+    procedure SetOnHistoryEntry(aProc : THistoryEntryProc);
   end;
 
   TTask = class(TInterfacedObject,ITask)
@@ -403,7 +445,16 @@ type
   end;
 
   TWorkTask = class(TTask,IWorkTask)
+  private
+    fName           : string;
+    fOnHistoryEntry : THistoryEntryProc;
+    fOnTaskBegin    : TProc<Int64, string, TDateTime>;
+    fOnTaskEnd      : TProc<Int64>;
   public
+    property Name : string read fName write fName;
+    property OnHistoryEntry : THistoryEntryProc read fOnHistoryEntry write fOnHistoryEntry;
+    property OnTaskBegin : TProc<Int64, string, TDateTime> read fOnTaskBegin write fOnTaskBegin;
+    property OnTaskEnd   : TProc<Int64>                   read fOnTaskEnd   write fOnTaskEnd;
     function OnInitialize(aTaskProc : TTaskProc) : IWorkTask;
     function OnException(aTaskProc : TTaskExceptionProc) : IWorkTask; virtual;
     function OnException_Sync(aTaskProc : TTaskExceptionProc) : IWorkTask; virtual;
@@ -438,6 +489,13 @@ type
     fExpirationTimes : Integer;
     fFinished : Boolean;
     fExpireWithSync: Boolean;
+    fDisallowConcurrent: Boolean;
+    fPendingRemoval: Boolean;
+    fHistory        : array[0..19] of THistoryEntry;
+    fHistCount      : Integer;
+    fHistNext       : Integer;
+    fOnHistoryEntry : THistoryEntryProc;
+    procedure AddHistory(aStatus : TWorkTaskStatus; const aErrorMsg : string = ''; const aExcType : string = '');
     procedure ClearSchedule;
     function CheckSchedule : Boolean;
     procedure DoExpire;
@@ -480,6 +538,26 @@ type
     function SetParameter(const aName : string; aValue : TFlexValue) : IScheduledTask; overload;
     function IsFinished : Boolean;
     procedure Cancel;
+    function GetLastExecution : TDateTime;
+    function GetNextExecution : TDateTime;
+    function GetExecutionTimes : Integer;
+    function GetTimeInterval : Integer;
+    function GetTimeMeasure : TTimeMeasure;
+    function GetScheduleMode : TScheduleMode;
+    procedure TriggerNow;
+    function GetHistory : TArray<THistoryEntry>;
+    procedure DisallowConcurrentExecution;
+    procedure AllowConcurrentExecution;
+    function IsOverlapAllowed : Boolean;
+    /// <summary>Mark task as deleted and request removal from the scheduler on next tick.</summary>
+    procedure Remove;
+    function GetRetryDelay : Integer;
+    function GetRetryMultiplier : Double;
+    /// <summary>Restore persisted execution stats (e.g. after app restart).</summary>
+    procedure RestoreStats(aExecutionTimes : Integer; aLastExecution : TDateTime);
+    /// <summary>Register a callback fired on every completed execution.
+    /// Called from the task worker thread — implementation must be thread-safe.</summary>
+    procedure SetOnHistoryEntry(aProc : THistoryEntryProc);
   end;
 
   TWorkerStatus = (wsIdle, wsWorking, wsSuspended);
@@ -574,6 +652,11 @@ type
   end;
   {$ENDIF}
 
+  TBgRunningInfo = record
+    Name      : string;
+    StartTime : TDateTime;
+  end;
+
   TBackgroundTasks = class
   private
     fMaxQueue : Integer;
@@ -583,7 +666,13 @@ type
     fExtractTimeout : Cardinal;
     fTaskQueue : TTaskQueue;
     fNumPushedTasks : Int64;
+    fOnHistoryEntry : THistoryEntryProc;
+    fRunningLock    : TCriticalSection;
+    fRunningTasks   : TDictionary<Int64, TBgRunningInfo>;
     function GetTaskQueue : Cardinal;
+    function GetActiveWorkers : Integer;
+    procedure RegisterRunning(aIdTask : Int64; const aName : string; aStartTime : TDateTime);
+    procedure UnregisterRunning(aIdTask : Int64);
   public
     constructor Create(aConcurrentWorkers : Integer; aInitialQueueSize : Integer = 100);
     destructor Destroy; override;
@@ -593,7 +682,11 @@ type
     property TaskQueued : Cardinal read GetTaskQueue;
     property NumPushedTasks : Int64 read fNumPushedTasks;
     property ConcurrentWorkers : Integer read fConcurrentWorkers write fConcurrentWorkers;
+    property ActiveWorkers : Integer read GetActiveWorkers;
+    procedure SetOnHistoryEntry(aProc : THistoryEntryProc);
+    function GetRunningTaskInfos : TArray<TBgRunningInfo>;
     function AddTask(aTaskProc : TTaskProc) : IWorkTask; overload;
+    function AddTask(const aName : string; aTaskProc : TTaskProc) : IWorkTask; overload;
     function AddTask_Sync(aTaskProc : TTaskProc) : IWorkTask; overload;
     function AddTask(aParamArray : array of const; aOwnedParams : Boolean; aTaskProc : TTaskProc) : IWorkTask; overload;
     function AddTask_Sync(aParamArray : array of const; aOwnedParams : Boolean; aTaskProc : TTaskProc) : IWorkTask; overload;
@@ -609,14 +702,18 @@ type
     fCondVar : TSimpleEvent;
     fTaskList : TScheduledTaskList;
     fRemoveTaskAfterExpiration : Boolean;
+    fPaused : Boolean;
   public
     constructor Create(aTaskList : TScheduledTaskList);
     destructor Destroy; override;
     property RemoveTaskAfterExpiration : Boolean read fRemoveTaskAfterExpiration write fRemoveTaskAfterExpiration;
+    property Paused : Boolean read fPaused write fPaused;
     procedure Execute; override;
     function Add(aTask : TScheduledTask) : Integer;
     function Get(aIdTask : Int64) : IScheduledTask; overload;
     function Get(const aTaskName : string) : IScheduledTask; overload;
+    function GetAll : TArray<IScheduledTask>;
+    procedure RemoveTask(const aTaskName : string);
   end;
 
   TScheduledTasks = class
@@ -640,8 +737,16 @@ type
     function AddTask_Sync(const aTaskName : string; aParamArray : array of const; aOwnedParams : Boolean; aTaskProc : TTaskProc) : IScheduledTask; overload;
     function GetTask(aIdTask : Int64) : IScheduledTask; overload;
     function GetTask(const aTaskName : string) : IScheduledTask; overload;
+    function GetAllTasks : TArray<IScheduledTask>;
     procedure Start;
     procedure Stop;
+    /// <summary>Remove a task by name. Marks it wtsDeleted and removes from scheduler.</summary>
+    procedure RemoveTask(const aTaskName : string);
+    /// <summary>Pause the scheduler — no new workers are started until ResumeAll is called.</summary>
+    procedure PauseAll;
+    /// <summary>Resume scheduling after a PauseAll.</summary>
+    procedure ResumeAll;
+    function IsPaused : Boolean;
   end;
 
   TBackgroundWorkers = class
@@ -1232,8 +1337,9 @@ end;
 procedure TTask.DoException(aException : Exception);
 begin
   fTaskStatus := TWorkTaskStatus.wtsException;
-  if Assigned(fExceptProc) then fExceptProc(Self,aException)
-    else raise aException;
+  if Assigned(fExceptProc) then fExceptProc(Self,aException);
+  //if no handler is assigned, swallow - exception status and message are already
+  //recorded in fFaultControl.LastException; re-raising would crash the host process
 end;
 
 procedure TTask.DoExecute;
@@ -1547,6 +1653,64 @@ begin
   fTaskQueue.Clear;
 end;
 
+function TBackgroundTasks.GetActiveWorkers: Integer;
+var
+  i : Integer;
+begin
+  Result := 0;
+  if fWorkerPool = nil then Exit;
+  for i := 0 to fWorkerPool.Count - 1 do
+    if fWorkerPool[i].Status = TWorkerStatus.wsWorking then Inc(Result);
+end;
+
+procedure TBackgroundTasks.SetOnHistoryEntry(aProc: THistoryEntryProc);
+begin
+  fOnHistoryEntry := aProc;
+end;
+
+procedure TBackgroundTasks.RegisterRunning(aIdTask: Int64; const aName: string; aStartTime: TDateTime);
+var
+  info : TBgRunningInfo;
+begin
+  info.Name      := aName;
+  info.StartTime := aStartTime;
+  fRunningLock.Acquire;
+  try
+    fRunningTasks.AddOrSetValue(aIdTask, info);
+  finally
+    fRunningLock.Release;
+  end;
+end;
+
+procedure TBackgroundTasks.UnregisterRunning(aIdTask: Int64);
+begin
+  fRunningLock.Acquire;
+  try
+    fRunningTasks.Remove(aIdTask);
+  finally
+    fRunningLock.Release;
+  end;
+end;
+
+function TBackgroundTasks.GetRunningTaskInfos: TArray<TBgRunningInfo>;
+var
+  info : TBgRunningInfo;
+  i    : Integer;
+begin
+  fRunningLock.Acquire;
+  try
+    SetLength(Result, fRunningTasks.Count);
+    i := 0;
+    for info in fRunningTasks.Values do
+    begin
+      Result[i] := info;
+      Inc(i);
+    end;
+  finally
+    fRunningLock.Release;
+  end;
+end;
+
 constructor TBackgroundTasks.Create(aConcurrentWorkers : Integer; aInitialQueueSize : Integer = 100);
 begin
   fMaxQueue := 0;
@@ -1554,6 +1718,8 @@ begin
   fInsertTimeout := INFINITE;
   fExtractTimeout := 5000;
   fNumPushedTasks := 0;
+  fRunningLock  := TCriticalSection.Create;
+  fRunningTasks := TDictionary<Int64, TBgRunningInfo>.Create;
   fTaskQueue := TThreadedQueueCS<IWorkTask>.Create(aInitialQueueSize,fInsertTimeout,fExtractTimeout);
 end;
 
@@ -1565,6 +1731,8 @@ begin
 
   if Assigned(fWorkerPool) then fWorkerPool.Free;
   if Assigned(fTaskQueue) then fTaskQueue.Free;
+  fRunningTasks.Free;
+  fRunningLock.Free;
   inherited;
 end;
 
@@ -1575,18 +1743,44 @@ end;
 
 function TBackgroundTasks.AddTask(aTaskProc : TTaskProc) : IWorkTask;
 begin
-  Result := AddTask([],False,aTaskProc);
+  Result := AddTask('', aTaskProc);
+end;
+
+function TBackgroundTasks.AddTask(const aName : string; aTaskProc : TTaskProc) : IWorkTask;
+var
+  worktask : TWorkTask;
+begin
+  if (fMaxQueue > 0) and (fTaskQueue.QueueSize >= fMaxQueue) then raise ETaskAddError.Create('Max queue reached: Task cannot be added');
+
+  worktask := TWorkTask.Create([], False, aTaskProc);
+  Inc(fNumPushedTasks);
+  worktask.SetIdTask(fNumPushedTasks);
+  if aName <> '' then worktask.Name := aName
+    else worktask.Name := 'Job#' + IntToStr(fNumPushedTasks);
+  worktask.OnHistoryEntry := fOnHistoryEntry;
+  worktask.OnTaskBegin    := procedure(aId: Int64; aName: string; aStart: TDateTime)
+    begin
+      Self.RegisterRunning(aId, aName, aStart);
+    end;
+  worktask.OnTaskEnd      := procedure(aId: Int64)
+    begin
+      Self.UnregisterRunning(aId);
+    end;
+  if fTaskQueue.PushItem(worktask) = TWaitResult.wrSignaled then
+    Result := worktask;
 end;
 
 function TBackgroundTasks.AddTask(aParamArray : array of const; aOwnedParams : Boolean; aTaskProc : TTaskProc) : IWorkTask;
 var
-  worktask : IWorkTask;
+  worktask : TWorkTask;
 begin
   if (fMaxQueue > 0) and (fTaskQueue.QueueSize >= fMaxQueue) then raise ETaskAddError.Create('Max queue reached: Task cannot be added');
 
   worktask := TWorkTask.Create(aParamArray,aOwnedParams,aTaskProc);
   Inc(fNumPushedTasks);
   worktask.SetIdTask(fNumPushedTasks);
+  worktask.Name := 'Job#' + IntToStr(fNumPushedTasks);
+  worktask.OnHistoryEntry := fOnHistoryEntry;
   if fTaskQueue.PushItem(worktask) = TWaitResult.wrSignaled then
   begin
     Result := worktask;
@@ -1594,14 +1788,9 @@ begin
 end;
 
 function TBackgroundTasks.AddTask_Sync(aParamArray: array of const; aOwnedParams: Boolean; aTaskProc: TTaskProc): IWorkTask;
-var TaskObj: TTask;
 begin
   Result := AddTask(aParamArray,aOwnedParams,aTaskProc);
-  // changed: instead of TTask(Result), do a safe Supports-cast
-  if Supports(Result, TTask, TaskObj) then
-      TaskObj.ExecuteWithSync := True
-  else
-     raise EInvalidCast.Create('AddTask did not return a TTask');
+  TTask(Result).ExecuteWithSync := True;
 end;
 
 function TBackgroundTasks.AddTask_Sync(aTaskProc: TTaskProc): IWorkTask;
@@ -1672,53 +1861,37 @@ begin
 end;
 
 procedure TSimpleWorker.Execute;
-var
-  TaskObj: TTask;
 begin
   fStatus := TWorkerStatus.wsIdle;
   while not Terminated do
   begin
-    if (fCurrentTask <> nil) and fCurrentTask.IsEnabled then
-    begin
-      // Try casting once at the top
-      if not Supports(fCurrentTask, TTask, TaskObj) then
-        raise EInvalidCast.Create('Current task is not a TTask');
-
+    if (fCurrentTask <> nil) and (fCurrentTask.IsEnabled) then
+    try
+      fStatus := TWorkerStatus.wsWorking;
       try
-        fStatus := TWorkerStatus.wsWorking;
-        try
-          SetFaultPolicy(TaskObj);
-          if TaskObj.ExecuteWithSync then
-            Synchronize(ExecuteTask)
-          else
-            fCurrentTask.DoExecute;
-        except
-          on E: Exception do
-            if fCurrentTask <> nil then
-              fCurrentTask.DoException(E)
-            else
-              raise ETaskExecutionError.Create(E.Message);
+        SetFaultPolicy(TTask(fCurrentTask));
+        if TTask(fCurrentTask).ExecuteWithSync then Synchronize(ExecuteTask)
+          else fCurrentTask.DoExecute;
+      except
+        on E : Exception do
+        begin
+          if fCurrentTask <> nil then fCurrentTask.DoException(E)
+            else raise ETaskExecutionError.Create(e.Message);
         end;
-      finally
-        fStatus := TWorkerStatus.wsIdle;
-        try
-          if TaskObj.TerminateWithSync then
-            Synchronize(TerminateTask)
-          else
-            fCurrentTask.DoTerminate;
-        except
-          on E: Exception do
-            if fCurrentTask <> nil then
-              fCurrentTask.DoException(E);
-        end;
-        if fRunOnce then
-          Terminate;
       end;
+    finally
+      fStatus := TWorkerStatus.wsIdle;
+      try
+        if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
+          else fCurrentTask.DoTerminate;
+      except
+        on E : Exception do if fCurrentTask <> nil then fCurrentTask.DoException(E)
+      end;
+      if fRunOnce then Terminate;
     end;
   end;
-  fStatus := TWorkerStatus.wsSuspended;
+  fStatus := TWorkerStatus.wsSuspended
 end;
-
 
 { TQueueWorker }
 
@@ -1731,7 +1904,11 @@ end;
 
 procedure TQueueWorker.Execute;
 var
-  TaskObj: TTask;
+  startTime   : TDateTime;
+  lastExcMsg  : string;
+  lastExcType : string;
+  entry       : THistoryEntry;
+  workTask    : TWorkTask;
 begin
   fStatus := TWorkerStatus.wsIdle;
   while not Terminated do
@@ -1739,26 +1916,53 @@ begin
     fCurrentTask := fTaskQueue.PopItem;
     if fCurrentTask <> nil then
     begin
-      // changed: resolve the concrete class once via Supports instead of hard-casting
-      if not Supports(fCurrentTask, TTask, TaskObj) then
-        raise EInvalidCast.Create('Current task is not a TTask');
+      startTime   := Now;
+      lastExcMsg  := '';
+      lastExcType := '';
+      // notify running tracker
+      if (fCurrentTask is TWorkTask) and Assigned(TWorkTask(fCurrentTask).OnTaskBegin) then
+        TWorkTask(fCurrentTask).OnTaskBegin(fCurrentTask.GetIdTask, TWorkTask(fCurrentTask).Name, startTime);
       try
         fStatus := TWorkerStatus.wsWorking;
         try
           fCurrentIdTask := fCurrentTask.GetIdTask;
-          SetFaultPolicy(TaskObj);
-          if TaskObj.ExecuteWithSync then Synchronize(ExecuteTask)
+          SetFaultPolicy(TTask(fCurrentTask));
+          if TTask(fCurrentTask).ExecuteWithSync then Synchronize(ExecuteTask)
             else fCurrentTask.DoExecute;
         except
           on E : Exception do
           begin
+            lastExcMsg  := E.Message;
+            lastExcType := E.ClassName;
             if fCurrentTask <> nil then fCurrentTask.DoException(E)
               else raise ETaskExecutionError.Create(e.Message);
           end;
         end;
       finally
-        if TaskObj.TerminateWithSync then Synchronize(TerminateTask)
+        if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
           else fCurrentTask.DoTerminate;
+        // fire history callback and unregister from running tracker
+        if (fCurrentTask <> nil) and (fCurrentTask is TWorkTask) then
+        begin
+          workTask := TWorkTask(fCurrentTask);
+          if Assigned(workTask.OnTaskEnd) then
+          try
+            workTask.OnTaskEnd(fCurrentTask.GetIdTask);
+          except
+          end;
+          if Assigned(workTask.OnHistoryEntry) then
+          try
+            entry.ExecTime      := startTime;
+            entry.DurationMs    := Round((Now - startTime) * 86400.0 * 1000.0);
+            entry.ErrorMessage  := lastExcMsg;
+            entry.ExceptionType := lastExcType;
+            if lastExcMsg <> '' then entry.Status := 'Exception'
+              else entry.Status := 'Done';
+            workTask.OnHistoryEntry(workTask.Name, entry);
+          except
+            // never crash worker on history callback error
+          end;
+        end;
         fStatus := TWorkerStatus.wsIdle;
       end;
     end;
@@ -1780,39 +1984,40 @@ end;
 
 procedure TScheduledWorker.Execute;
 var
-  TaskObj: TTask;
-  SchedObj: TScheduledTask;
+  lastExcMsg  : string;
+  lastExcType : string;
 begin
   fStatus := TWorkerStatus.wsIdle;
   if Assigned(fCurrentTask) then
   begin
-    // changed: resolve the concrete classes once via Supports instead of hard-casting
-    if not Supports(fCurrentTask, TTask, TaskObj) then
-      raise EInvalidCast.Create('Current task is not a TTask');
+    lastExcMsg  := '';
+    lastExcType := '';
     try
       fStatus := TWorkerStatus.wsWorking;
       try
-        SetFaultPolicy(TaskObj);
-        if TaskObj.ExecuteWithSync then Synchronize(ExecuteTask)
+        SetFaultPolicy(TTask(fCurrentTask));
+        if TTask(fCurrentTask).ExecuteWithSync then Synchronize(ExecuteTask)
           else fCurrentTask.DoExecute;
         fStatus := TWorkerStatus.wsIdle;
       except
         on E : Exception do
         begin
+          lastExcMsg  := E.Message;
+          lastExcType := E.ClassName;
           if fCurrentTask <> nil then fCurrentTask.DoException(E)
             else raise ETaskExecutionError.Create(e.Message);
         end;
       end;
     finally
-      if TaskObj.TerminateWithSync then Synchronize(TerminateTask)
+      if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
         else fCurrentTask.DoTerminate;
+      //record execution history (with exception info if any)
+      TScheduledTask(fCurrentTask).AddHistory(fCurrentTask.TaskStatus, lastExcMsg, lastExcType);
       //check if expired
       if (fCurrentTask as IScheduledTask).IsFinished then
       begin
-        if Supports(fCurrentTask, TScheduledTask, SchedObj) and SchedObj.ExpireWithSync then
-          Synchronize(ExpireTask)
-        else
-          (fCurrentTask as IScheduledTask).DoExpire;
+        if TScheduledTask(fCurrentTask).ExpireWithSync then Synchronize(ExpireTask)
+          else (fCurrentTask as IScheduledTask).DoExpire;
       end;
     end;
   end;
@@ -1845,15 +2050,9 @@ begin
 end;
 
 function TScheduledTasks.AddTask_Sync(const aTaskName: string; aParamArray: array of const; aOwnedParams: Boolean; aTaskProc: TTaskProc): IScheduledTask;
-var
-  TaskObj: TTask;
 begin
   Result := AddTask(aTaskName,aParamArray,aOwnedParams,aTaskProc);
-  // changed: instead of TTask(Result), do a safe Supports-cast
-  if Supports(Result, TTask, TaskObj) then
-    TaskObj.ExecuteWithSync := True
-  else
-    raise EInvalidCast.Create('AddTask did not return a TTask');
+  TTask(Result).ExecuteWithSync := True;
 end;
 
 function TScheduledTasks.AddTask_Sync(const aTaskName: string; aTaskProc: TTaskProc): IScheduledTask;
@@ -1893,6 +2092,12 @@ begin
   Result := fScheduler.Get(aTaskName);
 end;
 
+function TScheduledTasks.GetAllTasks: TArray<IScheduledTask>;
+begin
+  if not Assigned(fScheduler) then Exit(nil);
+  Result := fScheduler.GetAll;
+end;
+
 procedure TScheduledTasks.Start;
 begin
   if fIsStarted then Exit;
@@ -1909,6 +2114,27 @@ procedure TScheduledTasks.Stop;
 begin
   if Assigned(fScheduler) then fScheduler.Terminate;
   fIsStarted := False;
+end;
+
+procedure TScheduledTasks.RemoveTask(const aTaskName: string);
+begin
+  if not Assigned(fScheduler) then Exit;
+  fScheduler.RemoveTask(aTaskName);
+end;
+
+procedure TScheduledTasks.PauseAll;
+begin
+  if Assigned(fScheduler) then fScheduler.Paused := True;
+end;
+
+procedure TScheduledTasks.ResumeAll;
+begin
+  if Assigned(fScheduler) then fScheduler.Paused := False;
+end;
+
+function TScheduledTasks.IsPaused: Boolean;
+begin
+  Result := Assigned(fScheduler) and fScheduler.Paused;
 end;
 
 { TScheduledTask }
@@ -2088,10 +2314,109 @@ begin
   fFinished := True;
 end;
 
+procedure TScheduledTask.TriggerNow;
+begin
+  fEnabled  := True;
+  fFinished := False;
+  fNextExecution := Now() - (2.0 / 86400.0); // set 2 seconds in the past
+end;
+
+procedure TScheduledTask.AddHistory(aStatus : TWorkTaskStatus; const aErrorMsg : string = ''; const aExcType : string = '');
+var
+  entry : THistoryEntry;
+begin
+  entry.ExecTime      := fLastExecution;
+  entry.DurationMs    := Round((Now() - fLastExecution) * 86400.0 * 1000.0);
+  entry.ErrorMessage  := aErrorMsg;
+  entry.ExceptionType := aExcType;
+  case aStatus of
+    wtsDone:      entry.Status := 'Done';
+    wtsException: entry.Status := 'Exception';
+    wtsSkipped:   entry.Status := 'Skipped';
+    else          entry.Status := 'Unknown';
+  end;
+  fHistory[fHistNext] := entry;
+  fHistNext := (fHistNext + 1) mod 20;
+  if fHistCount < 20 then Inc(fHistCount);
+  // Notify persistence callback — runs on the task worker thread.
+  if Assigned(fOnHistoryEntry) then
+  begin
+    try
+      fOnHistoryEntry(fName, entry);
+    except
+      // Never let the callback crash the task thread
+    end;
+  end;
+end;
+
+procedure TScheduledTask.SetOnHistoryEntry(aProc : THistoryEntryProc);
+begin
+  fOnHistoryEntry := aProc;
+end;
+
+function TScheduledTask.GetHistory : TArray<THistoryEntry>;
+var
+  i, idx : Integer;
+begin
+  SetLength(Result, fHistCount);
+  for i := 0 to fHistCount - 1 do
+  begin
+    idx := (fHistNext - 1 - i + 200) mod 20; // newest first
+    Result[i] := fHistory[idx];
+  end;
+end;
+
+procedure TScheduledTask.DisallowConcurrentExecution;
+begin
+  fDisallowConcurrent := True;
+end;
+
+procedure TScheduledTask.AllowConcurrentExecution;
+begin
+  fDisallowConcurrent := False;
+end;
+
+function TScheduledTask.IsOverlapAllowed : Boolean;
+begin
+  Result := not fDisallowConcurrent;
+end;
+
+procedure TScheduledTask.Remove;
+begin
+  fPendingRemoval := True;
+  fTaskStatus := TWorkTaskStatus.wtsDeleted;
+end;
+
+function TScheduledTask.GetRetryDelay: Integer;
+begin
+  Result := FaultControl.WaitTimeBetweenRetriesMS;
+end;
+
+function TScheduledTask.GetRetryMultiplier: Double;
+begin
+  Result := FaultControl.WaitTimeMultiplierFactor;
+end;
+
+procedure TScheduledTask.RestoreStats(aExecutionTimes : Integer; aLastExecution : TDateTime);
+begin
+  fExecutionTimes := aExecutionTimes;
+  fLastExecution  := aLastExecution;
+end;
+
+
 function TScheduledTask.CheckSchedule: Boolean;
 begin
   Result := False;
-  if fTaskStatus = TWorkTaskStatus.wtsRunning then Exit;
+  if fTaskStatus = TWorkTaskStatus.wtsRunning then
+  begin
+    // overlap prevention: if disallowed and task is still running, skip and record it
+    if fDisallowConcurrent then
+    begin
+      fLastExecution := Now();
+      AddHistory(wtsSkipped, 'Skipped: previous execution still running', '');
+    end;
+    Exit;
+  end;
 
   if fScheduleMode = TScheduleMode.smRunOnce then
   begin
@@ -2170,6 +2495,36 @@ begin
   Result := fFinished;
 end;
 
+function TScheduledTask.GetLastExecution: TDateTime;
+begin
+  Result := fLastExecution;
+end;
+
+function TScheduledTask.GetNextExecution: TDateTime;
+begin
+  Result := fNextExecution;
+end;
+
+function TScheduledTask.GetExecutionTimes: Integer;
+begin
+  Result := fExecutionTimes;
+end;
+
+function TScheduledTask.GetTimeInterval: Integer;
+begin
+  Result := fTimeInterval;
+end;
+
+function TScheduledTask.GetTimeMeasure: TTimeMeasure;
+begin
+  Result := fTimeMeasure;
+end;
+
+function TScheduledTask.GetScheduleMode: TScheduleMode;
+begin
+  Result := fScheduleMode;
+end;
+
 function TScheduledTask.OnException(aTaskProc: TTaskExceptionProc): IScheduledTask;
 begin
   fExceptProc := aTaskProc;
@@ -2177,15 +2532,9 @@ begin
 end;
 
 function TScheduledTask.OnException_Sync(aTaskProc: TTaskExceptionProc): IScheduledTask;
-var
-  TaskObj: TTask;
 begin
   Result := OnException(aTaskProc);
-  // changed: instead of TTask(Result), do a safe Supports-cast
-  if Supports(Result, TTask, TaskObj) then
-    TaskObj.ExceptionWithSync := True
-  else
-    raise EInvalidCast.Create('OnException did not return a TTask');
+  TTask(Result).ExceptionWithSync := True;
 end;
 
 function TScheduledTask.OnRetry(aTaskProc: TTaskRetryProc): IScheduledTask;
@@ -2201,15 +2550,9 @@ begin
 end;
 
 function TScheduledTask.OnExpired_Sync(aTaskProc: TTaskProc): IScheduledTask;
-var
-  SchedObj: TScheduledTask;
 begin
   Result := OnExpired(aTaskProc);
-  // changed: instead of TScheduledTask(Result), do a safe Supports-cast
-  if Supports(Result, TScheduledTask, SchedObj) then
-    SchedObj.ExpireWithSync := True
-  else
-    raise EInvalidCast.Create('OnExpired did not return a TScheduledTask');
+  TScheduledTask(Result).ExpireWithSync := True;
 end;
 
 function TScheduledTask.OnInitialize(aTaskProc: TTaskProc): IScheduledTask;
@@ -2225,15 +2568,9 @@ begin
 end;
 
 function TScheduledTask.OnTerminated_Sync(aTaskProc: TTaskProc): IScheduledTask;
-var
-  TaskObj: TTask;
 begin
   Result := OnTerminated(aTaskProc);
-  // changed: instead of TTask(Result), do a safe Supports-cast
-  if Supports(Result, TTask, TaskObj) then
-    TaskObj.TerminateWithSync := True
-  else
-    raise EInvalidCast.Create('OnTerminated did not return a TTask');
+  TTask(Result).TerminateWithSync := True;
 end;
 
 { TScheduler }
@@ -2270,27 +2607,36 @@ begin
   numworker := 0;
   while not Terminated do
   begin
-    fListLock.Enter;
-    try
-      for task in fTaskList do
-      begin
-        if (task.IsEnabled) and (not task.IsFinished) then
+    if not fPaused then
+    begin
+      fListLock.Enter;
+      try
+        for task in fTaskList do
         begin
-          if task.CheckSchedule then
+          //remove tasks marked for deletion
+          if TScheduledTask(task).fPendingRemoval then
           begin
-            Inc(numworker);
-            worker := TScheduledWorker.Create(numworker,task);
-            worker.Start;
+            fTaskList.Remove(task);
+            Break; //restart iteration after list modification
           end;
-        end
-        else
-        begin
-          if (not task.IsEnabled) and (fRemoveTaskAfterExpiration) then fTaskList.Remove(task);
+          if (task.IsEnabled) and (not task.IsFinished) then
+          begin
+            if task.CheckSchedule then
+            begin
+              Inc(numworker);
+              worker := TScheduledWorker.Create(numworker,task);
+              worker.Start;
+            end;
+          end
+          else
+          begin
+            if (not task.IsEnabled) and (fRemoveTaskAfterExpiration) then fTaskList.Remove(task);
+          end;
         end;
+        task := nil;
+      finally
+        fListLock.Leave;
       end;
-      task := nil;
-    finally
-      fListLock.Leave;
     end;
     fCondVar.WaitFor(250);
   end;
@@ -2316,6 +2662,25 @@ begin
   end;
 end;
 
+function TScheduler.GetAll: TArray<IScheduledTask>;
+var
+  task : IScheduledTask;
+  i    : Integer;
+begin
+  fListLock.Enter;
+  try
+    SetLength(Result, fTaskList.Count);
+    i := 0;
+    for task in fTaskList do
+    begin
+      Result[i] := task;
+      Inc(i);
+    end;
+  finally
+    fListLock.Leave;
+  end;
+end;
+
 function TScheduler.Get(const aTaskName: string): IScheduledTask;
 var
   task : IScheduledTask;
@@ -2325,6 +2690,25 @@ begin
     for task in fTaskList do
     begin
       if CompareText(task.Name,aTaskName) = 0 then Exit(task);
+    end;
+  finally
+    fListLock.Leave;
+  end;
+end;
+
+procedure TScheduler.RemoveTask(const aTaskName: string);
+var
+  task : IScheduledTask;
+begin
+  fListLock.Enter;
+  try
+    for task in fTaskList do
+    begin
+      if CompareText(task.Name, aTaskName) = 0 then
+      begin
+        task.Remove;
+        Break;
+      end;
     end;
   finally
     fListLock.Leave;
