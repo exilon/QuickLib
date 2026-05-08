@@ -1,10 +1,10 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike Pérez
+  Copyright (c) 2016-2022 Kike Pï¿½rez
 
   Unit        : Quick.Collections
   Description : Generic Collections
-  Author      : Kike Pérez
+  Author      : Kike Pï¿½rez
   Version     : 1.2
   Created     : 07/03/2020
   Modified    : 27/01/2022
@@ -519,7 +519,7 @@ procedure TxObjectList<T>.InternalOnNotify(Sender: TObject; const Item: T; Actio
 begin
   if (fOwnsObjects) and (Action = TCollectionNotification.cnRemoved) then
   begin
-    if Assigned(Item) then Item.DisposeOf;
+    if Assigned(Item) then Item.Free;
     //if PTypeInfo(typeInfo(T)).Kind = tkClass then
     //PObject(@Item).DisposeOf;
   end;
