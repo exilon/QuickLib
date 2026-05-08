@@ -1,13 +1,13 @@
-﻿{ ***************************************************************************
+{ ***************************************************************************
 
-  Copyright (c) 2016-2022 Kike P�rez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.IoC
   Description : IoC Dependency Injector
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 27/02/2026
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -41,6 +41,7 @@ uses
   {$ENDIF}
   System.TypInfo,
   System.Generics.Collections,
+  System.Generics.Defaults,
   Quick.Logger.Intf,
   Quick.Options;
 
@@ -120,6 +121,8 @@ type
     function RegisterInstance<T : class>(const aName : string = '') : TIocRegistration<T>; overload;
     function RegisterInstance<TInterface : IInterface>(aInstance : TInterface; const aName : string = '') : TIocRegistration; overload;
     function RegisterOptions<T : TOptions>(aOptions : T) : TIocRegistration<T>;
+    /// <summary>Remove all registrations for the given key. Frees existing registration objects.</summary>
+    function RemoveRegistrations(const aKey: string): Boolean;
   end;
 
   IIocContainer = interface
@@ -154,12 +157,12 @@ type
     function ResolveAll<T>(const aName : string = '') : TList<T>;
   end;
 
-  TTypedFactory<T : class, constructor> = class(TVirtualInterface)
-  private
-    fResolver : TIocResolver;
-  public
-    constructor Create(PIID: PTypeInfo; aResolver : TIocResolver);
-    procedure DoInvoke(Method: TRttiMethod;  const Args: TArray<TValue>; out Result: TValue);
+  // Non-generic helper for typed factory creation (kept for possible future use)
+  TTypedFactoryHelper = class
+  end;
+
+  // Stub kept for API/return-type compatibility
+  TTypedFactory<T : class, constructor> = class(TInterfacedObject)
   end;
 
   IFactory<T> = interface
@@ -215,6 +218,8 @@ type
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
     function RegisterSimpleFactory<TInterface : IInterface; TImplementation : class, constructor>(const aName : string = '') : TIocRegistration;
     procedure Build;
+    /// <summary>Exposes the internal registrator for advanced operations (Replace, Decorate).</summary>
+    property Registrator: TIocRegistrator read fRegistrator;
   end;
 
   TIocServiceLocator = class
@@ -382,11 +387,22 @@ begin
 end;
 
 function TIocContainer.RegisterTypedFactory<TFactoryInterface,TFactoryType>(const aName: string): TIocRegistration<TTypedFactory<TFactoryType>>;
+var
+  factory : TSimpleFactory<TFactoryType>;
+  factoryAsIntf : IInterface;
+  typedIntf : TFactoryInterface;
 begin
-  Result := fRegistrator.RegisterType<TFactoryInterface,TTypedFactory<TFactoryType>>(aName).DelegateTo(function : TTypedFactory<TFactoryType>
-                                                    begin
-                                                      Result := TTypedFactory<TFactoryType>.Create(TypeInfo(TFactoryInterface),fResolver);
-                                                    end);
+  factory := TSimpleFactory<TFactoryType>.Create(fResolver);
+  factoryAsIntf := factory;
+  if factoryAsIntf.QueryInterface(GetTypeData(TypeInfo(TFactoryInterface))^.Guid, typedIntf) = S_OK then
+  begin
+    // TFactoryInterface is compatible with IFactory<TFactoryType> - use direct registration
+    fRegistrator.RegisterInstance<TFactoryInterface>(typedIntf, aName).AsSingleton;
+  end
+  else
+    raise EIocResolverError.CreateFmt('AddTypedFactory: %s must be IFactory<%s> on Win64',
+      [GetTypeName(TypeInfo(TFactoryInterface)), TFactoryType.ClassName]);
+  Result := Default(TIocRegistration<TTypedFactory<TFactoryType>>);
 end;
 
 function TIocContainer.RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;
@@ -506,6 +522,26 @@ begin
   Result := fDependencies.ContainsKey(GetKey(TypeInfo(T),aName));
 end;
 
+function TIocRegistrator.RemoveRegistrations(const aKey: string): Boolean;
+var
+  regList : TObjectList<TIocRegistration>;
+  reg     : TIocRegistration;
+  idx     : Integer;
+begin
+  Result := fDependencies.TryGetValue(aKey, regList);
+  if Result then
+  begin
+    // Remove registration references from the dependency-order list (does not own them)
+    for reg in regList do
+    begin
+      idx := fDependencyOrder.IndexOf(reg);
+      if idx >= 0 then fDependencyOrder.Delete(idx);
+    end;
+    fDependencies.Remove(aKey); // removes key but does NOT free regList
+    regList.Free;               // free the list (OwnsObjects=True → frees registrations)
+  end;
+end;
+
 function TIocRegistrator.RegisterInstance<T>(const aName: string): TIocRegistration<T>;
 var
   reg : TIocRegistration;
@@ -622,46 +658,84 @@ var
   ctx : TRttiContext;
   rtype : TRttiType;
   rmethod : TRttiMethod;
-  rParam : TRttiParameter;
-  value : TValue;
-  values : TArray<TValue>;
-  att: TCustomAttribute;
-  attname: string;
+  ownCtors : TList<TRttiMethod>;
+  inheritedCtors : TList<TRttiMethod>;
+  allCtors : TList<TRttiMethod>;
+  bestCtor : TRttiMethod;
+
+  function TryInvoke(aCtor: TRttiMethod; out aResult: TValue): Boolean;
+  var
+    lParam : TRttiParameter;
+    lAtt : TCustomAttribute;
+    lName : string;
+    lVal : TValue;
+    lVals : TArray<TValue>;
+  begin
+    Result := False;
+    lVals := nil;
+    for lParam in aCtor.GetParameters do
+    begin
+      lName := EmptyStr;
+      for lAtt in lParam.GetAttributes do
+        if lAtt is Name then begin lName := Name(lAtt).Name; Break; end;
+      if lParam.ParamType.TypeKind in [tkClass, tkInterface] then
+      begin
+        try lVal := Resolve(lParam.ParamType.Handle, lName);
+        except on EIocResolverError do Exit; // required dep not found
+        end;
+      end
+      else
+      begin
+        try lVal := Resolve(lParam.ParamType.Handle, lName);
+        except on EIocResolverError do TValue.Make(nil, lParam.ParamType.Handle, lVal); end;
+      end;
+      lVals := lVals + [lVal];
+    end;
+    aResult := aCtor.Invoke(TRttiInstanceType(rtype).MetaclassType, lVals);
+    Result := True;
+  end;
+
 begin
   Result := nil;
   rtype := ctx.GetType(aClass);
   if rtype = nil then Exit;
-  for rmethod in TRttiInstanceType(rtype).GetMethods do
-  begin
-    if rmethod.IsConstructor then
-    begin
-      //if create don't have parameters
-      if Length(rmethod.GetParameters) = 0 then
-      begin
-        Result := rmethod.Invoke(TRttiInstanceType(rtype).MetaclassType,[]);
-        Break;
-      end
-      else
-      begin
-        for rParam in rmethod.GetParameters do
-        begin
-          attname := EmptyStr;
-          for att in rParam.GetAttributes do
-          begin
-            if att is Name then
-            begin
-              attname := Name(att).Name;
-              Break;
-            end;
-          end;
 
-          value := Resolve(rParam.ParamType.Handle, attname);
-          values := values + [value];
-        end;
-        Result := rmethod.Invoke(TRttiInstanceType(rtype).MetaclassType,values);
-        Break;
+  // Separate own constructors (declared on aClass) from inherited ones
+  ownCtors := TList<TRttiMethod>.Create;
+  inheritedCtors := TList<TRttiMethod>.Create;
+  try
+    for rmethod in TRttiInstanceType(rtype).GetMethods do
+    begin
+      if rmethod.IsConstructor then
+      begin
+        if rmethod.Parent = rtype then ownCtors.Add(rmethod)
+        else inheritedCtors.Add(rmethod);
       end;
     end;
+
+    // Sort own constructors: parameterless first, then by param count ascending
+    ownCtors.Sort(TComparer<TRttiMethod>.Construct(
+      function(const L, R: TRttiMethod): Integer
+      begin Result := Length(L.GetParameters) - Length(R.GetParameters); end));
+    inheritedCtors.Sort(TComparer<TRttiMethod>.Construct(
+      function(const L, R: TRttiMethod): Integer
+      begin Result := Length(L.GetParameters) - Length(R.GetParameters); end));
+
+    allCtors := TList<TRttiMethod>.Create;
+    try
+      allCtors.AddRange(ownCtors);
+      allCtors.AddRange(inheritedCtors);
+
+      for bestCtor in allCtors do
+      begin
+        if TryInvoke(bestCtor, Result) then Exit;
+      end;
+    finally
+      allCtors.Free;
+    end;
+  finally
+    ownCtors.Free;
+    inheritedCtors.Free;
   end;
 end;
 
@@ -827,19 +901,7 @@ begin
                                      end;
 end;
 
-{ TTypedFactory<T> }
-
-constructor TTypedFactory<T>.Create(PIID: PTypeInfo; aResolver : TIocResolver);
-begin
-  inherited Create(PIID, DoInvoke);
-  fResolver := aResolver;
-end;
-
-procedure TTypedFactory<T>.DoInvoke(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue);
-begin
-  if CompareText(Method.Name,'New') <> 0 then raise Exception.Create('TTypedFactory needs a method "New"');
-  Result := fResolver.CreateInstance(TClass(T)).AsType<T>;
-end;
+{ TTypedFactoryHelper - placeholder }
 
 { TIocServiceLocator }
 
