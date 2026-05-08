@@ -1,11 +1,11 @@
-﻿{ ***************************************************************************
-  Copyright (c) 2015-2021 Kike P�rez
+{ ***************************************************************************
+  Copyright (c) 2015-2026 Kike Perez
   Unit        : Quick.YAML.Serializer
   Description : YAML Serializer
-  Author      : Kike P�rez
+  Author      : Kike Perez
   Version     : 1.0
   Created     : 12/04/2019
-  Modified    : 28/02/2026
+  Modified    : 01/05/2026
   This file is part of QuickLib: https://github.com/exilon/QuickLib
  ***************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -175,6 +175,7 @@ var
   pArr: Pointer;
   rItemValue: TValue;
   i: Integer;
+  itemIndex: Integer;
   objClass: TClass;
   ctx : TRttiContext;
   Yaml : TYamlObject;
@@ -192,10 +193,11 @@ begin
     TValue.Make(@pArr,aTypeInfo, Result);
     rDynArray := ctx.GetType(Result.TypeInfo) as TRTTIDynamicArrayType;
 
-    i := -1;
+    itemIndex := -1;
     try
       for i := 0 to aYamlArray.Count - 1 do
       begin
+        itemIndex := i;
         rItemValue := nil;
         case rType.Kind of
           tkClass :
@@ -237,7 +239,7 @@ begin
     except
       on E : Exception do
       begin
-        raise Exception.CreateFmt('Array %s item %d error (%s)',[rtype.Name, i, e.Message]);
+        raise Exception.CreateFmt('Array %s item %d error (%s)',[rtype.Name, itemIndex, e.Message]);
       end;
     end;
     //aProperty.SetValue(aObject,rValue);
