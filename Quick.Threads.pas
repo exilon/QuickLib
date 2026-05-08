@@ -1594,9 +1594,14 @@ begin
 end;
 
 function TBackgroundTasks.AddTask_Sync(aParamArray: array of const; aOwnedParams: Boolean; aTaskProc: TTaskProc): IWorkTask;
+var TaskObj: TTask;
 begin
   Result := AddTask(aParamArray,aOwnedParams,aTaskProc);
-  TTask(Result).ExecuteWithSync := True;
+  // changed: instead of TTask(Result), do a safe Supports-cast
+  if Supports(Result, TTask, TaskObj) then
+      TaskObj.ExecuteWithSync := True
+  else
+     raise EInvalidCast.Create('AddTask did not return a TTask');
 end;
 
 function TBackgroundTasks.AddTask_Sync(aTaskProc: TTaskProc): IWorkTask;
@@ -1667,37 +1672,53 @@ begin
 end;
 
 procedure TSimpleWorker.Execute;
+var
+  TaskObj: TTask;
 begin
   fStatus := TWorkerStatus.wsIdle;
   while not Terminated do
   begin
-    if (fCurrentTask <> nil) and (fCurrentTask.IsEnabled) then
-    try
-      fStatus := TWorkerStatus.wsWorking;
+    if (fCurrentTask <> nil) and fCurrentTask.IsEnabled then
+    begin
+      // Try casting once at the top
+      if not Supports(fCurrentTask, TTask, TaskObj) then
+        raise EInvalidCast.Create('Current task is not a TTask');
+
       try
-        SetFaultPolicy(TTask(fCurrentTask));
-        if TTask(fCurrentTask).ExecuteWithSync then Synchronize(ExecuteTask)
-          else fCurrentTask.DoExecute;
-      except
-        on E : Exception do
-        begin
-          if fCurrentTask <> nil then fCurrentTask.DoException(E)
-            else raise ETaskExecutionError.Create(e.Message);
+        fStatus := TWorkerStatus.wsWorking;
+        try
+          SetFaultPolicy(TaskObj);
+          if TaskObj.ExecuteWithSync then
+            Synchronize(ExecuteTask)
+          else
+            fCurrentTask.DoExecute;
+        except
+          on E: Exception do
+            if fCurrentTask <> nil then
+              fCurrentTask.DoException(E)
+            else
+              raise ETaskExecutionError.Create(E.Message);
         end;
+      finally
+        fStatus := TWorkerStatus.wsIdle;
+        try
+          if TaskObj.TerminateWithSync then
+            Synchronize(TerminateTask)
+          else
+            fCurrentTask.DoTerminate;
+        except
+          on E: Exception do
+            if fCurrentTask <> nil then
+              fCurrentTask.DoException(E);
+        end;
+        if fRunOnce then
+          Terminate;
       end;
-    finally
-      fStatus := TWorkerStatus.wsIdle;
-      try
-        if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
-          else fCurrentTask.DoTerminate;
-      except
-        on E : Exception do if fCurrentTask <> nil then fCurrentTask.DoException(E)
-      end;
-      if fRunOnce then Terminate;
     end;
   end;
-  fStatus := TWorkerStatus.wsSuspended
+  fStatus := TWorkerStatus.wsSuspended;
 end;
+
 
 { TQueueWorker }
 
@@ -1709,30 +1730,37 @@ begin
 end;
 
 procedure TQueueWorker.Execute;
+var
+  TaskObj: TTask;
 begin
   fStatus := TWorkerStatus.wsIdle;
   while not Terminated do
   begin
     fCurrentTask := fTaskQueue.PopItem;
     if fCurrentTask <> nil then
-    try
-      fStatus := TWorkerStatus.wsWorking;
+    begin
+      // changed: resolve the concrete class once via Supports instead of hard-casting
+      if not Supports(fCurrentTask, TTask, TaskObj) then
+        raise EInvalidCast.Create('Current task is not a TTask');
       try
-        fCurrentIdTask := fCurrentTask.GetIdTask;
-        SetFaultPolicy(TTask(fCurrentTask));
-        if TTask(fCurrentTask).ExecuteWithSync then Synchronize(ExecuteTask)
-          else fCurrentTask.DoExecute;
-      except
-        on E : Exception do
-        begin
-          if fCurrentTask <> nil then fCurrentTask.DoException(E)
-            else raise ETaskExecutionError.Create(e.Message);
+        fStatus := TWorkerStatus.wsWorking;
+        try
+          fCurrentIdTask := fCurrentTask.GetIdTask;
+          SetFaultPolicy(TaskObj);
+          if TaskObj.ExecuteWithSync then Synchronize(ExecuteTask)
+            else fCurrentTask.DoExecute;
+        except
+          on E : Exception do
+          begin
+            if fCurrentTask <> nil then fCurrentTask.DoException(E)
+              else raise ETaskExecutionError.Create(e.Message);
+          end;
         end;
+      finally
+        if TaskObj.TerminateWithSync then Synchronize(TerminateTask)
+          else fCurrentTask.DoTerminate;
+        fStatus := TWorkerStatus.wsIdle;
       end;
-    finally
-      if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
-        else fCurrentTask.DoTerminate;
-      fStatus := TWorkerStatus.wsIdle;
     end;
   end;
   fStatus := TWorkerStatus.wsSuspended
@@ -1751,15 +1779,21 @@ begin
 end;
 
 procedure TScheduledWorker.Execute;
+var
+  TaskObj: TTask;
+  SchedObj: TScheduledTask;
 begin
   fStatus := TWorkerStatus.wsIdle;
   if Assigned(fCurrentTask) then
   begin
+    // changed: resolve the concrete classes once via Supports instead of hard-casting
+    if not Supports(fCurrentTask, TTask, TaskObj) then
+      raise EInvalidCast.Create('Current task is not a TTask');
     try
       fStatus := TWorkerStatus.wsWorking;
       try
-        SetFaultPolicy(TTask(fCurrentTask));
-        if TTask(fCurrentTask).ExecuteWithSync then Synchronize(ExecuteTask)
+        SetFaultPolicy(TaskObj);
+        if TaskObj.ExecuteWithSync then Synchronize(ExecuteTask)
           else fCurrentTask.DoExecute;
         fStatus := TWorkerStatus.wsIdle;
       except
@@ -1770,13 +1804,15 @@ begin
         end;
       end;
     finally
-      if TTask(fCurrentTask).TerminateWithSync then Synchronize(TerminateTask)
+      if TaskObj.TerminateWithSync then Synchronize(TerminateTask)
         else fCurrentTask.DoTerminate;
       //check if expired
       if (fCurrentTask as IScheduledTask).IsFinished then
       begin
-        if TScheduledTask(fCurrentTask).ExpireWithSync then Synchronize(ExpireTask)
-          else (fCurrentTask as IScheduledTask).DoExpire;
+        if Supports(fCurrentTask, TScheduledTask, SchedObj) and SchedObj.ExpireWithSync then
+          Synchronize(ExpireTask)
+        else
+          (fCurrentTask as IScheduledTask).DoExpire;
       end;
     end;
   end;
@@ -1809,9 +1845,15 @@ begin
 end;
 
 function TScheduledTasks.AddTask_Sync(const aTaskName: string; aParamArray: array of const; aOwnedParams: Boolean; aTaskProc: TTaskProc): IScheduledTask;
+var
+  TaskObj: TTask;
 begin
   Result := AddTask(aTaskName,aParamArray,aOwnedParams,aTaskProc);
-  TTask(Result).ExecuteWithSync := True;
+  // changed: instead of TTask(Result), do a safe Supports-cast
+  if Supports(Result, TTask, TaskObj) then
+    TaskObj.ExecuteWithSync := True
+  else
+    raise EInvalidCast.Create('AddTask did not return a TTask');
 end;
 
 function TScheduledTasks.AddTask_Sync(const aTaskName: string; aTaskProc: TTaskProc): IScheduledTask;
@@ -2135,9 +2177,15 @@ begin
 end;
 
 function TScheduledTask.OnException_Sync(aTaskProc: TTaskExceptionProc): IScheduledTask;
+var
+  TaskObj: TTask;
 begin
   Result := OnException(aTaskProc);
-  TTask(Result).ExceptionWithSync := True;
+  // changed: instead of TTask(Result), do a safe Supports-cast
+  if Supports(Result, TTask, TaskObj) then
+    TaskObj.ExceptionWithSync := True
+  else
+    raise EInvalidCast.Create('OnException did not return a TTask');
 end;
 
 function TScheduledTask.OnRetry(aTaskProc: TTaskRetryProc): IScheduledTask;
@@ -2153,9 +2201,15 @@ begin
 end;
 
 function TScheduledTask.OnExpired_Sync(aTaskProc: TTaskProc): IScheduledTask;
+var
+  SchedObj: TScheduledTask;
 begin
   Result := OnExpired(aTaskProc);
-  TScheduledTask(Result).ExpireWithSync := True;
+  // changed: instead of TScheduledTask(Result), do a safe Supports-cast
+  if Supports(Result, TScheduledTask, SchedObj) then
+    SchedObj.ExpireWithSync := True
+  else
+    raise EInvalidCast.Create('OnExpired did not return a TScheduledTask');
 end;
 
 function TScheduledTask.OnInitialize(aTaskProc: TTaskProc): IScheduledTask;
@@ -2171,9 +2225,15 @@ begin
 end;
 
 function TScheduledTask.OnTerminated_Sync(aTaskProc: TTaskProc): IScheduledTask;
+var
+  TaskObj: TTask;
 begin
   Result := OnTerminated(aTaskProc);
-  TTask(Result).TerminateWithSync := True;
+  // changed: instead of TTask(Result), do a safe Supports-cast
+  if Supports(Result, TTask, TaskObj) then
+    TaskObj.TerminateWithSync := True
+  else
+    raise EInvalidCast.Create('OnTerminated did not return a TTask');
 end;
 
 { TScheduler }
