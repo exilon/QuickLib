@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.HttpServer
   Description : Http Server
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 12/06/2020
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -125,6 +125,7 @@ type
   private
     fHTTPServer : TidHTTPServer;
     procedure OnGetRequest(aContext: TIdContext; aRequestInfo: TIdHTTPRequestInfo; aResponseInfo: TIdHTTPResponseInfo);
+    procedure DoParseAuthentication(AContext: TIdContext; const AAuthType, AAuthData: string; var VUsername, VPassword: string; var VHandled: Boolean);
     function GetSSLIOHandler : TIdServerIOHandlerSSLOpenSSL;
     function OnVerifyPeer(aCertificate: TIdX509; aOk: Boolean; aDepth, aError: Integer): Boolean;
     function GetRequestInfo(aRequestInfo : TIdHTTPRequestInfo) : THttpRequest;
@@ -287,6 +288,9 @@ begin
   if fSSLSecured then fHTTPServer.IOHandler := GetSSLIOHandler;
   fHTTPServer.OnCommandGet := OnGetRequest;
   fHTTPServer.OnCommandOther := OnGetRequest;
+  // Allow any auth scheme (e.g. Bearer) to pass through Indy without raising
+  // EIdHTTPUnsupportedAuthorisationScheme. QuickCore middleware handles auth.
+  fHTTPServer.OnParseAuthentication := DoParseAuthentication;
   fHTTPServer.OnConnect := DoConnect;
   fHTTPServer.OnDisconnect := DoDisconnect;
   //fHTTPServer.OnExecute := DoConnect;
@@ -381,6 +385,14 @@ end;
 procedure THttpServer.ProcessRequest(aRequest: IHttpRequest; aResponse: IHttpResponse);
 begin
   if Assigned(fOnRequest) then fOnRequest(aRequest,aResponse);
+end;
+
+procedure THttpServer.DoParseAuthentication(AContext: TIdContext; const AAuthType, AAuthData: string;
+  var VUsername, VPassword: string; var VHandled: Boolean);
+begin
+  // Accept any auth scheme so Indy does not raise EIdHTTPUnsupportedAuthorisationScheme.
+  // QuickCore middleware reads the Authorization header and handles authentication.
+  VHandled := True;
 end;
 
 procedure THttpServer.DoConnect(aContext: TIdContext);

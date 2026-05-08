@@ -1,13 +1,13 @@
 { ***************************************************************************
 
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
 
   Unit        : Quick.HttpServer.Types
   Description : Http Server Types
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.8
   Created     : 30/08/2019
-  Modified    : 26/03/2020
+  Modified    : 01/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -60,7 +60,7 @@ type
                      BadGateway = 502,
                      BadRequest = 400,
                      Conflict = 409,
-                     Continue = 100,
+                     HttpContinue = 100,
                      Created = 201,
                      ExpectationFailed = 417,
                      Forbidden = 403,
