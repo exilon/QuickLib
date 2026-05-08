@@ -1,11 +1,11 @@
 { ***************************************************************************
-  Copyright (c) 2016-2020 Kike Pérez
+  Copyright (c) 2016-2026 Kike Perez
   Unit        : Quick.RTTI.Utils
   Description : Files functions
-  Author      : Kike Pérez
+  Author      : Kike Perez
   Version     : 1.4
   Created     : 09/03/2018
-  Modified    : 05/11/2020
+  Modified    : 01/05/2026
   This file is part of QuickLib: https://github.com/exilon/QuickLib
  ***************************************************************************
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,6 +45,8 @@ type
     class function GetType(aTypeInfo : Pointer) : TRttiType;
     class function GetProperty(aInstance : TObject; const aPropertyName : string) : TRttiProperty; overload;
     class function GetProperty(aTypeInfo : Pointer; const aPropertyName : string) : TRttiProperty; overload;
+    class function TryGetProperty(aInstance : TObject; const aPropertyName : string; out aProperty : TRttiProperty) : Boolean; overload;
+    class function TryGetProperty(aTypeInfo : Pointer; const aPropertyName : string; out aProperty : TRttiProperty) : Boolean; overload;
     class function GetPropertyPath(aInstance : TObject; const aPropertyPath : string) : TRttiProperty;
     {$IFNDEF FPC}
     class function GetMemberPath(aInstance: TObject; const aPropertyPath: string): TRttiMember;
@@ -63,6 +65,8 @@ type
     class function CreateInstance<T>(const Args: array of TValue): T; overload;
     class function CreateInstance(aBaseClass : TClass): TObject; overload;
     class function CallMethod(aObject : TObject; const aMethodName : string; aParams : array of TValue) : TValue;
+    class function TryGetMethod(aInstance : TObject; const aMethodName : string; out aMethod : TRttiMethod) : Boolean; overload;
+    class function TryGetMethod(aTypeInfo : Pointer; const aMethodName : string; out aMethod : TRttiMethod) : Boolean; overload;
     {$ENDIF}
   end;
   ERTTIError = class(Exception);
@@ -159,26 +163,44 @@ var
   rmethod : TRttiMethod;
   rinstype: TRttiInstanceType;
 begin
+  Result := TValue.Empty;
+  if aObject = nil then Exit;
   rtype := fCtx.GetType(aObject.ClassInfo);
-  for rmethod in rtype.GetMethods do
+  if rtype = nil then Exit;
+  rmethod := rtype.GetMethod(aMethodName);
+  if rmethod <> nil then
   begin
-    if CompareText(rmethod.Name,aMethodName) = 0 then
-    begin
-      rinstype := rtype.AsInstance;
-      Result := rmethod.Invoke(rinstype.MetaclassType,aParams);
-    end;
+    rinstype := rtype.AsInstance;
+    Result := rmethod.Invoke(rinstype.MetaclassType,aParams);
   end;
+end;
+
+class function TRTTI.TryGetMethod(aInstance: TObject; const aMethodName: string;
+  out aMethod: TRttiMethod): Boolean;
+begin
+  aMethod := nil;
+  if aInstance = nil then Exit(False);
+  aMethod := fCtx.GetType(aInstance.ClassInfo).GetMethod(aMethodName);
+  Result := aMethod <> nil;
+end;
+
+class function TRTTI.TryGetMethod(aTypeInfo: Pointer; const aMethodName: string;
+  out aMethod: TRttiMethod): Boolean;
+begin
+  aMethod := fCtx.GetType(aTypeInfo).GetMethod(aMethodName);
+  Result := aMethod <> nil;
 end;
 class destructor TRTTI.Destroy;
 begin
   fCtx.Free;
 end;
+
 class function TRTTI.FieldExists(aTypeInfo: Pointer; const aFieldName: string): Boolean;
 var
   rtype : TRttiType;
 begin
   rtype := fCtx.GetType(aTypeInfo);
-  Result := rtype.GetField(aFieldName) <> nil;
+  Result := (rtype <> nil) and (rtype.GetField(aFieldName) <> nil);
 end;
 class function TRTTI.GetField(aInstance: TObject; const aFieldName: string): TRttiField;
 var
@@ -187,9 +209,7 @@ begin
   Result := nil;
   rtype := fCtx.GetType(aInstance.ClassInfo);
   if rtype <> nil then
-  begin
     Result := rtype.GetField(aFieldName);
-  end;
 end;
 class function TRTTI.GetField(aTypeInfo: Pointer; const aFieldName: string): TRttiField;
 var
@@ -198,9 +218,7 @@ begin
   Result := nil;
   rtype := fCtx.GetType(aTypeInfo);
   if rtype <> nil then
-  begin
     Result := rtype.GetField(aFieldName);
-  end;
 end;
 class function TRTTI.GetFieldValue(aInstance : TObject; const aFieldName: string): TValue;
 var
@@ -219,11 +237,24 @@ end;
 {$ENDIF}
 class function TRTTI.GetProperty(aInstance: TObject; const aPropertyName: string): TRttiProperty;
 var
-  rtype : TRttiType;
+  rtype: TRttiType;
 begin
   Result := nil;
+  if aInstance = nil then Exit;
   rtype := fCtx.GetType(aInstance.ClassInfo);
   if rtype <> nil then Result := rtype.GetProperty(aPropertyName);
+end;
+
+class function TRTTI.TryGetProperty(aInstance: TObject; const aPropertyName: string;
+  out aProperty: TRttiProperty): Boolean;
+var
+  rtype: TRttiType;
+begin
+  aProperty := nil;
+  if aInstance = nil then Exit(False);
+  rtype := fCtx.GetType(aInstance.ClassInfo);
+  if rtype <> nil then aProperty := rtype.GetProperty(aPropertyName);
+  Result := aProperty <> nil;
 end;
 class function TArrayHelper<T>.Concat(const Args: array of TArray<T>): TArray<T>;
 var
@@ -296,11 +327,22 @@ begin
 end;
 class function TRTTI.GetProperty(aTypeInfo: Pointer; const aPropertyName: string): TRttiProperty;
 var
-  rtype : TRttiType;
+  rtype: TRttiType;
 begin
   Result := nil;
   rtype := fCtx.GetType(aTypeInfo);
-  if rtype <> nil then  Result := rtype.GetProperty(aPropertyName);
+  if rtype <> nil then Result := rtype.GetProperty(aPropertyName);
+end;
+
+class function TRTTI.TryGetProperty(aTypeInfo: Pointer; const aPropertyName: string;
+  out aProperty: TRttiProperty): Boolean;
+var
+  rtype: TRttiType;
+begin
+  rtype := fCtx.GetType(aTypeInfo);
+  if rtype <> nil then aProperty := rtype.GetProperty(aPropertyName)
+    else aProperty := nil;
+  Result := aProperty <> nil;
 end;
 class function TRTTI.GetPropertyPath(aInstance: TObject; const aPropertyPath: string): TRttiProperty;
 var
@@ -739,11 +781,10 @@ begin
 end;
 class function TRTTI.PropertyExists(aTypeInfo: Pointer; const aPropertyName: string) : Boolean;
 var
-  rtype : TRttiType;
+  rtype: TRttiType;
 begin
-  Result := False;
   rtype := fCtx.GetType(aTypeInfo);
-  if rtype <> nil then Result := rtype.GetProperty(aPropertyName) <> nil;
+  Result := (rtype <> nil) and (rtype.GetProperty(aPropertyName) <> nil);
 end;
 class procedure TRTTI.SetPropertyValue(aInstance: TObject; const aPropertyName: string; aValue: TValue);
 var
