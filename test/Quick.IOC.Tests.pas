@@ -67,6 +67,15 @@ type
     procedure SendEmail(const mailto, subject, body: string);
   end;
 
+  // Logger that counts destructions, to check scope release
+  TTrackedLogger = class(TInterfacedObject, ILogger)
+  public class var
+    Destroyed: Integer;
+  public
+    destructor Destroy; override;
+    procedure Log(const msg: string);
+  end;
+
   // Options class for testing RegisterOptions
   TAppSettings = class(TOptions)
   private
@@ -127,6 +136,23 @@ type
     procedure Test_IsRegistered_WithImplementation;
     [Test]
     procedure Test_ResolveAll_EmptyWhenNotRegistered;
+    { Scoped lifetime }
+    [Test]
+    procedure Test_Scoped_SameInstance_WithinScope;
+    [Test]
+    procedure Test_Scoped_DifferentInstance_AcrossScopes;
+    [Test]
+    procedure Test_Scoped_SharedByDependents_InSameScope;
+    [Test]
+    procedure Test_Scoped_FromRoot_RaisesScopeError;
+    [Test]
+    procedure Test_Scoped_AsSingletonDependency_RaisesScopeError;
+    [Test]
+    procedure Test_Scoped_ValidateScopesOff_BehavesAsTransient;
+    [Test]
+    procedure Test_Scope_Free_ReleasesScopedInstances;
+    [Test]
+    procedure Test_Singleton_ResolvedWithinScope_SameAsRoot;
   end;
 
 implementation
@@ -440,6 +466,165 @@ begin
       'ResolveAll on unregistered type must return empty list');
   finally
     results.Free;
+  end;
+end;
+
+{ TTrackedLogger }
+
+destructor TTrackedLogger.Destroy;
+begin
+  Inc(Destroyed);
+  inherited;
+end;
+
+procedure TTrackedLogger.Log(const msg: string);
+begin
+end;
+
+{ Scoped lifetime }
+
+procedure TQuickIOCTests.Test_Scoped_SameInstance_WithinScope;
+var
+  scope: TIocScope;
+  a, b: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<ILogger>;
+    b := scope.Resolve<ILogger>;
+    Assert.AreSame(a, b, 'Scoped must return the same instance within a scope');
+  finally
+    a := nil;
+    b := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_DifferentInstance_AcrossScopes;
+var
+  scope1, scope2: TIocScope;
+  a, b: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  scope1 := FContainer.CreateScope;
+  scope2 := FContainer.CreateScope;
+  try
+    a := scope1.Resolve<ILogger>;
+    b := scope2.Resolve<ILogger>;
+    Assert.AreNotSame(a, b, 'Scoped must return a different instance in each scope');
+  finally
+    a := nil;
+    b := nil;
+    scope2.Free;
+    scope1.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_SharedByDependents_InSameScope;
+var
+  scope: TIocScope;
+  user: IUserService;
+  email: IEmailService;
+begin
+  // the transient services receive the scoped logger through constructor injection
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterType<IUserService, TUserService>.AsTransient;
+  FContainer.RegisterType<IEmailService, TEmailService>.AsTransient;
+  scope := FContainer.CreateScope;
+  try
+    user := scope.Resolve<IUserService>;
+    email := scope.Resolve<IEmailService>;
+    Assert.IsNotNull(TUserService(user as TObject).FLogger, 'Scoped dependency must be injected');
+    Assert.AreSame(TUserService(user as TObject).FLogger, TEmailService(email as TObject).FLogger,
+      'Dependents resolved in the same scope must share the scoped instance');
+  finally
+    user := nil;
+    email := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_FromRoot_RaisesScopeError;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.Resolve<ILogger>;
+    end, EIocScopeError, 'Resolving a scoped service from the root must raise EIocScopeError');
+end;
+
+procedure TQuickIOCTests.Test_Scoped_AsSingletonDependency_RaisesScopeError;
+var
+  scope: TIocScope;
+begin
+  // a singleton would capture the scoped instance for the whole application lifetime
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterType<IUserService, TUserService>.AsSingleton;
+  scope := FContainer.CreateScope;
+  try
+    Assert.WillRaise(
+      procedure
+      begin
+        scope.Resolve<IUserService>;
+      end, EIocScopeError, 'A singleton depending on a scoped service must raise EIocScopeError');
+  finally
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_ValidateScopesOff_BehavesAsTransient;
+var
+  a, b: ILogger;
+begin
+  FContainer.ValidateScopes := False;
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  a := FContainer.Resolve<ILogger>;
+  b := FContainer.Resolve<ILogger>;
+  Assert.IsNotNull(a, 'Legacy mode must still resolve');
+  Assert.AreNotSame(a, b, 'With ValidateScopes off, scoped outside a scope keeps the legacy transient behaviour');
+end;
+
+procedure TQuickIOCTests.Test_Scope_Free_ReleasesScopedInstances;
+var
+  scope: TIocScope;
+  logger: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  TTrackedLogger.Destroyed := 0;
+  scope := FContainer.CreateScope;
+  try
+    // explicit variable, released before freeing the scope: an implicit interface
+    // temporary would only be released at the end of this routine
+    logger := scope.Resolve<ILogger>;
+    logger.Log('x');
+    logger := scope.Resolve<ILogger>;
+    logger.Log('y');
+    logger := nil;
+    Assert.AreEqual(0, TTrackedLogger.Destroyed, 'Scoped instance must live while the scope is alive');
+  finally
+    logger := nil;
+    scope.Free;
+  end;
+  Assert.AreEqual(1, TTrackedLogger.Destroyed, 'Freeing the scope must release its single scoped instance');
+end;
+
+procedure TQuickIOCTests.Test_Singleton_ResolvedWithinScope_SameAsRoot;
+var
+  scope: TIocScope;
+  a, b: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<ILogger>;
+    b := FContainer.Resolve<ILogger>;
+    Assert.AreSame(a, b, 'A singleton is the same instance inside and outside scopes');
+  finally
+    a := nil;
+    b := nil;
+    scope.Free;
   end;
 end;
 

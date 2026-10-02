@@ -145,16 +145,50 @@ type
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
   end;
 
+  TIocScope = class;
+
   TIocResolver = class(TInterfacedObject,IIocResolver)
   private
     fRegistrator : TIocRegistrator;
     fInjector : TIocInjector;
-    function CreateInstance(aClass : TClass) : TValue;
+    fSingletonLock : TObject;
+    fValidateScopes : Boolean;
+    function CreateInstance(aClass : TClass) : TValue; overload;
+    function CreateInstance(aClass : TClass; aScope : TIocScope) : TValue; overload;
+    function FindRegistration(aServiceType : PTypeInfo; const aName : string) : TIocRegistration;
+    function BuildValue(aReg : TIocRegistration; aServiceType : PTypeInfo; aScope : TIocScope) : TValue;
+    function ResolveSingleton(aReg : TIocRegistration; aServiceType : PTypeInfo) : TValue;
   public
     constructor Create(aRegistrator : TIocRegistrator; aInjector : TIocInjector);
+    destructor Destroy; override;
     function Resolve<T>(const aName : string = ''): T; overload;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
+    /// <summary>Resolves within aScope. aScope = nil means the root (no scope).</summary>
+    function Resolve(aServiceType: PTypeInfo; const aName : string; aScope : TIocScope): TValue; overload;
     function ResolveAll<T>(const aName : string = '') : TList<T>;
+    /// <summary>True (default): resolving a scoped service outside a scope — from the root
+    /// container or as a dependency of a singleton — raises EIocScopeError.
+    /// False: legacy behaviour, a scoped service outside a scope is built as transient.</summary>
+    property ValidateScopes : Boolean read fValidateScopes write fValidateScopes;
+  end;
+
+  /// <summary>A resolution scope (e.g. one per HTTP request). Services registered AsScoped
+  /// are created once per scope and released when the scope is freed, in reverse order of
+  /// creation. Singletons and transients behave as usual. A scope is not thread-safe: use it
+  /// from one thread at a time.</summary>
+  TIocScope = class
+  private
+    fResolver : TIocResolver;
+    fInterfaces : TDictionary<TIocRegistration, IInterface>;
+    fObjects : TDictionary<TIocRegistration, TObject>;
+    fCreated : TList<IInterface>;
+    fCreatedObjects : TList<TObject>;
+    function GetOrCreate(aReg : TIocRegistration; aServiceType : PTypeInfo) : TValue;
+  public
+    constructor Create(aResolver : TIocResolver);
+    destructor Destroy; override;
+    function Resolve<T>(const aName : string = ''): T; overload;
+    function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
   end;
 
   // Non-generic helper for typed factory creation (kept for possible future use)
@@ -218,6 +252,11 @@ type
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
     function RegisterSimpleFactory<TInterface : IInterface; TImplementation : class, constructor>(const aName : string = '') : TIocRegistration;
     procedure Build;
+    /// <summary>Opens a new scope. The caller owns it and must free it.</summary>
+    function CreateScope : TIocScope;
+    function GetValidateScopes : Boolean;
+    procedure SetValidateScopes(aValue : Boolean);
+    property ValidateScopes : Boolean read GetValidateScopes write SetValidateScopes;
     /// <summary>Exposes the internal registrator for advanced operations (Replace, Decorate).</summary>
     property Registrator: TIocRegistrator read fRegistrator;
   end;
@@ -239,6 +278,10 @@ type
   EIocRegisterError = class(Exception);
   EIocResolverError = class(Exception);
   EIocBuildError = class(Exception);
+  /// <summary>Scoped service resolved outside a scope. Deliberately NOT an EIocResolverError:
+  /// constructor selection swallows EIocResolverError to try other constructors, and a scope
+  /// violation must surface instead of yielding an object with nil dependencies.</summary>
+  EIocScopeError = class(Exception);
 
   //singleton global instance
   function GlobalContainer : TIocContainer;
@@ -342,6 +385,21 @@ begin
       on E : Exception do raise EIocBuildError.CreateFmt('Build Error on "%s(%s)" dependency: %s!',[dependency.fImplementation.ClassName,dependency.Name,e.Message]);
     end;
   end;
+end;
+
+function TIocContainer.CreateScope: TIocScope;
+begin
+  Result := TIocScope.Create(fResolver);
+end;
+
+function TIocContainer.GetValidateScopes: Boolean;
+begin
+  Result := fResolver.ValidateScopes;
+end;
+
+procedure TIocContainer.SetValidateScopes(aValue: Boolean);
+begin
+  fResolver.ValidateScopes := aValue;
 end;
 
 constructor TIocContainer.Create;
@@ -651,9 +709,22 @@ constructor TIocResolver.Create(aRegistrator : TIocRegistrator; aInjector : TIoc
 begin
   fRegistrator := aRegistrator;
   fInjector := aInjector;
+  fSingletonLock := TObject.Create;
+  fValidateScopes := True;
+end;
+
+destructor TIocResolver.Destroy;
+begin
+  fSingletonLock.Free;
+  inherited;
 end;
 
 function TIocResolver.CreateInstance(aClass: TClass): TValue;
+begin
+  Result := CreateInstance(aClass, nil);
+end;
+
+function TIocResolver.CreateInstance(aClass: TClass; aScope: TIocScope): TValue;
 var
   ctx : TRttiContext;
   rtype : TRttiType;
@@ -680,13 +751,13 @@ var
         if lAtt is Name then begin lName := Name(lAtt).Name; Break; end;
       if lParam.ParamType.TypeKind in [tkClass, tkInterface] then
       begin
-        try lVal := Resolve(lParam.ParamType.Handle, lName);
+        try lVal := Resolve(lParam.ParamType.Handle, lName, aScope);
         except on EIocResolverError do Exit; // required dep not found
         end;
       end
       else
       begin
-        try lVal := Resolve(lParam.ParamType.Handle, lName);
+        try lVal := Resolve(lParam.ParamType.Handle, lName, aScope);
         except on EIocResolverError do TValue.Make(nil, lParam.ParamType.Handle, lVal); end;
       end;
       lVals := lVals + [lVal];
@@ -739,93 +810,106 @@ begin
   end;
 end;
 
-function TIocResolver.Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue;
+function TIocResolver.FindRegistration(aServiceType: PTypeInfo; const aName: string): TIocRegistration;
 var
   key : string;
-  reg : TIocRegistration;
-  intf : IInterface;
+  regList : TObjectList<TIocRegistration>;
 begin
-  Result := nil;
-  reg := nil;
   key := fRegistrator.GetKey(aServiceType,aName);
   {$IFDEF DEBUG_IOC}
   TDebugger.Trace(Self,'Resolving dependency: %s',[key]);
   {$ENDIF}
-  var regList: TObjectList<TIocRegistration>;
-  if not fRegistrator.Dependencies.TryGetValue(key, regList) then 
+  if not fRegistrator.Dependencies.TryGetValue(key, regList) then
     raise EIocResolverError.CreateFmt('Type "%s" not registered for IOC!',[aServiceType.Name]);
-  
   if regList.Count = 0 then
     raise EIocResolverError.CreateFmt('Type "%s" has empty registration list!',[aServiceType.Name]);
-    
-  reg := regList.Last; // Resolve LAST registered (.NET Core style)
-  
-  //if is singleton return already instance if exists
-  if reg.IsSingleton then
-  begin
-    if reg is TIocRegistrationInterface then
-    begin
-      if TIocRegistrationInterface(reg).Instance <> nil then
-      begin
-        if TIocRegistrationInterface(reg).Instance.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then 
-          raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
-        TValue.Make(@intf,aServiceType,Result);
-        {$IFDEF DEBUG_IOC}
-        TDebugger.Trace(Self,'Resolved dependency: %s',[reg.fIntfInfo.Name]);
-        {$ENDIF}
-        Exit;
-      end;
-      // Instance is nil: fall through to create it below
-    end
-    else
-    begin
-      if TIocRegistrationInstance(reg).Instance <> nil then
-      begin
-        Result := TIocRegistrationInstance(reg).Instance;
-        {$IFDEF DEBUG_IOC}
-        TDebugger.Trace(Self,'Resolved dependency: %s',[reg.fIntfInfo.Name]);
-        {$ENDIF}
-        Exit;
-      end;
-      // Instance is nil: fall through to create it below
-    end;
-  end;
-  //instance not created yet or needs to be created (transient)
-  //check if we need to create a new instance
-  if reg is TIocRegistrationInterface then
-  begin
-    //if instance already set (RegisterInstance<TInterface>(obj)), use it directly
-    if TIocRegistrationInterface(reg).Instance <> nil then
-    begin
-      if TIocRegistrationInterface(reg).Instance.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
-      TValue.Make(@intf,aServiceType,Result);
-      Exit;
-    end;
+  Result := regList.Last; // Resolve LAST registered (.NET Core style)
+end;
 
-    //otherwise, create new instance from &Implementation  
-    if reg.&Implementation = nil then raise EIocResolverError.CreateFmt('Implemention for "%s" not defined!',[aServiceType.Name]);
-    {$IFDEF DEBUG_IOC}
-    TDebugger.Trace(Self,'Building dependency: %s',[reg.fIntfInfo.Name]);
-    {$ENDIF}
-    var newInst : IInterface;
-    if Assigned(reg.ActivatorDelegate) then newInst := reg.ActivatorDelegate().AsInterface
-      else newInst := CreateInstance(reg.&Implementation).AsInterface;
+function TIocResolver.BuildValue(aReg: TIocRegistration; aServiceType: PTypeInfo; aScope: TIocScope): TValue;
+var
+  intf : IInterface;
+  newInst : IInterface;
+begin
+  //builds a new instance (or returns the one given to RegisterInstance<TInterface>); never caches
+  if aReg is TIocRegistrationInterface then
+  begin
+    newInst := TIocRegistrationInterface(aReg).Instance;
+    if newInst = nil then
+    begin
+      if aReg.&Implementation = nil then raise EIocResolverError.CreateFmt('Implemention for "%s" not defined!',[aServiceType.Name]);
+      {$IFDEF DEBUG_IOC}
+      TDebugger.Trace(Self,'Building dependency: %s',[aReg.fIntfInfo.Name]);
+      {$ENDIF}
+      if Assigned(aReg.ActivatorDelegate) then newInst := aReg.ActivatorDelegate().AsInterface
+        else newInst := CreateInstance(aReg.&Implementation,aScope).AsInterface;
+    end;
     if (newInst = nil) or (newInst.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0) then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
-    // Only cache instance for singletons
-    if reg.IsSingleton then TIocRegistrationInterface(reg).Instance := newInst;
     TValue.Make(@intf,aServiceType,Result);
   end
   else
   begin
     {$IFDEF DEBUG_IOC}
-    TDebugger.Trace(Self,'Building dependency: %s',[reg.fIntfInfo.Name]);
+    TDebugger.Trace(Self,'Building dependency: %s',[aReg.fIntfInfo.Name]);
     {$ENDIF}
-    if Assigned(reg.ActivatorDelegate) then TIocRegistrationInstance(reg).Instance := reg.ActivatorDelegate().AsObject
+    if Assigned(aReg.ActivatorDelegate) then Result := aReg.ActivatorDelegate().AsObject
+      else Result := CreateInstance(aReg.&Implementation,aScope).AsObject;
+  end;
+end;
+
+function TIocResolver.ResolveSingleton(aReg: TIocRegistration; aServiceType: PTypeInfo): TValue;
+var
+  intf : IInterface;
+begin
+  //lazy creation must not race: two threads could otherwise build two "singletons".
+  //TMonitor is reentrant, so a singleton depending on another singleton is fine.
+  TMonitor.Enter(fSingletonLock);
+  try
+    if aReg is TIocRegistrationInterface then
+    begin
+      //dependencies of a singleton are resolved with no scope: a scoped dependency would be
+      //captured for the whole application lifetime, so it raises EIocScopeError instead
+      if TIocRegistrationInterface(aReg).Instance = nil then
+        TIocRegistrationInterface(aReg).Instance := BuildValue(aReg,aServiceType,nil).AsInterface;
+      if TIocRegistrationInterface(aReg).Instance.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then
+        raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+      TValue.Make(@intf,aServiceType,Result);
+    end
     else
     begin
-      TIocRegistrationInstance(reg).Instance := CreateInstance(reg.&Implementation).AsObject;
+      if TIocRegistrationInstance(aReg).Instance = nil then
+        TIocRegistrationInstance(aReg).Instance := BuildValue(aReg,aServiceType,nil).AsObject;
+      Result := TIocRegistrationInstance(aReg).Instance;
     end;
-    Result := TIocRegistrationInstance(reg).Instance;
+  finally
+    TMonitor.Exit(fSingletonLock);
+  end;
+end;
+
+function TIocResolver.Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue;
+begin
+  Result := Resolve(aServiceType,aName,nil);
+end;
+
+function TIocResolver.Resolve(aServiceType: PTypeInfo; const aName: string; aScope: TIocScope): TValue;
+var
+  reg : TIocRegistration;
+begin
+  reg := FindRegistration(aServiceType,aName);
+  if reg.IsSingleton then Result := ResolveSingleton(reg,aServiceType)
+  else if reg.IsScoped then
+  begin
+    if aScope <> nil then Result := aScope.GetOrCreate(reg,aServiceType)
+    else if fValidateScopes then
+      raise EIocScopeError.CreateFmt('Scoped service "%s" resolved outside a scope. Resolve it from a TIocScope ' +
+        '(TIocContainer.CreateScope), not from the root container nor as a dependency of a singleton.',[aServiceType.Name])
+    else Result := BuildValue(reg,aServiceType,nil); //legacy (ValidateScopes = False): behaves as transient
+  end
+  else
+  begin
+    Result := BuildValue(reg,aServiceType,aScope);
+    //legacy: class registrations kept the last built instance
+    if reg is TIocRegistrationInstance then TIocRegistrationInstance(reg).Instance := Result.AsObject;
   end;
   {$IFDEF DEBUG_IOC}
   TDebugger.Trace(Self,'Built dependency: %s',[reg.fIntfInfo.Name]);
@@ -865,6 +949,75 @@ begin
       Result.Add(resolved.AsType<T>);
     end;
   end;
+end;
+
+{ TIocScope }
+
+constructor TIocScope.Create(aResolver: TIocResolver);
+begin
+  fResolver := aResolver;
+  fInterfaces := TDictionary<TIocRegistration, IInterface>.Create;
+  fObjects := TDictionary<TIocRegistration, TObject>.Create;
+  fCreated := TList<IInterface>.Create;
+  fCreatedObjects := TList<TObject>.Create;
+end;
+
+destructor TIocScope.Destroy;
+var
+  i : Integer;
+begin
+  //release in reverse order of creation: dependents go before their dependencies
+  fInterfaces.Clear;
+  for i := fCreated.Count - 1 downto 0 do fCreated[i] := nil;
+  fCreated.Free;
+  fInterfaces.Free;
+  //class (non-interface) scoped instances are owned by the scope
+  fObjects.Clear;
+  for i := fCreatedObjects.Count - 1 downto 0 do fCreatedObjects[i].Free;
+  fCreatedObjects.Free;
+  fObjects.Free;
+  inherited;
+end;
+
+function TIocScope.GetOrCreate(aReg: TIocRegistration; aServiceType: PTypeInfo): TValue;
+var
+  cached : IInterface;
+  intf : IInterface;
+  obj : TObject;
+begin
+  if aReg is TIocRegistrationInterface then
+  begin
+    if not fInterfaces.TryGetValue(aReg,cached) then
+    begin
+      //dependencies are resolved within this same scope
+      cached := fResolver.BuildValue(aReg,aServiceType,Self).AsInterface;
+      fInterfaces.Add(aReg,cached);
+      fCreated.Add(cached);
+    end;
+    if cached.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then
+      raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+    TValue.Make(@intf,aServiceType,Result);
+  end
+  else
+  begin
+    if not fObjects.TryGetValue(aReg,obj) then
+    begin
+      obj := fResolver.BuildValue(aReg,aServiceType,Self).AsObject;
+      fObjects.Add(aReg,obj);
+      fCreatedObjects.Add(obj);
+    end;
+    Result := obj;
+  end;
+end;
+
+function TIocScope.Resolve(aServiceType: PTypeInfo; const aName: string): TValue;
+begin
+  Result := fResolver.Resolve(aServiceType,aName,Self);
+end;
+
+function TIocScope.Resolve<T>(const aName: string): T;
+begin
+  Result := Resolve(TypeInfo(T),aName).AsType<T>;
 end;
 
 { TIocRegistration<T> }
