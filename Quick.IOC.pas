@@ -7,7 +7,7 @@
   Author      : Kike Perez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 08/05/2026
+  Modified    : 02/10/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -227,6 +227,8 @@ type
     fResolver : TIocResolver;
     fInjector : TIocInjector;
     fLogger : ILogger;
+    function GetValidateScopes : Boolean;
+    procedure SetValidateScopes(aValue : Boolean);
   class var
     GlobalInstance: TIocContainer;
   protected
@@ -254,8 +256,7 @@ type
     procedure Build;
     /// <summary>Opens a new scope. The caller owns it and must free it.</summary>
     function CreateScope : TIocScope;
-    function GetValidateScopes : Boolean;
-    procedure SetValidateScopes(aValue : Boolean);
+    /// <summary>See TIocResolver.ValidateScopes.</summary>
     property ValidateScopes : Boolean read GetValidateScopes write SetValidateScopes;
     /// <summary>Exposes the internal registrator for advanced operations (Replace, Decorate).</summary>
     property Registrator: TIocRegistrator read fRegistrator;

@@ -1,7 +1,7 @@
 unit Quick.IOC.Tests;
 
 { ***************************************************************************
-  Modified : 05/07/2025
+  Modified : 02/10/2026
  *************************************************************************** }
 
 interface
@@ -69,11 +69,12 @@ type
 
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
-  public class var
-    Destroyed: Integer;
+  private class var
+    FDestroyed: Integer;
   public
     destructor Destroy; override;
     procedure Log(const msg: string);
+    class property Destroyed: Integer read FDestroyed write FDestroyed;
   end;
 
   // Options class for testing RegisterOptions
@@ -473,7 +474,7 @@ end;
 
 destructor TTrackedLogger.Destroy;
 begin
-  Inc(Destroyed);
+  Inc(FDestroyed);
   inherited;
 end;
 
