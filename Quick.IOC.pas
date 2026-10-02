@@ -417,7 +417,7 @@ end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TOptions): TIocRegistration<T>;
 begin
-  Result := fRegistrator.RegisterOptions<T>(aOptions).AsSingleton;
+  Result := fRegistrator.RegisterOptions<T>(T(aOptions)).AsSingleton; // patch local: Delphi 13 (E2010)
 end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TConfigureOptionsProc<T>): TIocRegistration<T>;
@@ -897,7 +897,7 @@ begin
   Result := Self;
   fRegistration.ActivatorDelegate := function: TValue
                                      begin
-                                       Result := TValue.From<T>(aDelegate);
+                                       Result := TValue.From<T>(aDelegate()); // patch local: chamada explícita
                                      end;
 end;
 
