@@ -144,6 +144,10 @@ type
   private
     fDependencies : TDictionary<string, TObjectList<TIocRegistration>>;
     fDependencyOrder : TObjectList<TIocRegistration>;
+    //singleton registrations in the order their instances were created (under the singleton lock)
+    fCreatedSingletons : TList<TIocRegistration>;
+    //set by ReleaseInstances: a singleton that is not alive is not built again
+    fReleasing : Boolean;
     procedure ReleaseInstances;
   public
     constructor Create;
@@ -222,8 +226,9 @@ type
   /// <summary>A resolution scope (e.g. one per HTTP request). Services registered AsScoped
   /// are created once per scope and released when the scope is freed, in reverse order of
   /// creation; if a destructor raises, the others are still released and the first exception
-  /// is raised again by Free. Singletons and transients behave as usual. A scope is not
-  /// thread-safe: use it from one thread at a time.</summary>
+  /// is raised again by Free. Once Free starts, resolving from the scope raises EIocScopeError.
+  /// Singletons and transients behave as usual. A scope is not thread-safe: use it from one
+  /// thread at a time.</summary>
   TIocScope = class
   private
     fResolver : TIocResolver;
@@ -232,6 +237,7 @@ type
     fObjects : TDictionary<TIocRegistration, TObject>;
     fCreated : TList<IInterface>;
     fCreatedObjects : TList<TObject>;
+    procedure CheckAlive;
     function GetOrCreate(aReg : TIocRegistration; aServiceType : PTypeInfo) : TValue;
   public
     constructor Create(aResolver : TIocResolver);
@@ -323,6 +329,12 @@ type
     class destructor Destroy;
   public
     constructor Create;
+    /// <summary>Releases the instances the container holds while it still works: the singletons
+    /// it created, in reverse order of creation (a singleton before the ones it received in its
+    /// constructor), then the instances given at registration. Meanwhile a singleton already
+    /// released, or never created, is not built again: resolving it raises EIocScopeError. If a
+    /// destructor raises, the others are still released, the container is freed and the first
+    /// exception is raised again by Free.</summary>
     destructor Destroy; override;
     function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName: string): Boolean; overload;
     function IsRegistered<TInterface : IInterface>(const aName: string): Boolean; overload;
@@ -400,9 +412,12 @@ type
   EIocRegisterError = class(EIocError);
   EIocResolverError = class(EIocError);
   EIocBuildError = class(EIocError);
-  /// <summary>Scoped service resolved outside a scope. Deliberately NOT an EIocResolverError:
-  /// constructor selection swallows EIocResolverError to try other constructors, and a scope
-  /// violation must surface instead of yielding an object with nil dependencies.</summary>
+  /// <summary>A service resolved outside its lifetime: a scoped service resolved outside a scope,
+  /// a scope (or a factory or context bound to it) used while or after it is freed, or a
+  /// singleton resolved while the container is being freed. Deliberately NOT an
+  /// EIocResolverError: constructor selection swallows EIocResolverError to try other
+  /// constructors, and a lifetime violation must surface instead of yielding an object with nil
+  /// dependencies.</summary>
   EIocScopeError = class(EIocError);
   /// <summary>A constructor marked [Inject] could not be satisfied. It descends from
   /// EIocResolverError, so existing handlers still catch it, but constructor selection re-raises
@@ -651,13 +666,17 @@ end;
 destructor TIocContainer.Destroy;
 begin
   //the instances the container holds are released first, while the resolver and the
-  //registrations still exist: a singleton destructor may still use the container (a factory)
-  fRegistrator.ReleaseInstances;
-  fInjector.Free;
-  fResolver.Free;
-  fRegistrator.Free;
-  fLogger := nil;
-  inherited;
+  //registrations still exist: a singleton destructor may still use the container (a factory).
+  //If a destructor raises, the rest is freed anyway and that exception reaches the caller
+  try
+    if fRegistrator <> nil then fRegistrator.ReleaseInstances;
+  finally
+    fInjector.Free;
+    fResolver.Free;
+    fRegistrator.Free;
+    fLogger := nil;
+    inherited;
+  end;
 end;
 
 function TIocContainer.IsRegistered<TInterface, TImplementation>(const aName: string): Boolean;
@@ -702,7 +721,12 @@ begin
         //the registration this IOwned was created with, so ResolveAll<IOwned<T>> wraps each one
         owned := TOwned<T>.Create(scope,container.fResolver.ResolveRegistration(target,TypeInfo(T),scope).AsType<T>);
       except
-        scope.Free;
+        //the resolution failure is what the caller must see: an exception raised while releasing
+        //what was already created in the scope is dropped instead of hiding it
+        try
+          scope.Free;
+        except
+        end;
         raise;
       end;
       Result := TValue.From<IOwned<T>>(owned);
@@ -811,50 +835,66 @@ constructor TIocRegistrator.Create;
 begin
   fDependencies := TDictionary<string, TObjectList<TIocRegistration>>.Create;
   fDependencyOrder := TObjectList<TIocRegistration>.Create(False); // Does not own objects
+  fCreatedSingletons := TList<TIocRegistration>.Create;
 end;
 
 destructor TIocRegistrator.Destroy;
 var
-  i : Integer;
   regList : TObjectList<TIocRegistration>;
 begin
-  // Free singleton instances that are not interfaced (non-reference counted objects)
-  for i := fDependencyOrder.Count-1 downto 0 do
-  begin
-    if fDependencyOrder[i] <> nil then
-    begin
-      if (fDependencyOrder[i] is TIocRegistrationInstance) and
-          (TIocRegistrationInstance(fDependencyOrder[i]).IsSingleton) then
-            TIocRegistrationInstance(fDependencyOrder[i]).Instance.Free;
-    end;
+  //TIocContainer.Destroy has already released the instances; a registrator used on its own has
+  //not. Destroy also runs when Create raises halfway: fCreatedSingletons is created last
+  try
+    if fCreatedSingletons <> nil then ReleaseInstances;
+  finally
+    // Manually free all the lists (each list will free its registrations because OwnsObjects = True)
+    if fDependencies <> nil then
+      for regList in fDependencies.Values do regList.Free;
+    fDependencies.Free; // Free the dictionary itself
+    fDependencyOrder.Free; // Just frees the list, not the objects (OwnsObjects = False)
+    fCreatedSingletons.Free;
+    inherited;
   end;
-  // Manually free all the lists (each list will free its registrations because OwnsObjects = True)
-  for regList in fDependencies.Values do
-  begin
-    regList.Free;
-  end;
-  fDependencies.Free; // Free the dictionary itself
-  fDependencyOrder.Free; // Just frees the list, not the objects (OwnsObjects = False)
-  inherited;
 end;
 
 procedure TIocRegistrator.ReleaseInstances;
 var
   i : Integer;
-  reg : TIocRegistration;
-begin
-  //in reverse order of registration: interface instances (singletons and the ones given to
-  //RegisterInstance<TInterface>) and the class singletons the container owns
-  for i := fDependencyOrder.Count - 1 downto 0 do
+  firstError : TObject;
+
+  procedure Release(aReg : TIocRegistration);
+  var
+    obj : TObject;
   begin
-    reg := fDependencyOrder[i];
-    if reg is TIocRegistrationInterface then TIocRegistrationInterface(reg).Instance := nil
-    else if (reg is TIocRegistrationInstance) and reg.IsSingleton then
-    begin
-      TIocRegistrationInstance(reg).Instance.Free;
-      TIocRegistrationInstance(reg).Instance := nil;
+    try
+      if aReg is TIocRegistrationInterface then TIocRegistrationInterface(aReg).Instance := nil
+      else if (aReg is TIocRegistrationInstance) and aReg.IsSingleton then
+      begin
+        //cleared before Free: a destructor that resolves it must not get the object being freed
+        obj := TIocRegistrationInstance(aReg).Instance;
+        TIocRegistrationInstance(aReg).Instance := nil;
+        obj.Free;
+      end;
+    except
+      if firstError = nil then firstError := TObject(AcquireExceptionObject);
     end;
   end;
+
+begin
+  //from now on a singleton that is not alive (released, or never created) is not built again:
+  //it would never be released
+  fReleasing := True;
+  //a destructor that raises does not stop the release of the others: the first exception is
+  //kept and raised again once everything is released
+  firstError := nil;
+  //the singletons the container created, in reverse order of creation: a singleton goes before
+  //the ones it received in its constructor, which were created before it
+  for i := fCreatedSingletons.Count - 1 downto 0 do Release(fCreatedSingletons[i]);
+  fCreatedSingletons.Clear;
+  //then the instances given at registration (RegisterInstance<TInterface>, RegisterOptions), in
+  //reverse order of registration
+  for i := fDependencyOrder.Count - 1 downto 0 do Release(fDependencyOrder[i]);
+  if firstError <> nil then raise firstError;
 end;
 
 function TIocRegistrator.GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
@@ -921,6 +961,7 @@ begin
       begin
         idx := fDependencyOrder.IndexOf(item.Value);
         if idx >= 0 then fDependencyOrder.Delete(idx);
+        fCreatedSingletons.Remove(item.Value);
         ownerList := fDependencies[item.Key];
         ownerList.Remove(item.Value); //OwnsObjects: frees the registration
         if ownerList.Count = 0 then
@@ -937,6 +978,7 @@ begin
     begin
       idx := fDependencyOrder.IndexOf(reg);
       if idx >= 0 then fDependencyOrder.Delete(idx);
+      fCreatedSingletons.Remove(reg);
     end;
     fDependencies.Remove(aKey); // removes key but does NOT free regList
     regList.Free;               // free the list (OwnsObjects=True → frees registrations)
@@ -1457,6 +1499,12 @@ begin
 
   if instance = nil then
   begin
+    //the container is being freed: this singleton was already released, or never created. Built
+    //now it would never be released (or be a second instance of a released one)
+    if fRegistrator.fReleasing then
+      raise EIocScopeError.CreateFmt('Singleton "%s" resolved while the container is being freed: it was already ' +
+        'released, or never created. In a destructor, use what the service received in its constructor: the ' +
+        'container releases a singleton before the ones it depends on.',[aServiceType.Name]);
     //slow path: lazy creation must not race, two threads could otherwise build two "singletons".
     //TMonitor is reentrant, so a singleton depending on another singleton is fine.
     TMonitor.Enter(fSingletonLock);
@@ -1472,6 +1520,8 @@ begin
           //the construction must be visible to other threads before the pointer is published
           MemoryBarrier;
           TIocRegistrationInterface(aReg).Instance := newIntf;
+          //released in reverse order of creation (TIocRegistrator.ReleaseInstances)
+          fRegistrator.fCreatedSingletons.Add(aReg);
         end;
         instance := Pointer(TIocRegistrationInterface(aReg).fInstance);
       end
@@ -1482,6 +1532,7 @@ begin
           newObj := BuildValue(aReg,aServiceType,nil).AsObject;
           MemoryBarrier;
           TIocRegistrationInstance(aReg).Instance := newObj;
+          fRegistrator.fCreatedSingletons.Add(aReg);
         end;
         instance := Pointer(TIocRegistrationInstance(aReg).fInstance);
       end;
@@ -1585,38 +1636,48 @@ var
   i : Integer;
   firstError : TObject;
 begin
-  //first of all: factories and contexts bound to this scope stop using it, even from the
-  //destructors of the instances released below
-  TIocScopeLifetime(fLifetime as TObject).fAlive := False;
+  //Destroy also runs when Create raises halfway, so any field may still be nil.
+  //First of all: the scope, and the factories and contexts bound to it, stop resolving, even
+  //from the destructors of the instances released below
+  if fLifetime <> nil then TIocScopeLifetime(fLifetime as TObject).fAlive := False;
   //a destructor that raises must not stop the release of the others: the first exception is
   //kept and raised again once everything is released
   firstError := nil;
   //release in reverse order of creation: dependents go before their dependencies
-  fInterfaces.Clear;
-  for i := fCreated.Count - 1 downto 0 do
-  begin
-    try
-      fCreated[i] := nil;
-    except
-      if firstError = nil then firstError := TObject(AcquireExceptionObject);
+  if fInterfaces <> nil then fInterfaces.Clear;
+  if fCreated <> nil then
+    for i := fCreated.Count - 1 downto 0 do
+    begin
+      try
+        fCreated[i] := nil;
+      except
+        if firstError = nil then firstError := TObject(AcquireExceptionObject);
+      end;
     end;
-  end;
-  fCreated.Free;
-  fInterfaces.Free;
+  FreeAndNil(fCreated);
+  FreeAndNil(fInterfaces);
   //class (non-interface) scoped instances are owned by the scope
-  fObjects.Clear;
-  for i := fCreatedObjects.Count - 1 downto 0 do
-  begin
-    try
-      fCreatedObjects[i].Free;
-    except
-      if firstError = nil then firstError := TObject(AcquireExceptionObject);
+  if fObjects <> nil then fObjects.Clear;
+  if fCreatedObjects <> nil then
+    for i := fCreatedObjects.Count - 1 downto 0 do
+    begin
+      try
+        fCreatedObjects[i].Free;
+      except
+        if firstError = nil then firstError := TObject(AcquireExceptionObject);
+      end;
     end;
-  end;
-  fCreatedObjects.Free;
-  fObjects.Free;
+  FreeAndNil(fCreatedObjects);
+  FreeAndNil(fObjects);
   inherited;
   if firstError <> nil then raise firstError;
+end;
+
+procedure TIocScope.CheckAlive;
+begin
+  if not fLifetime.IsAlive then
+    raise EIocScopeError.Create('The scope is being freed: nothing can be resolved from it anymore ' +
+      '(e.g. from the destructor of one of its instances).');
 end;
 
 function TIocScope.GetOrCreate(aReg: TIocRegistration; aServiceType: PTypeInfo): TValue;
@@ -1625,6 +1686,9 @@ var
   intf : IInterface;
   obj : TObject;
 begin
+  //the single place where the scope creates and keeps instances: reached from Resolve, but also
+  //from factories, contexts and dependency chains
+  CheckAlive;
   if aReg is TIocRegistrationInterface then
   begin
     if not fInterfaces.TryGetValue(aReg,cached) then
@@ -1652,6 +1716,7 @@ end;
 
 function TIocScope.Resolve(aServiceType: PTypeInfo; const aName: string): TValue;
 begin
+  CheckAlive;
   Result := fResolver.Resolve(aServiceType,aName,Self);
 end;
 
@@ -1662,16 +1727,19 @@ end;
 
 function TIocScope.ResolveAll<T>(const aName: string): TList<T>;
 begin
+  CheckAlive;
   Result := fResolver.ResolveAll<T>(aName,Self);
 end;
 
 function TIocScope.AbstractFactory<T>(aClass: TClass): T;
 begin
+  CheckAlive;
   Result := fResolver.CreateInstance(aClass,Self).AsType<T>;
 end;
 
 function TIocScope.AbstractFactory<T> : T;
 begin
+  CheckAlive;
   Result := fResolver.CreateInstance(TClass(T),Self).AsType<T>;
 end;
 
@@ -1686,7 +1754,17 @@ end;
 destructor TOwned<T>.Destroy;
 begin
   //release the value before its scope: it may hold references to the scope's instances
-  fValue := Default(T);
+  try
+    fValue := Default(T);
+  except
+    //the scope is released anyway, so its instances do not leak; the value's exception is the
+    //one raised (one raised while releasing the scope is dropped)
+    try
+      fScope.Free;
+    except
+    end;
+    raise;
+  end;
   fScope.Free;
   inherited;
 end;

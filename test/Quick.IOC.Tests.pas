@@ -13,6 +13,7 @@ uses
   System.Classes,
   System.SyncObjs,
   System.Diagnostics,
+  System.Rtti,
   Quick.Options,
   Quick.IOC;
 
@@ -402,6 +403,60 @@ type
     class property Outcome: string read FOutcome write FOutcome;
   end;
 
+  // runs OnDestroy in its destructor: used as a class singleton (freed by the container) and as
+  // a scoped service (released by its scope)
+  IRunsOnDestroy = interface
+  ['{EDDBE5E3-6389-47E1-A4B9-F9D7391A030A}']
+  end;
+
+  TRunsOnDestroy = class(TInterfacedObject, IRunsOnDestroy)
+  private class var
+    FOnDestroy: TProc;
+    FOutcome: string;
+  public
+    destructor Destroy; override;
+    class property OnDestroy: TProc read FOnDestroy write FOnDestroy;
+    // 'ok', or the exception raised by OnDestroy
+    class property Outcome: string read FOutcome write FOutcome;
+  end;
+
+  // class singletons that log their release; TReleaseLoggedA receives TReleaseLoggedB
+  TReleaseLogged = class
+  private class var
+    FReleased: string;
+  public
+    destructor Destroy; override;
+    // class names in the order they were released, separated by ";"
+    class property Released: string read FReleased write FReleased;
+  end;
+
+  TReleaseLoggedB = class(TReleaseLogged);
+
+  TReleaseLoggedA = class(TReleaseLogged)
+  private
+    FB: TReleaseLoggedB;
+  public
+    constructor Create(b: TReleaseLoggedB);
+  end;
+
+  // destructor that raises after releasing its scoped logger
+  TExplodingWithLogger = class(TExplodingOnDestroy)
+  private
+    FLogger: ILogger;
+  public
+    constructor Create(logger: ILogger);
+    destructor Destroy; override;
+  end;
+
+  // [Inject] constructor that fails on its second parameter (IEmailService is not registered),
+  // after the first one was already created
+  TInjectFailsAfterExploding = class(TInterfacedObject, IInjService)
+  public
+    [Inject]
+    constructor Create(exploding: IExploding; email: IEmailService);
+    function Logger: ILogger;
+  end;
+
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
   private class var
@@ -626,6 +681,23 @@ type
     procedure Test_Scope_Free_ReleasesAllEvenIfOneDestructorRaises;
     [Test]
     procedure Test_Container_Free_ReleasesSingletonsBeforeResolver;
+    // robust destruction (package A)
+    [Test]
+    procedure Test_Container_Free_ReleasesSingletonsInReverseCreationOrder;
+    [Test]
+    procedure Test_Container_Free_ReleasesAllEvenIfOneDestructorRaises;
+    [Test]
+    procedure Test_Container_Free_ReleasedSingletonIsNotBuiltAgain;
+    [Test]
+    procedure Test_Container_Free_SingletonBeingFreedIsNotResolved;
+    [Test]
+    procedure Test_Scope_ResolveWhileBeingFreed_RaisesScopeError;
+    [Test]
+    procedure Test_Scope_Destroy_SafeWhenCreateDidNotFinish;
+    [Test]
+    procedure Test_Owned_Release_FreesScopeEvenIfValueDestructorRaises;
+    [Test]
+    procedure Test_Owned_ResolutionFailure_NotHiddenByScopeRelease;
   end;
 
 implementation
@@ -1806,6 +1878,80 @@ begin
   inherited;
 end;
 
+{ TRunsOnDestroy }
+
+destructor TRunsOnDestroy.Destroy;
+begin
+  if Assigned(FOnDestroy) then
+  begin
+    try
+      FOnDestroy();
+      FOutcome := 'ok';
+    except
+      on E: Exception do FOutcome := E.ClassName + ': ' + E.Message;
+    end;
+  end;
+  inherited;
+end;
+
+{ TReleaseLogged }
+
+destructor TReleaseLogged.Destroy;
+begin
+  FReleased := FReleased + ClassName + ';';
+  inherited;
+end;
+
+{ TReleaseLoggedA }
+
+constructor TReleaseLoggedA.Create(b: TReleaseLoggedB);
+begin
+  inherited Create;
+  FB := b;
+end;
+
+{ TExplodingWithLogger }
+
+constructor TExplodingWithLogger.Create(logger: ILogger);
+begin
+  inherited Create;
+  FLogger := logger;
+end;
+
+destructor TExplodingWithLogger.Destroy;
+begin
+  // released before the inherited destructor raises: a destructor that raises never finalizes
+  // the fields, and the logger must depend only on its scope
+  FLogger := nil;
+  inherited;
+end;
+
+{ TInjectFailsAfterExploding }
+
+constructor TInjectFailsAfterExploding.Create(exploding: IExploding; email: IEmailService);
+begin
+  inherited Create;
+end;
+
+function TInjectFailsAfterExploding.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
+// keeps a TTrackedLogger alive only through a delegate of aContainer: it is released when the
+// container frees its registrations
+procedure HoldInDelegate(aContainer: TIocContainer);
+var
+  held: ILogger;
+begin
+  held := TTrackedLogger.Create;
+  aContainer.RegisterType(TypeInfo(ILogger), TTrackedLogger, 'held').ActivatorDelegate :=
+    function: TValue
+    begin
+      Result := TValue.From<ILogger>(held);
+    end;
+end;
+
 // transient class instances (RegisterInstance<T>) belong to the caller: free each distinct one
 procedure FreeDistinct(const aObjects: TArray<Pointer>);
 var
@@ -2740,6 +2886,181 @@ begin
   end;
   Assert.AreEqual('ok', TUsesFactoryOnDestroy.Outcome,
     'A singleton released by the container must still be able to use it in its destructor');
+end;
+
+{ Robust destruction (package A) }
+
+procedure TQuickIOCTests.Test_Container_Free_ReleasesSingletonsInReverseCreationOrder;
+var
+  container: TIocContainer;
+begin
+  container := TIocContainer.Create;
+  try
+    container.RegisterInstance<TReleaseLoggedA>.AsSingleton; // registered first...
+    container.RegisterInstance<TReleaseLoggedB>.AsSingleton; // ...but B is created first, as A's dependency
+    container.Resolve<TReleaseLoggedA>;
+    TReleaseLogged.Released := '';
+  finally
+    container.Free;
+  end;
+  Assert.AreEqual('TReleaseLoggedA;TReleaseLoggedB;', TReleaseLogged.Released,
+    'A singleton must be released before the singletons it received in its constructor');
+end;
+
+procedure TQuickIOCTests.Test_Container_Free_ReleasesAllEvenIfOneDestructorRaises;
+var
+  container: TIocContainer;
+  logger: ILogger;
+  exploding: IExploding;
+  raised: string;
+begin
+  TTrackedLogger.Destroyed := 0;
+  raised := '';
+  container := TIocContainer.Create;
+  try
+    try
+      container.RegisterType<ILogger, TTrackedLogger>.AsSingleton;
+      container.RegisterType<IExploding, TExplodingOnDestroy>.AsSingleton;
+      // a second TTrackedLogger, released only when the container frees its registrations
+      HoldInDelegate(container);
+      logger := container.Resolve<ILogger>;          // created first, released last
+      exploding := container.Resolve<IExploding>;    // released first: its destructor raises
+      logger := nil;
+      exploding := nil;
+    finally
+      container.Free;
+    end;
+  except
+    on E: Exception do raised := E.ClassName;
+  end;
+  Assert.AreEqual(2, TTrackedLogger.Destroyed,
+    'The other singletons and the registrations must be released even if a destructor raises');
+  Assert.AreEqual('EExplodingDestroy', raised, 'The destructor failure must reach the caller');
+end;
+
+procedure TQuickIOCTests.Test_Container_Free_ReleasedSingletonIsNotBuiltAgain;
+var
+  container: TIocContainer;
+begin
+  TFlakySingleton.FailNext := False;
+  TFlakySingleton.Created := 0;
+  TRunsOnDestroy.Outcome := '';
+  container := TIocContainer.Create;
+  try
+    container.RegisterInstance<TRunsOnDestroy>.AsSingleton;
+    container.RegisterInstance<TFlakySingleton>.AsSingleton;
+    container.Resolve<TRunsOnDestroy>;
+    container.Resolve<TFlakySingleton>; // created last, released first
+    // the destructor of TRunsOnDestroy looks up TFlakySingleton, already released by then
+    TRunsOnDestroy.OnDestroy :=
+      procedure
+      begin
+        container.Resolve<TFlakySingleton>;
+      end;
+  finally
+    container.Free;
+    TRunsOnDestroy.OnDestroy := nil;
+  end;
+  Assert.AreEqual(1, TFlakySingleton.Created, 'A singleton already released must not be built again');
+  Assert.IsTrue(TRunsOnDestroy.Outcome.StartsWith('EIocScopeError:'),
+    'Resolving a released singleton while the container is freed must raise EIocScopeError. Got: ' + TRunsOnDestroy.Outcome);
+end;
+
+procedure TQuickIOCTests.Test_Container_Free_SingletonBeingFreedIsNotResolved;
+var
+  container: TIocContainer;
+begin
+  TRunsOnDestroy.Outcome := '';
+  container := TIocContainer.Create;
+  try
+    container.RegisterInstance<TRunsOnDestroy>.AsSingleton;
+    container.Resolve<TRunsOnDestroy>;
+    // the destructor resolves the very singleton being freed
+    TRunsOnDestroy.OnDestroy :=
+      procedure
+      begin
+        container.Resolve<TRunsOnDestroy>;
+      end;
+  finally
+    container.Free;
+    TRunsOnDestroy.OnDestroy := nil;
+  end;
+  Assert.IsTrue(TRunsOnDestroy.Outcome.StartsWith('EIocScopeError:'),
+    'The singleton being freed must not be handed out again. Got: ' + TRunsOnDestroy.Outcome);
+end;
+
+procedure TQuickIOCTests.Test_Scope_ResolveWhileBeingFreed_RaisesScopeError;
+var
+  scope: TIocScope;
+  runner: IRunsOnDestroy;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  FContainer.RegisterType<IRunsOnDestroy, TRunsOnDestroy>.AsScoped;
+  TRunsOnDestroy.Outcome := '';
+  scope := FContainer.CreateScope;
+  try
+    runner := scope.Resolve<IRunsOnDestroy>;
+    runner := nil;
+    // released by scope.Free: its destructor resolves from that same scope
+    TRunsOnDestroy.OnDestroy :=
+      procedure
+      begin
+        scope.Resolve<ILogger>;
+      end;
+  finally
+    scope.Free;
+    TRunsOnDestroy.OnDestroy := nil;
+  end;
+  Assert.IsTrue(TRunsOnDestroy.Outcome.StartsWith('EIocScopeError:'),
+    'Resolving from a scope while it is freed must raise EIocScopeError. Got: ' + TRunsOnDestroy.Outcome);
+end;
+
+procedure TQuickIOCTests.Test_Scope_Destroy_SafeWhenCreateDidNotFinish;
+begin
+  // when a constructor raises, Delphi calls the destructor on the partly built object: a fresh
+  // instance, with every field still nil, is a scope whose Create failed at the first allocation
+  Assert.WillNotRaise(
+    procedure
+    begin
+      TIocScope(TIocScope.NewInstance).Destroy;
+    end, nil, 'TIocScope.Destroy must not fail on a scope whose constructor did not finish');
+end;
+
+procedure TQuickIOCTests.Test_Owned_Release_FreesScopeEvenIfValueDestructorRaises;
+var
+  owned: IOwned<IExploding>;
+  raised: string;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  FContainer.RegisterType<IExploding, TExplodingWithLogger>.AsTransient;
+  TTrackedLogger.Destroyed := 0;
+  owned := FContainer.Resolve<IOwned<IExploding>>; // its own scope, with its own scoped logger
+  raised := '';
+  try
+    owned := nil; // the value's destructor raises
+  except
+    on E: Exception do raised := E.ClassName;
+  end;
+  Assert.AreEqual(1, TTrackedLogger.Destroyed, 'The IOwned scope must be released even if the value destructor raises');
+  Assert.AreEqual('EExplodingDestroy', raised, 'The destructor failure must reach the caller');
+end;
+
+procedure TQuickIOCTests.Test_Owned_ResolutionFailure_NotHiddenByScopeRelease;
+var
+  raised: string;
+begin
+  FContainer.RegisterType<IExploding, TExplodingOnDestroy>.AsScoped;
+  FContainer.RegisterType<IInjService, TInjectFailsAfterExploding>.AsTransient;
+  raised := '';
+  try
+    // IExploding is created in the IOwned scope, then the [Inject] constructor fails; releasing
+    // that scope raises EExplodingDestroy
+    FContainer.Resolve<IOwned<IInjService>>;
+  except
+    on E: Exception do raised := E.ClassName;
+  end;
+  Assert.AreEqual('EIocInjectError', raised,
+    'The resolution failure must reach the caller, not the exception raised while releasing the IOwned scope');
 end;
 
 initialization
