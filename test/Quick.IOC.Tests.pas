@@ -279,13 +279,80 @@ type
     FCreated: Integer;
     FDelayMs: Integer;
     FStarted: TLightweightEvent;
+    FRelease: TLightweightEvent;
   public
     constructor Create;
     class property Created: Integer read FCreated write FCreated;
     class property DelayMs: Integer read FDelayMs write FDelayMs;
     // signaled when the constructor starts, i.e. while the singleton lock is held
     class property Started: TLightweightEvent read FStarted write FStarted;
+    // when assigned, the constructor waits for it instead of sleeping DelayMs
+    class property Release: TLightweightEvent read FRelease write FRelease;
   end;
+
+  // plain class (no interface) registered with RegisterInstance<T>: slow, counted constructor
+  TSlowPlainSingleton = class
+  private class var
+    FCreated: Integer;
+  public
+    constructor Create;
+    class property Created: Integer read FCreated write FCreated;
+  end;
+
+  EFlakyCreation = class(Exception);
+
+  // plain class whose constructor fails while FailNext is set
+  TFlakySingleton = class
+  private class var
+    FFailNext: Boolean;
+    FCreated: Integer;
+  public
+    constructor Create;
+    class property FailNext: Boolean read FFailNext write FFailNext;
+    class property Created: Integer read FCreated write FCreated;
+  end;
+
+  // singleton holding a factory
+  IFactoryHolder = interface
+  ['{9E4F478D-B419-44DC-A4D4-F1F2082F961D}']
+    function Factory: IFactory<IUserService>;
+  end;
+
+  TFactoryHolder = class(TInterfacedObject, IFactoryHolder)
+  private
+    FFactory: IFactory<IUserService>;
+  public
+    constructor Create(factory: IFactory<IUserService>);
+    function Factory: IFactory<IUserService>;
+  end;
+
+  // subclass for AbstractFactory(aClass)
+  TUserServiceChild = class(TUserService)
+  public
+    constructor Create(logger: ILogger);
+  end;
+
+  // declares only a parameterless constructor, which sets a field
+  TParentWithInit = class(TInterfacedObject, IInjService)
+  private
+    FInitialized: Boolean;
+  public
+    constructor Create;
+    function Logger: ILogger;
+  end;
+
+  // no constructor of its own: TParentWithInit.Create and TObject.Create both have no parameters
+  TChildOfInit = class(TParentWithInit);
+
+  // its own constructor is not satisfiable (IEmailService is not registered): the inherited
+  // TParentWithInit.Create would be used
+  TOwnUnsatisfiable = class(TParentWithInit)
+  public
+    constructor Create(email: IEmailService);
+  end;
+
+  // plain class for ResolveAll with a class type
+  TPlainThing = class(TObject);
 
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
@@ -314,6 +381,7 @@ type
     FInstances: TArray<Pointer>;
     FErrors: TArray<string>;
     function StartSlowResolver(aIndex: Integer): TThread;
+    function StartPlainSingletonResolver(aIndex: Integer): TThread;
   public
     [Setup]
     procedure SetUp;
@@ -471,6 +539,29 @@ type
     procedure Test_DelegateTo_ContextKeptAfterScopeFreed_RaisesScopeError;
     [Test]
     procedure Test_TypedFactory_AsSingleton_UsableAfterScopeFreed;
+    { Coverage of paths changed by the fork }
+    [Test]
+    procedure Test_Singleton_ClassRegistration_ConcurrentFirstResolve_CreatesOnce;
+    [Test]
+    procedure Test_Singleton_CreationFails_NextResolveRetries;
+    [Test]
+    procedure Test_SimpleFactory_InjectedInSingleton_BoundToRoot;
+    [Test]
+    procedure Test_DelegateTo_Context_SingletonScopeIsNil;
+    [Test]
+    procedure Test_SimpleFactory_AsSingleton_SharesFactoryBoundToRoot;
+    [Test]
+    procedure Test_DelegateTo_LastOneWins;
+    [Test]
+    procedure Test_Scope_AbstractFactory_WithClass_CreatesThatClass;
+    [Test]
+    procedure Test_DiagnoseConstructors_ReportsUnsatisfiableOwnConstructors;
+    [Test]
+    procedure Test_DefaultRule_InheritedParameterlessConstructorRuns;
+    [Test]
+    procedure Test_ResolveAll_WithName_ReturnsOnlyThatName;
+    [Test]
+    procedure Test_ResolveAll_ClassType_KeepsEachLifetime;
   end;
 
 implementation
@@ -1547,7 +1638,82 @@ constructor TSlowSingleton.Create;
 begin
   TInterlocked.Increment(FCreated);
   if FStarted <> nil then FStarted.SetEvent;
-  Sleep(FDelayMs);
+  if FRelease <> nil then FRelease.WaitFor(10000)
+    else Sleep(FDelayMs);
+end;
+
+{ TSlowPlainSingleton }
+
+constructor TSlowPlainSingleton.Create;
+begin
+  TInterlocked.Increment(FCreated);
+  Sleep(100);
+end;
+
+{ TFlakySingleton }
+
+constructor TFlakySingleton.Create;
+begin
+  if FFailNext then raise EFlakyCreation.Create('Simulated failure while creating the singleton');
+  TInterlocked.Increment(FCreated);
+end;
+
+{ TFactoryHolder }
+
+constructor TFactoryHolder.Create(factory: IFactory<IUserService>);
+begin
+  FFactory := factory;
+end;
+
+function TFactoryHolder.Factory: IFactory<IUserService>;
+begin
+  Result := FFactory;
+end;
+
+{ TUserServiceChild }
+
+constructor TUserServiceChild.Create(logger: ILogger);
+begin
+  inherited Create(logger);
+end;
+
+{ TParentWithInit }
+
+constructor TParentWithInit.Create;
+begin
+  inherited Create;
+  FInitialized := True;
+end;
+
+function TParentWithInit.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
+{ TOwnUnsatisfiable }
+
+constructor TOwnUnsatisfiable.Create(email: IEmailService);
+begin
+  inherited Create;
+end;
+
+// transient class instances (RegisterInstance<T>) belong to the caller: free each distinct one
+procedure FreeDistinct(const aObjects: TArray<Pointer>);
+var
+  freed: TList<Pointer>;
+  obj: Pointer;
+begin
+  freed := TList<Pointer>.Create;
+  try
+    for obj in aObjects do
+      if (obj <> nil) and not freed.Contains(obj) then
+      begin
+        freed.Add(obj);
+        TObject(obj).Free;
+      end;
+  finally
+    freed.Free;
+  end;
 end;
 
 { Singleton lock }
@@ -1600,42 +1766,78 @@ end;
 
 procedure TQuickIOCTests.Test_Singleton_CreatedOne_DoesNotWaitForAnotherBeingCreated;
 var
-  thread: TThread;
-  stopwatch: TStopwatch;
-  logger: ILogger;
+  slow: TThread;
+  other: TThread;
+  resolved: TLightweightEvent;
+  otherError: string;
 begin
   // while a slow singleton is being created (lock held), resolving another singleton that
-  // already exists must take the fast path and not wait for the lock
+  // already exists must take the fast path and not wait for the lock. Checked by order of
+  // events, not by time: the slow constructor is held until the other resolution finished
   FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
   FContainer.RegisterType<ISlowSingleton, TSlowSingleton>.AsSingleton;
-  logger := FContainer.Resolve<ILogger>;
-  logger := nil;
+  FContainer.Resolve<ILogger>;
   TSlowSingleton.Created := 0;
-  TSlowSingleton.DelayMs := 800;
   TSlowSingleton.Started := TLightweightEvent.Create;
+  TSlowSingleton.Release := TLightweightEvent.Create;
+  resolved := TLightweightEvent.Create;
   SetLength(FInstances, 1);
   SetLength(FErrors, 1);
+  otherError := '';
   try
-    thread := StartSlowResolver(0);
+    slow := StartSlowResolver(0);
     try
       Assert.IsTrue(TSlowSingleton.Started.WaitFor(5000) = wrSignaled, 'The slow singleton must start being created');
-      stopwatch := TStopwatch.StartNew;
-      logger := FContainer.Resolve<ILogger>;
-      stopwatch.Stop;
-      Assert.IsNotNull(logger, 'The existing singleton must be returned');
-      Assert.IsTrue(stopwatch.ElapsedMilliseconds < 300,
-        'Resolving an existing singleton must not wait for another being created. Took ' +
-        IntToStr(stopwatch.ElapsedMilliseconds) + ' ms');
+      other := TThread.CreateAnonymousThread(
+        procedure
+        begin
+          try
+            FContainer.Resolve<ILogger>;
+          except
+            on E: Exception do otherError := E.ClassName + ': ' + E.Message;
+          end;
+          resolved.SetEvent;
+        end);
+      other.FreeOnTerminate := False;
+      other.Start;
+      try
+        // the slow constructor is still held here: only the fast path can finish
+        Assert.IsTrue(resolved.WaitFor(5000) = wrSignaled,
+          'Resolving an existing singleton must not wait for another one being created');
+        Assert.AreEqual('', otherError, 'Resolving the existing singleton failed');
+      finally
+        TSlowSingleton.Release.SetEvent;
+        other.WaitFor;
+        other.Free;
+      end;
     finally
-      thread.WaitFor;
-      thread.Free;
+      TSlowSingleton.Release.SetEvent;
+      slow.WaitFor;
+      slow.Free;
     end;
     Assert.AreEqual('', FErrors[0], 'The slow resolution failed');
   finally
-    logger := nil;
+    resolved.Free;
     TSlowSingleton.Started.Free;
     TSlowSingleton.Started := nil;
+    TSlowSingleton.Release.Free;
+    TSlowSingleton.Release := nil;
   end;
+end;
+
+function TQuickIOCTests.StartPlainSingletonResolver(aIndex: Integer): TThread;
+begin
+  Result := TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        FInstances[aIndex] := FContainer.Resolve<TSlowPlainSingleton>;
+      except
+        on E: Exception do FErrors[aIndex] := E.ClassName + ': ' + E.Message;
+      end;
+    end);
+  Result.FreeOnTerminate := False;
+  Result.Start;
 end;
 
 { TBuildCountedLogger }
@@ -2013,6 +2215,278 @@ begin
     begin
       factory.New.Free;
     end, nil, 'A singleton factory must keep working after the scope it was first resolved in is freed');
+end;
+
+{ Coverage of paths changed by the fork }
+
+procedure TQuickIOCTests.Test_Singleton_ClassRegistration_ConcurrentFirstResolve_CreatesOnce;
+const
+  THREAD_COUNT = 8;
+var
+  resolvers: array[0..THREAD_COUNT - 1] of TThread;
+  i: Integer;
+begin
+  // class registrations have their own branch in the singleton lock
+  FContainer.RegisterInstance<TSlowPlainSingleton>.AsSingleton;
+  TSlowPlainSingleton.Created := 0;
+  SetLength(FInstances, THREAD_COUNT);
+  SetLength(FErrors, THREAD_COUNT);
+  for i := 0 to THREAD_COUNT - 1 do resolvers[i] := StartPlainSingletonResolver(i);
+  for i := 0 to THREAD_COUNT - 1 do
+  begin
+    resolvers[i].WaitFor;
+    resolvers[i].Free;
+  end;
+  // the singleton instance belongs to the container (TIocRegistrator.Destroy frees it)
+  for i := 0 to THREAD_COUNT - 1 do
+    Assert.AreEqual('', FErrors[i], 'Thread ' + IntToStr(i) + ' failed');
+  Assert.AreEqual(1, TSlowPlainSingleton.Created, 'Concurrent first resolutions of a class registration must create it once');
+  for i := 1 to THREAD_COUNT - 1 do
+    Assert.IsTrue(FInstances[i] = FInstances[0], 'All threads must get the same instance');
+end;
+
+procedure TQuickIOCTests.Test_Singleton_CreationFails_NextResolveRetries;
+var
+  done: TLightweightEvent;
+  resolver: TThread;
+  fromThread: TObject;
+  error: string;
+  signaled: Boolean;
+begin
+  FContainer.RegisterInstance<TFlakySingleton>.AsSingleton;
+  TFlakySingleton.Created := 0;
+  TFlakySingleton.FailNext := True;
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.Resolve<TFlakySingleton>;
+    end, EFlakyCreation, 'The constructor failure must reach the caller');
+  TFlakySingleton.FailNext := False;
+  fromThread := nil;
+  error := '';
+  done := TLightweightEvent.Create;
+  // from another thread: a singleton lock left held by the failure would block it
+  resolver := TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        fromThread := FContainer.Resolve<TFlakySingleton>;
+      except
+        on E: Exception do error := E.ClassName + ': ' + E.Message;
+      end;
+      done.SetEvent;
+    end);
+  resolver.FreeOnTerminate := False;
+  resolver.Start;
+  signaled := done.WaitFor(5000) = wrSignaled;
+  if signaled then
+  begin
+    resolver.WaitFor;
+    resolver.Free;
+    done.Free;
+  end; // not signaled: the thread is blocked on the lock and is left with the event
+  // the singleton instance belongs to the container (TIocRegistrator.Destroy frees it)
+  Assert.IsTrue(signaled, 'After a failed creation the singleton lock must be released: another thread could not resolve');
+  Assert.AreEqual('', error, 'The retry failed');
+  Assert.IsTrue(FContainer.Resolve<TFlakySingleton> = fromThread, 'The retry must create the singleton and keep it');
+  Assert.AreEqual(1, TFlakySingleton.Created, 'One successful creation');
+end;
+
+procedure TQuickIOCTests.Test_SimpleFactory_InjectedInSingleton_BoundToRoot;
+var
+  scope: TIocScope;
+  holder: IFactoryHolder;
+begin
+  // a singleton is built without a scope, so a factory it receives is bound to the root,
+  // even when the singleton is first resolved inside a scope
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterSimpleFactory<IUserService, TUserService>;
+  FContainer.RegisterType<IFactoryHolder, TFactoryHolder>.AsSingleton;
+  scope := FContainer.CreateScope;
+  try
+    holder := scope.Resolve<IFactoryHolder>;
+  finally
+    scope.Free;
+  end;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      holder.Factory.New;
+    end, nil, 'A factory injected into a singleton must keep working after the scope that first resolved it is freed');
+end;
+
+procedure TQuickIOCTests.Test_DelegateTo_Context_SingletonScopeIsNil;
+var
+  scope: TIocScope;
+  seen: TIocScope;
+  user: IUserService;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IUserService, TUserService>.AsSingleton.DelegateTo(
+    function(const aContext: TIocResolveContext): TUserService
+    begin
+      seen := aContext.Scope;
+      Result := TUserService.Create(aContext.Resolve<ILogger>);
+    end);
+  seen := nil;
+  scope := FContainer.CreateScope;
+  try
+    user := scope.Resolve<IUserService>;
+    Assert.IsNotNull(user, 'The delegate must build the singleton');
+    Assert.IsTrue(seen = nil, 'A singleton is built without a scope: the context scope must be nil');
+  finally
+    user := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_SimpleFactory_AsSingleton_SharesFactoryBoundToRoot;
+var
+  scope: TIocScope;
+  factory1, factory2: IFactory<IUserService>;
+begin
+  // RegisterSimpleFactory(...).AsSingleton gives back the original behavior: one factory, no scope
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterSimpleFactory<IUserService, TUserService>.AsSingleton;
+  scope := FContainer.CreateScope;
+  try
+    factory1 := scope.Resolve<IFactory<IUserService>>;
+  finally
+    scope.Free;
+  end;
+  factory2 := FContainer.Resolve<IFactory<IUserService>>;
+  Assert.AreSame(factory1, factory2, 'AsSingleton: one factory for the whole container');
+  Assert.WillNotRaise(
+    procedure
+    begin
+      factory1.New;
+    end, nil, 'The singleton factory is bound to the root: it must outlive the scope');
+end;
+
+procedure TQuickIOCTests.Test_DelegateTo_LastOneWins;
+var
+  used: string;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IUserService, TUserService>('contextThenPlain').AsTransient
+    .DelegateTo(
+      function(const aContext: TIocResolveContext): TUserService
+      begin
+        used := 'context';
+        Result := TUserService.Create(aContext.Resolve<ILogger>);
+      end)
+    .DelegateTo(
+      function: TUserService
+      begin
+        used := 'plain';
+        Result := TUserService.Create(nil);
+      end);
+  FContainer.RegisterType<IUserService, TUserService>('plainThenContext').AsTransient
+    .DelegateTo(
+      function: TUserService
+      begin
+        used := 'plain';
+        Result := TUserService.Create(nil);
+      end)
+    .DelegateTo(
+      function(const aContext: TIocResolveContext): TUserService
+      begin
+        used := 'context';
+        Result := TUserService.Create(aContext.Resolve<ILogger>);
+      end);
+  used := '';
+  FContainer.Resolve<IUserService>('contextThenPlain');
+  Assert.AreEqual('plain', used, 'The last DelegateTo must win: plain after context');
+  used := '';
+  FContainer.Resolve<IUserService>('plainThenContext');
+  Assert.AreEqual('context', used, 'The last DelegateTo must win: context after plain');
+end;
+
+procedure TQuickIOCTests.Test_Scope_AbstractFactory_WithClass_CreatesThatClass;
+var
+  scope: TIocScope;
+  user: TUserService;
+  logger: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  scope := FContainer.CreateScope;
+  try
+    user := scope.AbstractFactory<TUserService>(TUserServiceChild);
+    try
+      logger := scope.Resolve<ILogger>;
+      Assert.IsTrue(user is TUserServiceChild, 'AbstractFactory(aClass) must create aClass. Got ' + user.ClassName);
+      Assert.AreSame(logger, user.FLogger, 'AbstractFactory(aClass) of a scope uses that scope');
+    finally
+      user.Free;
+    end;
+  finally
+    logger := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_ReportsUnsatisfiableOwnConstructors;
+var
+  problems: TArray<string>;
+begin
+  FContainer.RegisterType<IInjService, TOwnUnsatisfiable>.AsTransient;
+  problems := FContainer.DiagnoseConstructors;
+  Assert.AreEqual(1, Integer(Length(problems)), 'One problem expected. Found: ' + string.Join(' | ', problems));
+  Assert.IsTrue(Pos('TOwnUnsatisfiable declares constructors but none is satisfiable; inherited TParentWithInit.Create()', problems[0]) > 0,
+    'The diagnostics must report that the inherited constructor would be used. Found: ' + problems[0]);
+end;
+
+procedure TQuickIOCTests.Test_DefaultRule_InheritedParameterlessConstructorRuns;
+var
+  svc: IInjService;
+begin
+  // TParentWithInit.Create and TObject.Create both have no parameters: the nearest one must run
+  FContainer.RegisterType<IInjService, TChildOfInit>.AsTransient;
+  svc := FContainer.Resolve<IInjService>;
+  Assert.IsTrue(TChildOfInit(svc as TObject).FInitialized,
+    'The inherited TParentWithInit.Create must run, not TObject.Create');
+end;
+
+procedure TQuickIOCTests.Test_ResolveAll_WithName_ReturnsOnlyThatName;
+var
+  loggers: TList<ILogger>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<ILogger, TConsoleLogger>('files').AsTransient;
+  FContainer.RegisterType<ILogger, TFileLogger>('files').AsTransient;
+  loggers := FContainer.ResolveAll<ILogger>('files');
+  try
+    Assert.AreEqual<Integer>(2, loggers.Count, 'Only the registrations with that name');
+    Assert.IsTrue((loggers[0] as TObject) is TConsoleLogger, 'First named registration: TConsoleLogger');
+    Assert.IsTrue((loggers[1] as TObject) is TFileLogger, 'Second named registration: TFileLogger');
+  finally
+    loggers.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_ResolveAll_ClassType_KeepsEachLifetime;
+var
+  first, second: TList<TPlainThing>;
+  objects: TArray<Pointer>;
+  thing: TPlainThing;
+begin
+  FContainer.RegisterInstance<TPlainThing>.AsSingleton;
+  FContainer.RegisterInstance<TPlainThing>.AsTransient;
+  first := FContainer.ResolveAll<TPlainThing>;
+  second := FContainer.ResolveAll<TPlainThing>;
+  try
+    Assert.AreEqual<Integer>(2, first.Count, 'One object per class registration');
+    Assert.IsTrue(first[0] = second[0], 'Singleton class registration: the same object every time');
+    Assert.IsTrue(first[1] <> second[1], 'Transient class registration: a new object every time');
+  finally
+    // transient class instances belong to the caller; the singleton one to the container
+    objects := nil;
+    if first.Count > 1 then objects := objects + [Pointer(first[1])];
+    if second.Count > 1 then objects := objects + [Pointer(second[1])];
+    FreeDistinct(objects);
+    first.Free;
+    second.Free;
+  end;
 end;
 
 initialization
