@@ -220,8 +220,9 @@ type
 
   /// <summary>A resolution scope (e.g. one per HTTP request). Services registered AsScoped
   /// are created once per scope and released when the scope is freed, in reverse order of
-  /// creation. Singletons and transients behave as usual. A scope is not thread-safe: use it
-  /// from one thread at a time.</summary>
+  /// creation; if a destructor raises, the others are still released and the first exception
+  /// is raised again by Free. Singletons and transients behave as usual. A scope is not
+  /// thread-safe: use it from one thread at a time.</summary>
   TIocScope = class
   private
     fResolver : TIocResolver;
@@ -1559,21 +1560,40 @@ end;
 destructor TIocScope.Destroy;
 var
   i : Integer;
+  firstError : TObject;
 begin
   //first of all: factories and contexts bound to this scope stop using it, even from the
   //destructors of the instances released below
   TIocScopeLifetime(fLifetime as TObject).fAlive := False;
+  //a destructor that raises must not stop the release of the others: the first exception is
+  //kept and raised again once everything is released
+  firstError := nil;
   //release in reverse order of creation: dependents go before their dependencies
   fInterfaces.Clear;
-  for i := fCreated.Count - 1 downto 0 do fCreated[i] := nil;
+  for i := fCreated.Count - 1 downto 0 do
+  begin
+    try
+      fCreated[i] := nil;
+    except
+      if firstError = nil then firstError := TObject(AcquireExceptionObject);
+    end;
+  end;
   fCreated.Free;
   fInterfaces.Free;
   //class (non-interface) scoped instances are owned by the scope
   fObjects.Clear;
-  for i := fCreatedObjects.Count - 1 downto 0 do fCreatedObjects[i].Free;
+  for i := fCreatedObjects.Count - 1 downto 0 do
+  begin
+    try
+      fCreatedObjects[i].Free;
+    except
+      if firstError = nil then firstError := TObject(AcquireExceptionObject);
+    end;
+  end;
   fCreatedObjects.Free;
   fObjects.Free;
   inherited;
+  if firstError <> nil then raise firstError;
 end;
 
 function TIocScope.GetOrCreate(aReg: TIocRegistration; aServiceType: PTypeInfo): TValue;
