@@ -437,6 +437,15 @@ type
     procedure Test_TypedFactory_AsSingleton_SharesFactory;
     [Test]
     procedure Test_TypedFactory_AsSingleton_NotBoundToFirstScope;
+    { Scope lifetime in factories and resolve context }
+    [Test]
+    procedure Test_SimpleFactory_UsedAfterScopeFreed_RaisesScopeError;
+    [Test]
+    procedure Test_TypedFactory_UsedAfterScopeFreed_RaisesScopeError;
+    [Test]
+    procedure Test_DelegateTo_ContextKeptAfterScopeFreed_RaisesScopeError;
+    [Test]
+    procedure Test_TypedFactory_AsSingleton_UsableAfterScopeFreed;
   end;
 
 implementation
@@ -1807,6 +1816,99 @@ begin
     begin
       factory.New;
     end, EIocScopeError, 'A singleton factory is bound to the root, not to the scope it was first resolved in');
+end;
+
+{ Scope lifetime in factories and resolve context }
+
+procedure TQuickIOCTests.Test_SimpleFactory_UsedAfterScopeFreed_RaisesScopeError;
+var
+  scope: TIocScope;
+  factory: IFactory<IUserService>;
+begin
+  // transient dependencies only: the freed scope is passed along but never touched, so the
+  // factory works on a dead scope without noticing (a scoped dependency would read freed memory)
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterSimpleFactory<IUserService, TUserService>;
+  scope := FContainer.CreateScope;
+  try
+    factory := scope.Resolve<IFactory<IUserService>>;
+  finally
+    scope.Free;
+  end;
+  Assert.WillRaise(
+    procedure
+    begin
+      factory.New;
+    end, EIocScopeError, 'A factory used after its scope was freed must raise EIocScopeError');
+end;
+
+procedure TQuickIOCTests.Test_TypedFactory_UsedAfterScopeFreed_RaisesScopeError;
+var
+  scope: TIocScope;
+  factory: IFactory<TUserService>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterTypedFactory<IFactory<TUserService>, TUserService>;
+  scope := FContainer.CreateScope;
+  try
+    factory := scope.Resolve<IFactory<TUserService>>;
+  finally
+    scope.Free;
+  end;
+  Assert.WillRaise(
+    procedure
+    begin
+      factory.New.Free;
+    end, EIocScopeError, 'A typed factory used after its scope was freed must raise EIocScopeError');
+end;
+
+procedure TQuickIOCTests.Test_DelegateTo_ContextKeptAfterScopeFreed_RaisesScopeError;
+var
+  scope: TIocScope;
+  kept: TIocResolveContext;
+  user: IUserService;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IUserService, TUserService>.AsTransient.DelegateTo(
+    function(const aContext: TIocResolveContext): TUserService
+    begin
+      kept := aContext;
+      Result := TUserService.Create(aContext.Resolve<ILogger>);
+    end);
+  scope := FContainer.CreateScope;
+  try
+    user := scope.Resolve<IUserService>;
+  finally
+    user := nil;
+    scope.Free;
+  end;
+  Assert.WillRaise(
+    procedure
+    begin
+      kept.Resolve<ILogger>;
+    end, EIocScopeError, 'A context kept beyond the delegate call must not resolve in its freed scope');
+end;
+
+procedure TQuickIOCTests.Test_TypedFactory_AsSingleton_UsableAfterScopeFreed;
+var
+  scope: TIocScope;
+  factory: IFactory<TUserService>;
+begin
+  // a singleton factory is bound to the root: freeing the scope it was first resolved in
+  // must not affect it
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterTypedFactory<IFactory<TUserService>, TUserService>.AsSingleton;
+  scope := FContainer.CreateScope;
+  try
+    factory := scope.Resolve<IFactory<TUserService>>;
+  finally
+    scope.Free;
+  end;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      factory.New.Free;
+    end, nil, 'A singleton factory must keep working after the scope it was first resolved in is freed');
 end;
 
 initialization

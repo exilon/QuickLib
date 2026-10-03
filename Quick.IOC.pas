@@ -50,13 +50,23 @@ type
   TIocResolver = class;
   TIocScope = class;
 
+  /// <summary>Tells whether a TIocScope is still alive. What is bound to a scope and may outlive
+  /// it (a factory, a kept TIocResolveContext) holds a reference and checks it before using the
+  /// scope. It detects use after the scope is freed; it does not make a scope thread-safe.</summary>
+  IIocScopeLifetime = interface
+  ['{E005B6AD-5896-4A27-9ABD-BFA595420BF1}']
+    function IsAlive : Boolean;
+  end;
+
   /// <summary>What a DelegateTo delegate receives: resolves dependencies in the same scope as
   /// the service being built. Scope is nil when it is built outside a scope (from the root
-  /// container, or as a singleton).</summary>
+  /// container, or as a singleton). Use it during the delegate call only: kept and used after
+  /// its scope is freed, Resolve raises EIocScopeError (Scope itself is a plain reference).</summary>
   TIocResolveContext = record
   private
     fResolver : TIocResolver;
     fScope : TIocScope;
+    fLifetime : IIocScopeLifetime;
   public
     constructor Create(aResolver : TIocResolver; aScope : TIocScope);
     function Resolve<T>(const aName : string = '') : T;
@@ -211,6 +221,7 @@ type
   TIocScope = class
   private
     fResolver : TIocResolver;
+    fLifetime : IIocScopeLifetime;
     fInterfaces : TDictionary<TIocRegistration, IInterface>;
     fObjects : TDictionary<TIocRegistration, TObject>;
     fCreated : TList<IInterface>;
@@ -262,12 +273,13 @@ type
   end;
 
   /// <summary>Creates instances with constructor injection. aScope is the scope used for the
-  /// dependencies of what it creates (nil = root); a factory bound to a scope must not be used
-  /// after that scope is freed.</summary>
+  /// dependencies of what it creates (nil = root); a factory bound to a scope raises
+  /// EIocScopeError if it is used after that scope is freed.</summary>
   TSimpleFactory<T : class, constructor> = class(TInterfacedObject,IFactory<T>)
   private
     fResolver : TIocResolver;
     fScope : TIocScope;
+    fLifetime : IIocScopeLifetime;
   public
     constructor Create(aResolver : TIocResolver; aScope : TIocScope = nil);
     function New : T;
@@ -277,6 +289,7 @@ type
   private
     fResolver : TIocResolver;
     fScope : TIocScope;
+    fLifetime : IIocScopeLifetime;
   public
     constructor Create(aResolver : TIocResolver; aScope : TIocScope = nil);
     function New : TInterface;
@@ -376,6 +389,27 @@ type
 
 implementation
 
+type
+  TIocScopeLifetime = class(TInterfacedObject,IIocScopeLifetime)
+  private
+    fAlive : Boolean;
+  public
+    constructor Create;
+    function IsAlive : Boolean;
+  end;
+
+{ TIocScopeLifetime }
+
+constructor TIocScopeLifetime.Create;
+begin
+  fAlive := True;
+end;
+
+function TIocScopeLifetime.IsAlive: Boolean;
+begin
+  Result := fAlive;
+end;
+
 function GlobalContainer: TIocContainer;
 begin
   Result := TIocContainer.GlobalInstance;
@@ -392,10 +426,14 @@ constructor TIocResolveContext.Create(aResolver: TIocResolver; aScope: TIocScope
 begin
   fResolver := aResolver;
   fScope := aScope;
+  if aScope <> nil then fLifetime := aScope.fLifetime
+    else fLifetime := nil;
 end;
 
 function TIocResolveContext.Resolve<T>(const aName: string): T;
 begin
+  if (fLifetime <> nil) and not fLifetime.IsAlive then
+    raise EIocScopeError.Create('The scope of this TIocResolveContext has been freed: use the context during the delegate call only.');
   Result := fResolver.Resolve(TypeInfo(T),aName,fScope).AsType<T>;
 end;
 
@@ -1371,6 +1409,7 @@ end;
 constructor TIocScope.Create(aResolver: TIocResolver);
 begin
   fResolver := aResolver;
+  fLifetime := TIocScopeLifetime.Create;
   fInterfaces := TDictionary<TIocRegistration, IInterface>.Create;
   fObjects := TDictionary<TIocRegistration, TObject>.Create;
   fCreated := TList<IInterface>.Create;
@@ -1381,6 +1420,9 @@ destructor TIocScope.Destroy;
 var
   i : Integer;
 begin
+  //first of all: factories and contexts bound to this scope stop using it, even from the
+  //destructors of the instances released below
+  TIocScopeLifetime(fLifetime as TObject).fAlive := False;
   //release in reverse order of creation: dependents go before their dependencies
   fInterfaces.Clear;
   for i := fCreated.Count - 1 downto 0 do fCreated[i] := nil;
@@ -1537,10 +1579,15 @@ constructor TSimpleFactory<T>.Create(aResolver: TIocResolver; aScope: TIocScope 
 begin
   fResolver := aResolver;
   fScope := aScope;
+  //reference counted: outlives the scope, so New can tell it was freed
+  if aScope <> nil then fLifetime := aScope.fLifetime;
 end;
 
 function TSimpleFactory<T>.New: T;
 begin
+  if (fLifetime <> nil) and not fLifetime.IsAlive then
+    raise EIocScopeError.Create('The scope this factory was resolved in has been freed. A factory bound to a scope ' +
+      'cannot be used after the scope ends; register it AsSingleton to use it beyond the scope.');
   Result := fResolver.CreateInstance(TClass(T),fScope).AsType<T>;
 end;
 
@@ -1550,10 +1597,14 @@ constructor TSimpleFactory<TInterface, TImplementation>.Create(aResolver: TIocRe
 begin
   fResolver := aResolver;
   fScope := aScope;
+  if aScope <> nil then fLifetime := aScope.fLifetime;
 end;
 
 function TSimpleFactory<TInterface, TImplementation>.New: TInterface;
 begin
+  if (fLifetime <> nil) and not fLifetime.IsAlive then
+    raise EIocScopeError.Create('The scope this factory was resolved in has been freed. A factory bound to a scope ' +
+      'cannot be used after the scope ends; register it AsSingleton to use it beyond the scope.');
   Result := fResolver.CreateInstance(TClass(TImplementation),fScope).AsType<TInterface>;
 end;
 
