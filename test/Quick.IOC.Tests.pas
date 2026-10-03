@@ -354,6 +354,54 @@ type
   // plain class for ResolveAll with a class type
   TPlainThing = class(TObject);
 
+  // dependency cycle: TCycleA needs ICycleB, TCycleB needs ICycleA
+  ICycleA = interface
+  ['{ACBA9127-180D-4ADA-AFC2-512DF25E57CB}']
+  end;
+
+  ICycleB = interface
+  ['{2ECF492B-3B68-411E-B26E-BFC1C3DCBEAF}']
+  end;
+
+  TCycleA = class(TInterfacedObject, ICycleA)
+  public
+    constructor Create(b: ICycleB);
+  end;
+
+  TCycleB = class(TInterfacedObject, ICycleB)
+  public
+    constructor Create(a: ICycleA);
+  end;
+
+  EExplodingDestroy = class(Exception);
+
+  // scoped instance whose destructor raises
+  IExploding = interface
+  ['{DBAB5F9B-3540-4C65-85D4-946B544F4945}']
+  end;
+
+  TExplodingOnDestroy = class(TInterfacedObject, IExploding)
+  public
+    destructor Destroy; override;
+  end;
+
+  // singleton whose destructor uses a factory: it runs while the container is being destroyed
+  IUsesFactoryOnDestroy = interface
+  ['{30E2F7AE-C280-4AAF-8C04-B3715EA3C173}']
+  end;
+
+  TUsesFactoryOnDestroy = class(TInterfacedObject, IUsesFactoryOnDestroy)
+  private class var
+    FOutcome: string;
+  private
+    FFactory: IFactory<IUserService>;
+  public
+    constructor Create(factory: IFactory<IUserService>);
+    destructor Destroy; override;
+    // 'ok', or the exception raised by the factory in the destructor
+    class property Outcome: string read FOutcome write FOutcome;
+  end;
+
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
   private class var
@@ -382,6 +430,7 @@ type
     FErrors: TArray<string>;
     function StartSlowResolver(aIndex: Integer): TThread;
     function StartPlainSingletonResolver(aIndex: Integer): TThread;
+    function ResolveCycleInThread(aInScope: Boolean): string;
   public
     [Setup]
     procedure SetUp;
@@ -509,7 +558,7 @@ type
     [Test]
     procedure Test_Owned_ResolveAll_EachRegistration;
     [Test]
-    procedure Test_Owned_TargetRemoved_ResolvesLastRegistration;
+    procedure Test_Owned_TargetRemoved_NotRegistered;
     { Scope in DelegateTo and factories }
     [Test]
     procedure Test_DelegateTo_Context_ResolvesFromCurrentScope;
@@ -562,6 +611,21 @@ type
     procedure Test_ResolveAll_WithName_ReturnsOnlyThatName;
     [Test]
     procedure Test_ResolveAll_ClassType_KeepsEachLifetime;
+    { Pending items of the first review }
+    [Test]
+    procedure Test_Owned_RemoveRegistrations_RemovesItsOwned;
+    [Test]
+    procedure Test_Owned_RemoveAndRegisterAgain_OneOwnedPerRegistration;
+    [Test]
+    procedure Test_Exceptions_ShareEIocErrorBase;
+    [Test]
+    procedure Test_Cycle_Transient_RaisesCycleError;
+    [Test]
+    procedure Test_Cycle_Scoped_RaisesCycleError;
+    [Test]
+    procedure Test_Scope_Free_ReleasesAllEvenIfOneDestructorRaises;
+    [Test]
+    procedure Test_Container_Free_ReleasesSingletonsBeforeResolver;
   end;
 
 implementation
@@ -1697,6 +1761,51 @@ begin
   inherited Create;
 end;
 
+{ TCycleA }
+
+constructor TCycleA.Create(b: ICycleB);
+begin
+  inherited Create;
+end;
+
+{ TCycleB }
+
+constructor TCycleB.Create(a: ICycleA);
+begin
+  inherited Create;
+end;
+
+{ TExplodingOnDestroy }
+
+destructor TExplodingOnDestroy.Destroy;
+begin
+  inherited;
+  raise EExplodingDestroy.Create('Simulated failure in a scoped destructor');
+end;
+
+{ TUsesFactoryOnDestroy }
+
+constructor TUsesFactoryOnDestroy.Create(factory: IFactory<IUserService>);
+begin
+  inherited Create;
+  FFactory := factory;
+end;
+
+destructor TUsesFactoryOnDestroy.Destroy;
+var
+  user: IUserService;
+begin
+  try
+    user := FFactory.New;
+    user := nil;
+    FOutcome := 'ok';
+  except
+    on E: Exception do FOutcome := E.ClassName + ': ' + E.Message;
+  end;
+  FFactory := nil;
+  inherited;
+end;
+
 // transient class instances (RegisterInstance<T>) belong to the caller: free each distinct one
 procedure FreeDistinct(const aObjects: TArray<Pointer>);
 var
@@ -1918,18 +2027,18 @@ begin
   end;
 end;
 
-procedure TQuickIOCTests.Test_Owned_TargetRemoved_ResolvesLastRegistration;
-var
-  owned: IOwned<ILogger>;
+procedure TQuickIOCTests.Test_Owned_TargetRemoved_NotRegistered;
 begin
-  // the IOwned keeps the registration it was created with; RemoveRegistrations frees it,
-  // so the IOwned must fall back to the last registration of the key (no access violation)
+  // the IOwned is removed with its target; the registrator's RegisterType does not register a
+  // new IOwned (only TIocContainer.RegisterType does), so IOwned<ILogger> no longer exists
   FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
   FContainer.Registrator.RemoveRegistrations(FContainer.Registrator.GetKey(TypeInfo(ILogger)));
   FContainer.Registrator.RegisterType<ILogger, TFileLogger>.AsTransient;
-  owned := FContainer.Resolve<IOwned<ILogger>>;
-  Assert.IsTrue((owned.Value as TObject) is TFileLogger,
-    'IOwned whose registration was removed must resolve the current one. Got ' + (owned.Value as TObject).ClassName);
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.Resolve<IOwned<ILogger>>;
+    end, EIocResolverError, 'An IOwned whose target was removed must be removed too');
 end;
 
 { Scope in DelegateTo and factories }
@@ -2487,6 +2596,150 @@ begin
     first.Free;
     second.Free;
   end;
+end;
+
+{ Pending items of the first review }
+
+procedure TQuickIOCTests.Test_Owned_RemoveRegistrations_RemovesItsOwned;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<ILogger, TFileLogger>.AsTransient;
+  FContainer.Registrator.RemoveRegistrations(FContainer.Registrator.GetKey(TypeInfo(ILogger)));
+  Assert.IsFalse(FContainer.IsRegistered<IOwned<ILogger>>(''),
+    'Removing the registrations of ILogger must remove their IOwned<ILogger> too');
+end;
+
+procedure TQuickIOCTests.Test_Owned_RemoveAndRegisterAgain_OneOwnedPerRegistration;
+var
+  owned: TList<IOwned<ILogger>>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.Registrator.RemoveRegistrations(FContainer.Registrator.GetKey(TypeInfo(ILogger)));
+  FContainer.RegisterType<ILogger, TFileLogger>.AsTransient;
+  owned := FContainer.ResolveAll<IOwned<ILogger>>();
+  try
+    Assert.AreEqual<Integer>(1, owned.Count, 'Only the IOwned of the current registration');
+    Assert.IsTrue((owned[0].Value as TObject) is TFileLogger, 'It must wrap the current registration');
+  finally
+    owned.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Exceptions_ShareEIocErrorBase;
+begin
+  Assert.IsTrue(EIocRegisterError.InheritsFrom(EIocError), 'EIocRegisterError must descend from EIocError');
+  Assert.IsTrue(EIocResolverError.InheritsFrom(EIocError), 'EIocResolverError must descend from EIocError');
+  Assert.IsTrue(EIocBuildError.InheritsFrom(EIocError), 'EIocBuildError must descend from EIocError');
+  Assert.IsTrue(EIocScopeError.InheritsFrom(EIocError), 'EIocScopeError must descend from EIocError');
+  Assert.IsTrue(EIocCycleError.InheritsFrom(EIocError), 'EIocCycleError must descend from EIocError');
+  Assert.IsTrue(EIocInjectError.InheritsFrom(EIocResolverError), 'EIocInjectError must stay an EIocResolverError');
+  // constructor selection swallows EIocResolverError to try another constructor: these must not be one
+  Assert.IsFalse(EIocScopeError.InheritsFrom(EIocResolverError), 'EIocScopeError must stay out of EIocResolverError');
+  Assert.IsFalse(EIocCycleError.InheritsFrom(EIocResolverError), 'EIocCycleError must stay out of EIocResolverError');
+end;
+
+function TQuickIOCTests.ResolveCycleInThread(aInScope: Boolean): string;
+var
+  error: string;
+  worker: TThread;
+begin
+  // in a thread of its own: without cycle detection the recursion ends in a stack overflow,
+  // which must not take the whole test run down
+  error := '';
+  worker := TThread.CreateAnonymousThread(
+    procedure
+    var
+      scope: TIocScope;
+    begin
+      try
+        if aInScope then
+        begin
+          scope := FContainer.CreateScope;
+          try
+            scope.Resolve<ICycleA>;
+          finally
+            scope.Free;
+          end;
+        end
+        else FContainer.Resolve<ICycleA>;
+      except
+        on E: Exception do error := E.ClassName + ': ' + E.Message;
+      end;
+    end);
+  worker.FreeOnTerminate := False;
+  worker.Start;
+  worker.WaitFor;
+  worker.Free;
+  Result := error;
+end;
+
+procedure TQuickIOCTests.Test_Cycle_Transient_RaisesCycleError;
+var
+  error: string;
+begin
+  FContainer.RegisterType<ICycleA, TCycleA>.AsTransient;
+  FContainer.RegisterType<ICycleB, TCycleB>.AsTransient;
+  error := ResolveCycleInThread(False);
+  Assert.IsTrue(error.StartsWith('EIocCycleError:'), 'A dependency cycle must raise EIocCycleError. Got: ' + error);
+  Assert.IsTrue(Pos('TCycleA -> TCycleB -> TCycleA', error) > 0, 'The message must show the cycle. Got: ' + error);
+end;
+
+procedure TQuickIOCTests.Test_Cycle_Scoped_RaisesCycleError;
+var
+  error: string;
+begin
+  FContainer.RegisterType<ICycleA, TCycleA>.AsScoped;
+  FContainer.RegisterType<ICycleB, TCycleB>.AsScoped;
+  error := ResolveCycleInThread(True);
+  Assert.IsTrue(error.StartsWith('EIocCycleError:'), 'A dependency cycle between scoped services must raise EIocCycleError. Got: ' + error);
+  Assert.IsTrue(Pos('TCycleA -> TCycleB -> TCycleA', error) > 0, 'The message must show the cycle. Got: ' + error);
+end;
+
+procedure TQuickIOCTests.Test_Scope_Free_ReleasesAllEvenIfOneDestructorRaises;
+var
+  scope: TIocScope;
+  logger: ILogger;
+  exploding: IExploding;
+  raised: string;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  FContainer.RegisterType<IExploding, TExplodingOnDestroy>.AsScoped;
+  TTrackedLogger.Destroyed := 0;
+  scope := FContainer.CreateScope;
+  logger := scope.Resolve<ILogger>;          // created first, released last
+  exploding := scope.Resolve<IExploding>;    // released first: its destructor raises
+  logger := nil;
+  exploding := nil;
+  raised := '';
+  try
+    scope.Free;
+  except
+    on E: Exception do raised := E.ClassName;
+  end;
+  Assert.AreEqual(1, TTrackedLogger.Destroyed, 'Every scoped instance must be released even if a destructor raises');
+  Assert.AreEqual('EExplodingDestroy', raised, 'The destructor failure must reach the caller');
+end;
+
+procedure TQuickIOCTests.Test_Container_Free_ReleasesSingletonsBeforeResolver;
+var
+  container: TIocContainer;
+  singleton: IUsesFactoryOnDestroy;
+begin
+  // a container of its own, freed here: the singleton released by its destructor uses a
+  // factory, i.e. the resolver, in its own destructor
+  container := TIocContainer.Create;
+  try
+    container.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+    container.RegisterSimpleFactory<IUserService, TUserService>;
+    container.RegisterType<IUsesFactoryOnDestroy, TUsesFactoryOnDestroy>.AsSingleton;
+    singleton := container.Resolve<IUsesFactoryOnDestroy>;
+    singleton := nil;
+    TUsesFactoryOnDestroy.Outcome := '';
+  finally
+    container.Free;
+  end;
+  Assert.AreEqual('ok', TUsesFactoryOnDestroy.Outcome,
+    'A singleton released by the container must still be able to use it in its destructor');
 end;
 
 initialization

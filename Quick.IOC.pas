@@ -86,6 +86,8 @@ type
     fImplementation : TClass;
     fActivatorDelegate : TActivatorDelegate<TValue>;
     fContextActivatorDelegate : TContextActivatorDelegate<TValue>;
+    //IOwned<T> registrations: the registration of T they wrap, removed together with it
+    fOwnedTarget : TIocRegistration;
   public
     constructor Create(const aName : string);
     property Name : string read fName;
@@ -156,7 +158,8 @@ type
     function RegisterInstance<T : class>(const aName : string = '') : TIocRegistration<T>; overload;
     function RegisterInstance<TInterface : IInterface>(aInstance : TInterface; const aName : string = '') : TIocRegistration; overload;
     function RegisterOptions<T : TOptions>(aOptions : T) : TIocRegistration<T>;
-    /// <summary>Remove all registrations for the given key. Frees existing registration objects.</summary>
+    /// <summary>Remove all registrations for the given key. Frees existing registration objects,
+    /// and the IOwned&lt;T&gt; registered with each of them.</summary>
     function RemoveRegistrations(const aKey: string): Boolean;
   end;
 
@@ -260,6 +263,9 @@ type
   /// IOwned&lt;T&gt; is registered automatically by RegisterType&lt;T,TImplementation&gt;.</summary>
   IOwned<T> = interface
   ['{3B0E6F52-9C1D-4A7E-8B25-D4F1A0C6E913}']
+    //every instantiation of a generic interface shares this GUID, so Supports cannot tell
+    //IOwned<IA> from IOwned<IB>: resolve it by type. The GUID is still needed, BuildValue gets
+    //the resolved interface through QueryInterface
     function Value : T;
   end;
 
@@ -385,6 +391,7 @@ type
   Inject = class(TCustomAttribute)
   end;
 
+  EIocError = class(Exception);
   EIocRegisterError = class(Exception);
   EIocResolverError = class(Exception);
   EIocBuildError = class(Exception);
@@ -397,6 +404,7 @@ type
   /// it instead of swallowing it: a consumer must not fall back to another constructor and be
   /// built with that dependency nil.</summary>
   EIocInjectError = class(EIocResolverError);
+  EIocCycleError = class(EIocError);
 
   //singleton global instance
   function GlobalContainer : TIocContainer;
@@ -620,33 +628,26 @@ procedure TIocContainer.RegisterOwned<T>(aTarget : TIocRegistration; const aName
 var
   container : TIocContainer;
   target : TIocRegistration;
-  key : string;
-  regName : string;
+  reg : TIocRegistration;
 begin
   container := Self;
   target := aTarget;
-  key := fRegistrator.GetKey(TypeInfo(T),aName);
-  regName := aName;
   //transient: every consumer gets its own scope. Registered through the non-generic
   //RegisterType so it does not recurse into RegisterOwned<IOwned<T>>
-  fRegistrator.RegisterType(TypeInfo(IOwned<T>),TOwned<T>,aName).ActivatorDelegate :=
+  reg := fRegistrator.RegisterType(TypeInfo(IOwned<T>),TOwned<T>,aName);
+  //RemoveRegistrations removes it together with its target, so the target is always alive here
+  reg.fOwnedTarget := aTarget;
+  reg.ActivatorDelegate :=
     function : TValue
     var
-      regList : TObjectList<TIocRegistration>;
       scope : TIocScope;
-      value : TValue;
       owned : IOwned<T>;
     begin
       //independent scope: it does not see the consumer's scoped instances, only singletons
       scope := container.CreateScope;
       try
-        //the registration this IOwned was created with, so ResolveAll<IOwned<T>> wraps each one.
-        //Compared by address only: Registrator.RemoveRegistrations may have freed it, and then
-        //the last registration of the key is used, as before
-        if container.fRegistrator.Dependencies.TryGetValue(key,regList) and regList.Contains(target) then
-          value := container.fResolver.ResolveRegistration(target,TypeInfo(T),scope)
-        else value := scope.Resolve(TypeInfo(T),regName);
-        owned := TOwned<T>.Create(scope,value.AsType<T>);
+        //the registration this IOwned was created with, so ResolveAll<IOwned<T>> wraps each one
+        owned := TOwned<T>.Create(scope,container.fResolver.ResolveRegistration(target,TypeInfo(T),scope).AsType<T>);
       except
         scope.Free;
         raise;
@@ -827,12 +828,38 @@ end;
 function TIocRegistrator.RemoveRegistrations(const aKey: string): Boolean;
 var
   regList : TObjectList<TIocRegistration>;
+  ownerList : TObjectList<TIocRegistration>;
   reg     : TIocRegistration;
   idx     : Integer;
+  entry   : TPair<string, TObjectList<TIocRegistration>>;
+  owned   : TList<TPair<string, TIocRegistration>>;
+  item    : TPair<string, TIocRegistration>;
 begin
   Result := fDependencies.TryGetValue(aKey, regList);
   if Result then
   begin
+    //the IOwned<T> registered with each of these registrations goes with it
+    owned := TList<TPair<string, TIocRegistration>>.Create;
+    try
+      for entry in fDependencies do
+        for reg in entry.Value do
+          if (reg.fOwnedTarget <> nil) and regList.Contains(reg.fOwnedTarget) then
+            owned.Add(TPair<string, TIocRegistration>.Create(entry.Key,reg));
+      for item in owned do
+      begin
+        idx := fDependencyOrder.IndexOf(item.Value);
+        if idx >= 0 then fDependencyOrder.Delete(idx);
+        ownerList := fDependencies[item.Key];
+        ownerList.Remove(item.Value); //OwnsObjects: frees the registration
+        if ownerList.Count = 0 then
+        begin
+          fDependencies.Remove(item.Key);
+          ownerList.Free;
+        end;
+      end;
+    finally
+      owned.Free;
+    end;
     // Remove registration references from the dependency-order list (does not own them)
     for reg in regList do
     begin
