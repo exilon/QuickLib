@@ -174,6 +174,55 @@ type
     function E: IGraphE;
   end;
 
+  // [Inject] and constructor diagnostics
+  IInjService = interface
+  ['{6E2B9D41-3A7C-4F05-B8E1-C4D0A2F7B396}']
+    function Logger: ILogger;
+  end;
+
+  // default rule would pick the parameterless constructor; [Inject] picks the other one
+  TInjMarked = class(TInterfacedObject, IInjService)
+  private
+    FLogger: ILogger;
+  public
+    constructor Create; overload;
+    [Inject]
+    constructor Create(logger: ILogger); overload;
+    function Logger: ILogger;
+  end;
+
+  TInjBase = class(TInterfacedObject, IInjService)
+  private
+    FLogger: ILogger;
+  public
+    [Inject]
+    constructor Create(logger: ILogger);
+    function Logger: ILogger;
+  end;
+
+  // no constructor of its own: inherits the [Inject] one
+  TInjDerived = class(TInjBase);
+
+  TNoInjBase = class(TInterfacedObject, IInjService)
+  private
+    FLogger: ILogger;
+  public
+    constructor Create(logger: ILogger);
+    function Logger: ILogger;
+  end;
+
+  // no constructor of its own and no [Inject]: the default rule picks TObject.Create
+  TNoInjDerived = class(TNoInjBase);
+
+  TInjTwoMarked = class(TInterfacedObject, IInjService)
+  public
+    [Inject]
+    constructor Create; overload;
+    [Inject]
+    constructor Create(logger: ILogger); overload;
+    function Logger: ILogger;
+  end;
+
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
   private class var
@@ -272,6 +321,25 @@ type
     procedure Test_Owned_Release_FreesItsScopedInstances;
     [Test]
     procedure Test_Owned_ResolvedFromRoot_OpensItsOwnScope;
+    { [Inject] and constructor diagnostics }
+    [Test]
+    procedure Test_Inject_UsesMarkedConstructor;
+    [Test]
+    procedure Test_Inject_InheritedMarkedConstructorIsUsed;
+    [Test]
+    procedure Test_Inject_Unsatisfiable_RaisesInsteadOfFallback;
+    [Test]
+    procedure Test_Inject_MoreThanOneMarked_RaisesRegisterError;
+    [Test]
+    procedure Test_NoInject_KeepsDefaultRule;
+    [Test]
+    procedure Test_Build_ValidateConstructors_ReportsTObjectFallback;
+    [Test]
+    procedure Test_Build_ValidateConstructors_ReportsUnsatisfiableInject;
+    [Test]
+    procedure Test_Build_ValidateConstructorsOffByDefault;
+    [Test]
+    procedure Test_DiagnoseConstructors_CleanRegistrations;
   end;
 
 implementation
@@ -972,6 +1040,167 @@ begin
   finally
     owned := nil;
   end;
+end;
+
+{ [Inject] test classes }
+
+constructor TInjMarked.Create;
+begin
+end;
+
+constructor TInjMarked.Create(logger: ILogger);
+begin
+  FLogger := logger;
+end;
+
+function TInjMarked.Logger: ILogger;
+begin
+  Result := FLogger;
+end;
+
+constructor TInjBase.Create(logger: ILogger);
+begin
+  FLogger := logger;
+end;
+
+function TInjBase.Logger: ILogger;
+begin
+  Result := FLogger;
+end;
+
+constructor TNoInjBase.Create(logger: ILogger);
+begin
+  FLogger := logger;
+end;
+
+function TNoInjBase.Logger: ILogger;
+begin
+  Result := FLogger;
+end;
+
+constructor TInjTwoMarked.Create;
+begin
+end;
+
+constructor TInjTwoMarked.Create(logger: ILogger);
+begin
+end;
+
+function TInjTwoMarked.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
+{ [Inject] and constructor diagnostics }
+
+procedure TQuickIOCTests.Test_Inject_UsesMarkedConstructor;
+var
+  svc: IInjService;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TInjMarked>.AsTransient;
+  svc := FContainer.Resolve<IInjService>;
+  Assert.IsNotNull(svc.Logger, 'The [Inject] constructor must be used instead of the parameterless one');
+end;
+
+procedure TQuickIOCTests.Test_Inject_InheritedMarkedConstructorIsUsed;
+var
+  svc: IInjService;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TInjDerived>.AsTransient;
+  svc := FContainer.Resolve<IInjService>;
+  Assert.IsTrue((svc as TObject) is TInjDerived, 'The registered class must be the one created');
+  Assert.IsNotNull(svc.Logger, 'The inherited [Inject] constructor must be used, not TObject.Create');
+end;
+
+procedure TQuickIOCTests.Test_Inject_Unsatisfiable_RaisesInsteadOfFallback;
+begin
+  // ILogger is not registered: the default rule would silently use the parameterless constructor
+  FContainer.RegisterType<IInjService, TInjMarked>.AsTransient;
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.Resolve<IInjService>;
+    end, EIocResolverError, 'An unsatisfiable [Inject] constructor must raise, not fall back');
+end;
+
+procedure TQuickIOCTests.Test_Inject_MoreThanOneMarked_RaisesRegisterError;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TInjTwoMarked>.AsTransient;
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.Resolve<IInjService>;
+    end, EIocRegisterError, 'Two constructors marked [Inject] must raise EIocRegisterError');
+end;
+
+procedure TQuickIOCTests.Test_NoInject_KeepsDefaultRule;
+var
+  svc: IInjService;
+begin
+  // compatibility: without [Inject] the default rule is unchanged (TObject.Create here)
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TNoInjDerived>.AsTransient;
+  svc := FContainer.Resolve<IInjService>;
+  Assert.IsNull(svc.Logger, 'Without [Inject] the default constructor rule must not change');
+end;
+
+procedure TQuickIOCTests.Test_Build_ValidateConstructors_ReportsTObjectFallback;
+var
+  msg: string;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TNoInjDerived>.AsTransient;
+  FContainer.ValidateConstructors := True;
+  msg := '';
+  try
+    FContainer.Build;
+  except
+    on E: EIocBuildError do msg := E.Message;
+  end;
+  Assert.IsTrue(Pos('TNoInjDerived would be created by TObject.Create', msg) > 0,
+    'Build must report the TObject.Create fallback. Message: ' + msg);
+end;
+
+procedure TQuickIOCTests.Test_Build_ValidateConstructors_ReportsUnsatisfiableInject;
+var
+  msg: string;
+begin
+  FContainer.RegisterType<IInjService, TInjMarked>.AsTransient;
+  FContainer.ValidateConstructors := True;
+  msg := '';
+  try
+    FContainer.Build;
+  except
+    on E: EIocBuildError do msg := E.Message;
+  end;
+  Assert.IsTrue(Pos('marked [Inject] has unregistered parameters: logger: ILogger', msg) > 0,
+    'Build must report the unregistered parameter of the [Inject] constructor. Message: ' + msg);
+end;
+
+procedure TQuickIOCTests.Test_Build_ValidateConstructorsOffByDefault;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TNoInjDerived>.AsTransient;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.Build;
+    end, nil, 'With ValidateConstructors off (default), Build must not run the diagnostics');
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_CleanRegistrations;
+var
+  problems: TArray<string>;
+begin
+  RegisterGraph(FContainer);
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TInjDerived>.AsTransient;
+  problems := FContainer.DiagnoseConstructors;
+  // Length returns NativeInt on Win64: cast so AreEqual can infer a single type
+  Assert.AreEqual(0, Integer(Length(problems)), 'No problems expected. Found: ' + string.Join(' | ', problems));
 end;
 
 initialization

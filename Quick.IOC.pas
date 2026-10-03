@@ -155,6 +155,10 @@ type
     fValidateScopes : Boolean;
     function CreateInstance(aClass : TClass) : TValue; overload;
     function CreateInstance(aClass : TClass; aScope : TIocScope) : TValue; overload;
+    function FindInjectConstructor(aType : TRttiInstanceType) : TRttiMethod;
+    function GetConstructorCandidates(aType : TRttiInstanceType) : TArray<TRttiMethod>;
+    function MissingParameters(aCtor : TRttiMethod) : string;
+    function DiagnoseConstructors : TArray<string>;
     function FindRegistration(aServiceType : PTypeInfo; const aName : string) : TIocRegistration;
     function BuildValue(aReg : TIocRegistration; aServiceType : PTypeInfo; aScope : TIocScope) : TValue;
     function ResolveSingleton(aReg : TIocRegistration; aServiceType : PTypeInfo) : TValue;
@@ -247,6 +251,7 @@ type
     fResolver : TIocResolver;
     fInjector : TIocInjector;
     fLogger : ILogger;
+    fValidateConstructors : Boolean;
     function GetValidateScopes : Boolean;
     procedure SetValidateScopes(aValue : Boolean);
     procedure RegisterOwned<T>(const aName : string);
@@ -277,8 +282,15 @@ type
     procedure Build;
     /// <summary>Opens a new scope. The caller owns it and must free it.</summary>
     function CreateScope : TIocScope;
+    /// <summary>Static check of the constructor each registration would use, without building
+    /// anything. Reports classes that would be created by TObject.Create although they declare
+    /// other constructors, and [Inject] constructors with unregistered parameters.</summary>
+    function DiagnoseConstructors : TArray<string>;
     /// <summary>See TIocResolver.ValidateScopes.</summary>
     property ValidateScopes : Boolean read GetValidateScopes write SetValidateScopes;
+    /// <summary>True: Build runs DiagnoseConstructors and raises EIocBuildError listing the
+    /// problems. False (default): Build does not run the diagnostics.</summary>
+    property ValidateConstructors : Boolean read fValidateConstructors write fValidateConstructors;
     /// <summary>Exposes the internal registrator for advanced operations (Replace, Decorate).</summary>
     property Registrator: TIocRegistrator read fRegistrator;
   end;
@@ -295,6 +307,14 @@ type
   public
     constructor Create(aName: string);
     property Name: String read fName;
+  end;
+
+  /// <summary>Marks the constructor the container must use. It is honored on the class itself
+  /// or on the nearest ancestor that declares constructors (so a class that inherits its
+  /// constructor does not fall back to TObject.Create). If the marked constructor cannot be
+  /// satisfied, resolution fails instead of trying another constructor. Classes without it
+  /// keep the default rule: own constructors before inherited ones, fewest parameters first.</summary>
+  Inject = class(TCustomAttribute)
   end;
 
   EIocRegisterError = class(Exception);
@@ -389,10 +409,17 @@ end;
 procedure TIocContainer.Build;
 var
   dependency : TIocRegistration;
+  problems : TArray<string>;
 begin
   {$IFDEF DEBUG_IOC}
   TDebugger.TimeIt(Self,'Build','Container dependencies building...');
   {$ENDIF}
+  if fValidateConstructors then
+  begin
+    problems := DiagnoseConstructors;
+    if Length(problems) > 0 then
+      raise EIocBuildError.Create('Constructor diagnostics failed:' + sLineBreak + string.Join(sLineBreak,problems));
+  end;
   for dependency in fRegistrator.DependencyOrder do
   begin
     try
@@ -412,6 +439,11 @@ end;
 function TIocContainer.CreateScope: TIocScope;
 begin
   Result := TIocScope.Create(fResolver);
+end;
+
+function TIocContainer.DiagnoseConstructors: TArray<string>;
+begin
+  Result := fResolver.DiagnoseConstructors;
 end;
 
 function TIocContainer.GetValidateScopes: Boolean;
@@ -779,11 +811,9 @@ function TIocResolver.CreateInstance(aClass: TClass; aScope: TIocScope): TValue;
 var
   ctx : TRttiContext;
   rtype : TRttiType;
-  rmethod : TRttiMethod;
-  ownCtors : TList<TRttiMethod>;
-  inheritedCtors : TList<TRttiMethod>;
-  allCtors : TList<TRttiMethod>;
+  injectCtor : TRttiMethod;
   bestCtor : TRttiMethod;
+  missing : string;
 
   function TryInvoke(aCtor: TRttiMethod; out aResult: TValue): Boolean;
   var
@@ -822,42 +852,214 @@ begin
   rtype := ctx.GetType(aClass);
   if rtype = nil then Exit;
 
-  // Separate own constructors (declared on aClass) from inherited ones
+  //a constructor marked [Inject] is the only candidate: no silent fallback to another one
+  injectCtor := FindInjectConstructor(TRttiInstanceType(rtype));
+  if injectCtor <> nil then
+  begin
+    if not TryInvoke(injectCtor, Result) then
+    begin
+      missing := MissingParameters(injectCtor);
+      if missing.IsEmpty then missing := 'a dependency could not be resolved';
+      raise EIocResolverError.CreateFmt('Constructor %s.%s marked [Inject] could not be satisfied: %s',
+        [aClass.ClassName,injectCtor.Name,missing]);
+    end;
+    Exit;
+  end;
+
+  for bestCtor in GetConstructorCandidates(TRttiInstanceType(rtype)) do
+  begin
+    if TryInvoke(bestCtor, Result) then Exit;
+  end;
+end;
+
+function HasInjectAttribute(aMethod : TRttiMethod) : Boolean;
+var
+  att : TCustomAttribute;
+begin
+  Result := False;
+  for att in aMethod.GetAttributes do
+    if att is Inject then Exit(True);
+end;
+
+function ParameterRegName(aParam : TRttiParameter) : string;
+var
+  att : TCustomAttribute;
+begin
+  Result := EmptyStr;
+  for att in aParam.GetAttributes do
+    if att is Name then Exit(Name(att).Name);
+end;
+
+function ConstructorSignature(aCtor : TRttiMethod) : string;
+var
+  lParam : TRttiParameter;
+  params : TArray<string>;
+begin
+  params := nil;
+  for lParam in aCtor.GetParameters do
+    if lParam.ParamType <> nil then params := params + [lParam.Name + ': ' + lParam.ParamType.Name]
+      else params := params + [lParam.Name];
+  Result := Format('%s.%s(%s)',[aCtor.Parent.Name,aCtor.Name,string.Join('; ',params)]);
+end;
+
+function TIocResolver.FindInjectConstructor(aType: TRttiInstanceType): TRttiMethod;
+var
+  level : TRttiInstanceType;
+  rmethod : TRttiMethod;
+  declaresCtor : Boolean;
+  marked : Integer;
+begin
+  //the nearest type in the hierarchy that declares constructors decides: if it marks one with
+  //[Inject] that is the constructor; if it marks none, the default rule applies
+  Result := nil;
+  level := aType;
+  while level <> nil do
+  begin
+    declaresCtor := False;
+    marked := 0;
+    for rmethod in level.GetDeclaredMethods do
+    begin
+      if not rmethod.IsConstructor then Continue;
+      declaresCtor := True;
+      if HasInjectAttribute(rmethod) then
+      begin
+        Inc(marked);
+        Result := rmethod;
+      end;
+    end;
+    //not an EIocResolverError on purpose: it is a configuration error and must not be swallowed
+    if marked > 1 then raise EIocRegisterError.CreateFmt('%s declares more than one constructor marked [Inject]',[level.Name]);
+    if declaresCtor then Exit;
+    level := TRttiInstanceType(level.BaseType);
+  end;
+end;
+
+function TIocResolver.GetConstructorCandidates(aType: TRttiInstanceType): TArray<TRttiMethod>;
+var
+  rmethod : TRttiMethod;
+  ownCtors : TList<TRttiMethod>;
+  inheritedCtors : TList<TRttiMethod>;
+  comparer : IComparer<TRttiMethod>;
+begin
+  //default rule (no [Inject]), unchanged: own constructors before inherited ones
   ownCtors := TList<TRttiMethod>.Create;
   inheritedCtors := TList<TRttiMethod>.Create;
   try
-    for rmethod in TRttiInstanceType(rtype).GetMethods do
+    for rmethod in aType.GetMethods do
     begin
       if rmethod.IsConstructor then
       begin
-        if rmethod.Parent = rtype then ownCtors.Add(rmethod)
+        if rmethod.Parent = aType then ownCtors.Add(rmethod)
         else inheritedCtors.Add(rmethod);
       end;
     end;
-
     // Sort own constructors: parameterless first, then by param count ascending
-    ownCtors.Sort(TComparer<TRttiMethod>.Construct(
+    comparer := TComparer<TRttiMethod>.Construct(
       function(const L, R: TRttiMethod): Integer
-      begin Result := Length(L.GetParameters) - Length(R.GetParameters); end));
-    inheritedCtors.Sort(TComparer<TRttiMethod>.Construct(
-      function(const L, R: TRttiMethod): Integer
-      begin Result := Length(L.GetParameters) - Length(R.GetParameters); end));
-
-    allCtors := TList<TRttiMethod>.Create;
-    try
-      allCtors.AddRange(ownCtors);
-      allCtors.AddRange(inheritedCtors);
-
-      for bestCtor in allCtors do
-      begin
-        if TryInvoke(bestCtor, Result) then Exit;
-      end;
-    finally
-      allCtors.Free;
-    end;
+      begin Result := Length(L.GetParameters) - Length(R.GetParameters); end);
+    ownCtors.Sort(comparer);
+    inheritedCtors.Sort(comparer);
+    Result := ownCtors.ToArray + inheritedCtors.ToArray;
   finally
     ownCtors.Free;
     inheritedCtors.Free;
+  end;
+end;
+
+function TIocResolver.MissingParameters(aCtor: TRttiMethod): string;
+var
+  lParam : TRttiParameter;
+  missing : TArray<string>;
+begin
+  //class/interface parameters with no registration (others get their default value)
+  missing := nil;
+  for lParam in aCtor.GetParameters do
+  begin
+    if (lParam.ParamType = nil) or not (lParam.ParamType.TypeKind in [tkClass, tkInterface]) then Continue;
+    if not fRegistrator.Dependencies.ContainsKey(fRegistrator.GetKey(lParam.ParamType.Handle,ParameterRegName(lParam))) then
+      missing := missing + [lParam.Name + ': ' + lParam.ParamType.Name];
+  end;
+  Result := string.Join(', ',missing);
+end;
+
+function TIocResolver.DiagnoseConstructors: TArray<string>;
+var
+  ctx : TRttiContext;
+  reg : TIocRegistration;
+  checked : TList<TClass>;
+  rtype : TRttiInstanceType;
+  injectCtor : TRttiMethod;
+  chosen : TRttiMethod;
+  ctor : TRttiMethod;
+  candidates : TArray<TRttiMethod>;
+  others : TArray<string>;
+  declaresOwn : Boolean;
+  declaresBelowTObject : Boolean;
+  missing : string;
+begin
+  Result := nil;
+  checked := TList<TClass>.Create;
+  try
+    for reg in fRegistrator.DependencyOrder do
+    begin
+      //only registrations the container builds through a constructor, each class once
+      if (reg.&Implementation = nil) or Assigned(reg.ActivatorDelegate) or checked.Contains(reg.&Implementation) then Continue;
+      if (reg is TIocRegistrationInterface) and (TIocRegistrationInterface(reg).Instance <> nil) then Continue;
+      checked.Add(reg.&Implementation);
+      rtype := TRttiInstanceType(ctx.GetType(reg.&Implementation));
+      if rtype = nil then Continue;
+
+      try
+        injectCtor := FindInjectConstructor(rtype);
+      except
+        on E : EIocRegisterError do
+        begin
+          Result := Result + [E.Message];
+          Continue;
+        end;
+      end;
+      if injectCtor <> nil then
+      begin
+        missing := MissingParameters(injectCtor);
+        if not missing.IsEmpty then
+          Result := Result + [Format('%s: %s marked [Inject] has unregistered parameters: %s',
+            [rtype.Name,ConstructorSignature(injectCtor),missing])];
+        Continue;
+      end;
+
+      //simulates the default rule: first candidate whose class/interface parameters are registered
+      candidates := GetConstructorCandidates(rtype);
+      chosen := nil;
+      for ctor in candidates do
+        if MissingParameters(ctor).IsEmpty then
+        begin
+          chosen := ctor;
+          Break;
+        end;
+      if chosen = nil then Continue;
+
+      declaresOwn := False;
+      declaresBelowTObject := False;
+      others := nil;
+      for ctor in candidates do
+      begin
+        if ctor.Parent = rtype then declaresOwn := True;
+        if ctor.Parent.Handle <> TypeInfo(TObject) then declaresBelowTObject := True;
+        if ctor = chosen then Continue;
+        missing := MissingParameters(ctor);
+        if missing.IsEmpty then others := others + [ConstructorSignature(ctor)]
+          else others := others + [ConstructorSignature(ctor) + ' (unregistered: ' + missing + ')'];
+      end;
+
+      if (chosen.Parent.Handle = TypeInfo(TObject)) and declaresBelowTObject then
+        Result := Result + [Format('%s would be created by TObject.Create, leaving its dependencies nil. ' +
+          'Other constructors: %s. Mark the intended one with [Inject].',[rtype.Name,string.Join('; ',others)])]
+      else if declaresOwn and (chosen.Parent <> rtype) then
+        Result := Result + [Format('%s declares constructors but none is satisfiable; inherited %s would be used. ' +
+          'Other constructors: %s.',[rtype.Name,ConstructorSignature(chosen),string.Join('; ',others)])];
+    end;
+  finally
+    checked.Free;
   end;
 end;
 
