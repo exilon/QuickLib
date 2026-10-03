@@ -11,6 +11,8 @@ uses
   System.Generics.Collections,
   System.SysUtils,
   System.Classes,
+  System.SyncObjs,
+  System.Diagnostics,
   Quick.Options,
   Quick.IOC;
 
@@ -223,6 +225,24 @@ type
     function Logger: ILogger;
   end;
 
+  // Singleton whose constructor is slow, for the concurrency tests
+  ISlowSingleton = interface
+  ['{4D8A2F6C-1B3E-4975-A0C8-E7F2B5D19A63}']
+  end;
+
+  TSlowSingleton = class(TInterfacedObject, ISlowSingleton)
+  private class var
+    FCreated: Integer;
+    FDelayMs: Integer;
+    FStarted: TLightweightEvent;
+  public
+    constructor Create;
+    class property Created: Integer read FCreated write FCreated;
+    class property DelayMs: Integer read FDelayMs write FDelayMs;
+    // signaled when the constructor starts, i.e. while the singleton lock is held
+    class property Started: TLightweightEvent read FStarted write FStarted;
+  end;
+
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
   private class var
@@ -247,6 +267,9 @@ type
   TQuickIOCTests = class(TObject)
   private
     FContainer: TIocContainer;
+    FInstances: TArray<Pointer>;
+    FErrors: TArray<string>;
+    function StartSlowResolver(aIndex: Integer): TThread;
   public
     [Setup]
     procedure SetUp;
@@ -349,6 +372,11 @@ type
     procedure Test_ResolveAll_InScope_ScopedEntriesPerScope;
     [Test]
     procedure Test_ResolveAll_ScopedFromRoot_RaisesScopeError;
+    { Singleton lock }
+    [Test]
+    procedure Test_Singleton_ConcurrentFirstResolve_CreatesOnce;
+    [Test]
+    procedure Test_Singleton_CreatedOne_DoesNotWaitForAnotherBeingCreated;
   end;
 
 implementation
@@ -1286,6 +1314,103 @@ begin
     begin
       FContainer.ResolveAll<ILogger>().Free;
     end, EIocScopeError, 'ResolveAll of a scoped registration from the root must raise EIocScopeError');
+end;
+
+{ TSlowSingleton }
+
+constructor TSlowSingleton.Create;
+begin
+  TInterlocked.Increment(FCreated);
+  if FStarted <> nil then FStarted.SetEvent;
+  Sleep(FDelayMs);
+end;
+
+{ Singleton lock }
+
+function TQuickIOCTests.StartSlowResolver(aIndex: Integer): TThread;
+begin
+  // aIndex is a parameter, so each thread captures its own value
+  Result := TThread.CreateAnonymousThread(
+    procedure
+    var
+      svc: ISlowSingleton;
+    begin
+      try
+        svc := FContainer.Resolve<ISlowSingleton>;
+        FInstances[aIndex] := Pointer(svc as TObject);
+      except
+        on E: Exception do FErrors[aIndex] := E.ClassName + ': ' + E.Message;
+      end;
+    end);
+  Result.FreeOnTerminate := False;
+  Result.Start;
+end;
+
+procedure TQuickIOCTests.Test_Singleton_ConcurrentFirstResolve_CreatesOnce;
+const
+  // not "THREADS": Delphi identifiers are case-insensitive and it would clash with a variable
+  THREAD_COUNT = 8;
+var
+  resolvers: array[0..THREAD_COUNT - 1] of TThread;
+  i: Integer;
+begin
+  FContainer.RegisterType<ISlowSingleton, TSlowSingleton>.AsSingleton;
+  TSlowSingleton.Created := 0;
+  TSlowSingleton.DelayMs := 100;
+  TSlowSingleton.Started := nil;
+  SetLength(FInstances, THREAD_COUNT);
+  SetLength(FErrors, THREAD_COUNT);
+  for i := 0 to THREAD_COUNT - 1 do resolvers[i] := StartSlowResolver(i);
+  for i := 0 to THREAD_COUNT - 1 do
+  begin
+    resolvers[i].WaitFor;
+    resolvers[i].Free;
+  end;
+  for i := 0 to THREAD_COUNT - 1 do
+    Assert.AreEqual('', FErrors[i], 'Thread ' + IntToStr(i) + ' failed');
+  Assert.AreEqual(1, TSlowSingleton.Created, 'Concurrent first resolutions must create the singleton once');
+  for i := 1 to THREAD_COUNT - 1 do
+    Assert.IsTrue(FInstances[i] = FInstances[0], 'All threads must get the same instance');
+end;
+
+procedure TQuickIOCTests.Test_Singleton_CreatedOne_DoesNotWaitForAnotherBeingCreated;
+var
+  thread: TThread;
+  stopwatch: TStopwatch;
+  logger: ILogger;
+begin
+  // while a slow singleton is being created (lock held), resolving another singleton that
+  // already exists must take the fast path and not wait for the lock
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  FContainer.RegisterType<ISlowSingleton, TSlowSingleton>.AsSingleton;
+  logger := FContainer.Resolve<ILogger>;
+  logger := nil;
+  TSlowSingleton.Created := 0;
+  TSlowSingleton.DelayMs := 800;
+  TSlowSingleton.Started := TLightweightEvent.Create;
+  SetLength(FInstances, 1);
+  SetLength(FErrors, 1);
+  try
+    thread := StartSlowResolver(0);
+    try
+      Assert.IsTrue(TSlowSingleton.Started.WaitFor(5000) = wrSignaled, 'The slow singleton must start being created');
+      stopwatch := TStopwatch.StartNew;
+      logger := FContainer.Resolve<ILogger>;
+      stopwatch.Stop;
+      Assert.IsNotNull(logger, 'The existing singleton must be returned');
+      Assert.IsTrue(stopwatch.ElapsedMilliseconds < 300,
+        'Resolving an existing singleton must not wait for another being created. Took ' +
+        IntToStr(stopwatch.ElapsedMilliseconds) + ' ms');
+    finally
+      thread.WaitFor;
+      thread.Free;
+    end;
+    Assert.AreEqual('', FErrors[0], 'The slow resolution failed');
+  finally
+    logger := nil;
+    TSlowSingleton.Started.Free;
+    TSlowSingleton.Started := nil;
+  end;
 end;
 
 initialization

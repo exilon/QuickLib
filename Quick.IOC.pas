@@ -42,6 +42,7 @@ uses
   System.TypInfo,
   System.Generics.Collections,
   System.Generics.Defaults,
+  System.SyncObjs,
   Quick.Logger.Intf,
   Quick.Options;
 
@@ -1120,30 +1121,60 @@ end;
 function TIocResolver.ResolveSingleton(aReg: TIocRegistration; aServiceType: PTypeInfo): TValue;
 var
   intf : IInterface;
+  instance : Pointer;
+  newIntf : IInterface;
+  newObj : TObject;
 begin
-  //lazy creation must not race: two threads could otherwise build two "singletons".
-  //TMonitor is reentrant, so a singleton depending on another singleton is fine.
-  TMonitor.Enter(fSingletonLock);
-  try
-    if aReg is TIocRegistrationInterface then
-    begin
-      //dependencies of a singleton are resolved with no scope: a scoped dependency would be
+  //fast path, without the lock: a singleton instance goes from nil to its value once and is
+  //never replaced while the container lives, so a non-nil pointer read with a full memory
+  //barrier (CompareExchange) can be used as is. The lock is only taken to create it.
+  if aReg is TIocRegistrationInterface then
+    instance := TInterlocked.CompareExchange(Pointer(TIocRegistrationInterface(aReg).fInstance),nil,nil)
+  else
+    instance := TInterlocked.CompareExchange(Pointer(TIocRegistrationInstance(aReg).fInstance),nil,nil);
+
+  if instance = nil then
+  begin
+    //slow path: lazy creation must not race, two threads could otherwise build two "singletons".
+    //TMonitor is reentrant, so a singleton depending on another singleton is fine.
+    TMonitor.Enter(fSingletonLock);
+    try
+      //checked again: another thread may have created it while this one waited for the lock.
+      //Dependencies of a singleton are resolved with no scope: a scoped dependency would be
       //captured for the whole application lifetime, so it raises EIocScopeError instead
-      if TIocRegistrationInterface(aReg).Instance = nil then
-        TIocRegistrationInterface(aReg).Instance := BuildValue(aReg,aServiceType,nil).AsInterface;
-      if TIocRegistrationInterface(aReg).Instance.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then
-        raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
-      TValue.Make(@intf,aServiceType,Result);
-    end
-    else
-    begin
-      if TIocRegistrationInstance(aReg).Instance = nil then
-        TIocRegistrationInstance(aReg).Instance := BuildValue(aReg,aServiceType,nil).AsObject;
-      Result := TIocRegistrationInstance(aReg).Instance;
+      if aReg is TIocRegistrationInterface then
+      begin
+        if TIocRegistrationInterface(aReg).fInstance = nil then
+        begin
+          newIntf := BuildValue(aReg,aServiceType,nil).AsInterface;
+          //the construction must be visible to other threads before the pointer is published
+          MemoryBarrier;
+          TIocRegistrationInterface(aReg).Instance := newIntf;
+        end;
+        instance := Pointer(TIocRegistrationInterface(aReg).fInstance);
+      end
+      else
+      begin
+        if TIocRegistrationInstance(aReg).fInstance = nil then
+        begin
+          newObj := BuildValue(aReg,aServiceType,nil).AsObject;
+          MemoryBarrier;
+          TIocRegistrationInstance(aReg).Instance := newObj;
+        end;
+        instance := Pointer(TIocRegistrationInstance(aReg).fInstance);
+      end;
+    finally
+      TMonitor.Exit(fSingletonLock);
     end;
-  finally
-    TMonitor.Exit(fSingletonLock);
   end;
+
+  if aReg is TIocRegistrationInterface then
+  begin
+    if IInterface(instance).QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then
+      raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+    TValue.Make(@intf,aServiceType,Result);
+  end
+  else Result := TObject(instance);
 end;
 
 function TIocResolver.Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue;
