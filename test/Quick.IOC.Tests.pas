@@ -240,6 +240,16 @@ type
     function Service: IInjService;
   end;
 
+  // counts constructions, to check what Build pre-creates
+  TBuildCountedLogger = class(TInterfacedObject, ILogger)
+  private class var
+    FCreated: Integer;
+  public
+    constructor Create;
+    procedure Log(const msg: string);
+    class property Created: Integer read FCreated write FCreated;
+  end;
+
   // Singleton whose constructor is slow, for the concurrency tests
   ISlowSingleton = interface
   ['{4D8A2F6C-1B3E-4975-A0C8-E7F2B5D19A63}']
@@ -396,6 +406,17 @@ type
     procedure Test_Singleton_ConcurrentFirstResolve_CreatesOnce;
     [Test]
     procedure Test_Singleton_CreatedOne_DoesNotWaitForAnotherBeingCreated;
+    { Build and IOwned resolve each registration }
+    [Test]
+    procedure Test_Build_PreCreatesEverySingletonRegistration;
+    [Test]
+    procedure Test_Build_LastRegistrationScoped_DoesNotFail;
+    [Test]
+    procedure Test_Build_RegistrationWithoutClass_ReportsBuildError;
+    [Test]
+    procedure Test_Owned_ResolveAll_EachRegistration;
+    [Test]
+    procedure Test_Owned_TargetRemoved_ResolvesLastRegistration;
     { Scope in DelegateTo and factories }
     [Test]
     procedure Test_DelegateTo_Context_ResolvesFromCurrentScope;
@@ -1497,6 +1518,98 @@ begin
     TSlowSingleton.Started.Free;
     TSlowSingleton.Started := nil;
   end;
+end;
+
+{ TBuildCountedLogger }
+
+constructor TBuildCountedLogger.Create;
+begin
+  Inc(FCreated);
+end;
+
+procedure TBuildCountedLogger.Log(const msg: string);
+begin
+end;
+
+{ Build and IOwned resolve each registration }
+
+procedure TQuickIOCTests.Test_Build_PreCreatesEverySingletonRegistration;
+begin
+  // two singletons under the same key: Build must pre-create both, not only the last one
+  FContainer.RegisterType<ILogger, TBuildCountedLogger>.AsSingleton;
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  TBuildCountedLogger.Created := 0;
+  FContainer.Build;
+  Assert.AreEqual(1, TBuildCountedLogger.Created,
+    'Build must pre-create the first singleton registration too (it resolved only the last one)');
+end;
+
+procedure TQuickIOCTests.Test_Build_LastRegistrationScoped_DoesNotFail;
+begin
+  // the singleton must be built by Build; the scoped registration after it must not be
+  // resolved in its place (which raised EIocScopeError wrapped in EIocBuildError)
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  FContainer.RegisterType<ILogger, TFileLogger>.AsScoped;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.Build;
+    end, nil, 'Build must resolve each singleton registration itself, not the last one of the key');
+end;
+
+procedure TQuickIOCTests.Test_Build_RegistrationWithoutClass_ReportsBuildError;
+var
+  raisedClass, msg: string;
+begin
+  // a singleton registration with no implementation class fails to build; the error message
+  // must name the interface instead of reading the class name of a nil class
+  FContainer.RegisterType(TypeInfo(ILogger), nil).AsSingleton;
+  raisedClass := '';
+  msg := '';
+  try
+    FContainer.Build;
+  except
+    on E: Exception do
+    begin
+      raisedClass := E.ClassName;
+      msg := E.Message;
+    end;
+  end;
+  Assert.AreEqual('EIocBuildError', raisedClass, 'Build must report EIocBuildError. Message: ' + msg);
+  Assert.IsTrue(Pos('ILogger', msg) > 0, 'The message must name the interface. Message: ' + msg);
+end;
+
+procedure TQuickIOCTests.Test_Owned_ResolveAll_EachRegistration;
+var
+  owned: TList<IOwned<ILogger>>;
+begin
+  // each IOwned<ILogger> registration must wrap its own ILogger registration
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<ILogger, TFileLogger>.AsTransient;
+  owned := FContainer.ResolveAll<IOwned<ILogger>>();
+  try
+    Assert.AreEqual<Integer>(2, owned.Count, 'One IOwned per ILogger registration');
+    Assert.IsTrue((owned[0].Value as TObject) is TConsoleLogger,
+      'First IOwned must wrap TConsoleLogger. Got ' + (owned[0].Value as TObject).ClassName);
+    Assert.IsTrue((owned[1].Value as TObject) is TFileLogger,
+      'Second IOwned must wrap TFileLogger. Got ' + (owned[1].Value as TObject).ClassName);
+  finally
+    owned.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_TargetRemoved_ResolvesLastRegistration;
+var
+  owned: IOwned<ILogger>;
+begin
+  // the IOwned keeps the registration it was created with; RemoveRegistrations frees it,
+  // so the IOwned must fall back to the last registration of the key (no access violation)
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.Registrator.RemoveRegistrations(FContainer.Registrator.GetKey(TypeInfo(ILogger)));
+  FContainer.Registrator.RegisterType<ILogger, TFileLogger>.AsTransient;
+  owned := FContainer.Resolve<IOwned<ILogger>>;
+  Assert.IsTrue((owned.Value as TObject) is TFileLogger,
+    'IOwned whose registration was removed must resolve the current one. Got ' + (owned.Value as TObject).ClassName);
 end;
 
 { Scope in DelegateTo and factories }

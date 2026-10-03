@@ -292,7 +292,7 @@ type
     fValidateConstructors : Boolean;
     function GetValidateScopes : Boolean;
     procedure SetValidateScopes(aValue : Boolean);
-    procedure RegisterOwned<T>(const aName : string);
+    procedure RegisterOwned<T>(aTarget : TIocRegistration; const aName : string);
   class var
     GlobalInstance: TIocContainer;
   protected
@@ -467,6 +467,7 @@ procedure TIocContainer.Build;
 var
   dependency : TIocRegistration;
   problems : TArray<string>;
+  depName : string;
 begin
   {$IFDEF DEBUG_IOC}
   TDebugger.TimeIt(Self,'Build','Container dependencies building...');
@@ -483,12 +484,20 @@ begin
       {$IFDEF DEBUG_IOC}
       TDebugger.Trace(Self,'[Building container]: %s',[dependency.fIntfInfo.Name]);
       {$ENDIF}
-      if dependency.IsSingleton then fResolver.Resolve(dependency.fIntfInfo,dependency.Name);
+      //this registration, not the last one of its key: every singleton is pre-created and a
+      //scoped registration added later to the same key does not make Build fail
+      if dependency.IsSingleton then fResolver.ResolveRegistration(dependency,dependency.fIntfInfo,nil);
       {$IFDEF DEBUG_IOC}
       TDebugger.Trace(Self,'[Built container]: %s',[dependency.fIntfInfo.Name]);
       {$ENDIF}
     except
-      on E : Exception do raise EIocBuildError.CreateFmt('Build Error on "%s(%s)" dependency: %s!',[dependency.fImplementation.ClassName,dependency.Name,e.Message]);
+      on E : Exception do
+      begin
+        //RegisterInstance<TInterface> and registrations without a class have no implementation
+        if dependency.fImplementation <> nil then depName := dependency.fImplementation.ClassName
+          else depName := string(dependency.fIntfInfo.Name);
+        raise EIocBuildError.CreateFmt('Build Error on "%s(%s)" dependency: %s!',[depName,dependency.Name,e.Message]);
+      end;
     end;
   end;
 end;
@@ -544,28 +553,40 @@ function TIocContainer.RegisterType<TInterface, TImplementation>(const aName: st
 begin
   Result := fRegistrator.RegisterType<TInterface, TImplementation>(aName);
   //IOwned<TInterface> must be registered here: generic types cannot be instantiated at runtime
-  RegisterOwned<TInterface>(aName);
+  RegisterOwned<TInterface>(Result.fRegistration,aName);
 end;
 
-procedure TIocContainer.RegisterOwned<T>(const aName: string);
+procedure TIocContainer.RegisterOwned<T>(aTarget : TIocRegistration; const aName: string);
 var
   container : TIocContainer;
+  target : TIocRegistration;
+  key : string;
   regName : string;
 begin
   container := Self;
+  target := aTarget;
+  key := fRegistrator.GetKey(TypeInfo(T),aName);
   regName := aName;
   //transient: every consumer gets its own scope. Registered through the non-generic
   //RegisterType so it does not recurse into RegisterOwned<IOwned<T>>
   fRegistrator.RegisterType(TypeInfo(IOwned<T>),TOwned<T>,aName).ActivatorDelegate :=
     function : TValue
     var
+      regList : TObjectList<TIocRegistration>;
       scope : TIocScope;
+      value : TValue;
       owned : IOwned<T>;
     begin
       //independent scope: it does not see the consumer's scoped instances, only singletons
       scope := container.CreateScope;
       try
-        owned := TOwned<T>.Create(scope,scope.Resolve<T>(regName));
+        //the registration this IOwned was created with, so ResolveAll<IOwned<T>> wraps each one.
+        //Compared by address only: Registrator.RemoveRegistrations may have freed it, and then
+        //the last registration of the key is used, as before
+        if container.fRegistrator.Dependencies.TryGetValue(key,regList) and regList.Contains(target) then
+          value := container.fResolver.ResolveRegistration(target,TypeInfo(T),scope)
+        else value := scope.Resolve(TypeInfo(T),regName);
+        owned := TOwned<T>.Create(scope,value.AsType<T>);
       except
         scope.Free;
         raise;
