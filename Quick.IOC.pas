@@ -108,6 +108,8 @@ type
   TIocRegistrationInterface = class(TIocRegistration)
   private
     fInstance : IInterface;
+    //Instance was given at registration (RegisterInstance<TInterface>, RegisterOptions), not built
+    fGivenInstance : Boolean;
   public
     property Instance : IInterface read fInstance write fInstance;
   end;
@@ -127,6 +129,9 @@ type
     function AsSingleton : TIocRegistration<T>;
     function AsTransient : TIocRegistration<T>;
     function AsScoped : TIocRegistration<T>;
+    /// <summary>The service is built by aDelegate instead of a constructor. A named function or an
+    /// anonymous one can be passed; DelegateTo(nil) does not compile (ambiguous between the two
+    /// overloads), and has no use: a registration needs something to build the service.</summary>
     function DelegateTo(aDelegate : TActivatorDelegate<T>) : TIocRegistration<T>; overload;
     /// <summary>The delegate receives a TIocResolveContext to resolve its dependencies in the
     /// scope of the service being built, so scoped dependencies are the scope's own.</summary>
@@ -149,6 +154,7 @@ type
     //set by ReleaseInstances: a singleton that is not alive is not built again
     fReleasing : Boolean;
     procedure ReleaseInstances;
+    function IsOverridden(aReg : TIocRegistration) : Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -352,23 +358,34 @@ type
     function AbstractFactory<T : class, constructor> : T; overload;
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
     function RegisterSimpleFactory<TInterface : IInterface; TImplementation : class, constructor>(const aName : string = '') : TIocRegistration;
+    /// <summary>Validates the constructors (with ValidateConstructors) and pre-creates the
+    /// singletons Resolve returns: the last registration of each key, if it is a singleton. A
+    /// singleton that a later registration of the same key overrides (a mock registered on top of
+    /// the production one, for example) is not built: ResolveAll builds it on its first call.
+    /// The container's own errors keep their class (EIocCycleError, EIocScopeError...), with the
+    /// registration added to the message; an exception raised by a constructor becomes an
+    /// EIocBuildError, with the original one in InnerException.</summary>
     procedure Build;
     /// <summary>Opens a new scope. The caller owns it and must free it.</summary>
     function CreateScope : TIocScope;
     /// <summary>Static check of the constructor each registration would use, without building
     /// anything. Reports classes that would be created by TObject.Create although they declare
-    /// other constructors, classes none of whose own constructors is satisfiable, and [Inject]
-    /// constructors with unregistered parameters.
+    /// other constructors, classes none of whose own constructors is satisfiable, [Inject]
+    /// constructors with unregistered parameters, classes registered for an interface they do
+    /// not implement, and interfaces without a GUID. A registration that a later one of the same
+    /// key overrides is never returned by Resolve: its problems are reported as warnings.
     /// Limits: it checks one level only (the parameters are registered, not that their own
     /// constructors can be satisfied), so a deeper dependency can still fail at runtime;
     /// [Inject] is only seen on public and published constructors (RTTI does not list the
-    /// others); registrations with DelegateTo, factories and instances are not checked; a
+    /// others); registrations with DelegateTo, factories and given instances are not checked; a
     /// TComponent descendant without a constructor of its own is reported, since
     /// TComponent.Create(AOwner) is not satisfiable.</summary>
     function DiagnoseConstructors : TArray<string>; overload;
     /// <summary>Same as DiagnoseConstructors, plus warnings, which do not make Build fail: the
     /// default rule picks an own constructor while another own constructor, also satisfiable,
-    /// would receive more dependencies (e.g. an empty Create next to Create(aLogger)).</summary>
+    /// would receive more dependencies (e.g. an empty Create next to Create(aLogger)); two
+    /// satisfiable constructors of the same class have as many parameters, so the one used
+    /// depends on the order RTTI lists them; and the problems of overridden registrations.</summary>
     function DiagnoseConstructors(out aWarnings : TArray<string>) : TArray<string>; overload;
     /// <summary>See TIocResolver.ValidateScopes.</summary>
     property ValidateScopes : Boolean read GetValidateScopes write SetValidateScopes;
@@ -409,6 +426,9 @@ type
   /// Constructor selection swallows only EIocResolverError (except EIocInjectError) to try the
   /// next constructor; the other descendants always reach the caller.</summary>
   EIocError = class(Exception);
+  /// <summary>A configuration error: two constructors marked [Inject], or a class registered for
+  /// an interface it does not implement. Not an EIocResolverError, so constructor selection does
+  /// not swallow it.</summary>
   EIocRegisterError = class(EIocError);
   EIocResolverError = class(EIocError);
   EIocBuildError = class(EIocError);
@@ -497,6 +517,14 @@ begin
     end;
     node := node.Parent;
   end;
+end;
+
+procedure RaiseNotImplemented(const aInstance : IInterface; aServiceType : PTypeInfo);
+begin
+  //a configuration error, not an EIocResolverError: constructor selection must not swallow it and
+  //build the consumer with this dependency nil
+  raise EIocRegisterError.CreateFmt('%s does not implement %s %s: check what is registered for it',
+    [(aInstance as TObject).ClassName,aServiceType.Name,GUIDToString(GetTypeData(aServiceType).Guid)]);
 end;
 
 function GlobalContainer: TIocContainer;
@@ -594,7 +622,6 @@ procedure TIocContainer.Build;
 var
   dependency : TIocRegistration;
   problems : TArray<string>;
-  depName : string;
 begin
   {$IFDEF DEBUG_IOC}
   TDebugger.TimeIt(Self,'Build','Container dependencies building...');
@@ -608,24 +635,30 @@ begin
   end;
   for dependency in fRegistrator.DependencyOrder do
   begin
+    //only what Resolve returns: the last registration of each key, if it is a singleton. One that
+    //a later registration of the same key overrides is built by ResolveAll, if ever asked for
+    if not dependency.IsSingleton or fRegistrator.IsOverridden(dependency) then Continue;
     try
       {$IFDEF DEBUG_IOC}
       TDebugger.Trace(Self,'[Building container]: %s',[dependency.fIntfInfo.Name]);
       {$ENDIF}
-      //this registration, not the last one of its key: every singleton is pre-created and a
-      //scoped registration added later to the same key does not make Build fail
-      if dependency.IsSingleton then fResolver.ResolveRegistration(dependency,dependency.fIntfInfo,nil);
+      fResolver.ResolveRegistration(dependency,dependency.fIntfInfo,nil);
       {$IFDEF DEBUG_IOC}
       TDebugger.Trace(Self,'[Built container]: %s',[dependency.fIntfInfo.Name]);
       {$ENDIF}
     except
-      on E : Exception do
+      //RegistrationLabel: RegisterInstance<TInterface> and registrations without a class have no
+      //implementation, the interface is named instead
+      on E : EIocError do
       begin
-        //RegisterInstance<TInterface> and registrations without a class have no implementation
-        if dependency.fImplementation <> nil then depName := dependency.fImplementation.ClassName
-          else depName := string(dependency.fIntfInfo.Name);
-        raise EIocBuildError.CreateFmt('Build Error on "%s(%s)" dependency: %s!',[depName,dependency.Name,e.Message]);
+        //the container's own errors keep their class, so they can be told apart
+        E.Message := Format('Build Error on "%s(%s)" dependency: %s',[RegistrationLabel(dependency),dependency.Name,E.Message]);
+        raise;
       end;
+      on E : Exception do
+        //an exception raised by a constructor: kept in InnerException
+        Exception.RaiseOuterException(EIocBuildError.CreateFmt('Build Error on "%s(%s)" dependency: %s',
+          [RegistrationLabel(dependency),dependency.Name,E.Message]));
     end;
   end;
 end;
@@ -897,6 +930,14 @@ begin
   if firstError <> nil then raise firstError;
 end;
 
+function TIocRegistrator.IsOverridden(aReg : TIocRegistration) : Boolean;
+var
+  regList : TObjectList<TIocRegistration>;
+begin
+  //a later registration of the same key overrides it: Resolve never returns it, ResolveAll does
+  Result := fDependencies.TryGetValue(GetKey(aReg.IntfInfo,aReg.Name),regList) and (regList.Last <> aReg);
+end;
+
 function TIocRegistrator.GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
 begin
   {$IFDEF NEXTGEN}
@@ -1011,6 +1052,7 @@ begin
   Result := TIocRegistrationInterface.Create(aName);
   Result.IntfInfo := tpinfo;
   TIocRegistrationInterface(Result).Instance := aInstance;
+  TIocRegistrationInterface(Result).fGivenInstance := True;
   regList.Add(Result);
   fDependencyOrder.Add(Result);
 end;
@@ -1055,6 +1097,7 @@ begin
   reg.IntfInfo := pInfo;
   reg.&Implementation := aOptions.ClassType;
   TIocRegistrationInterface(reg).Instance := TOptionValue<T>.Create(aOptions);
+  TIocRegistrationInterface(reg).fGivenInstance := True;
   regList.Add(reg);
   fDependencyOrder.Add(reg);
   Result := TIocRegistration<T>.Create(reg);
@@ -1131,6 +1174,12 @@ var
     lVals := nil;
     for lParam in aCtor.GetParameters do
     begin
+      //an untyped parameter (const or var without a type): there is nothing the container can pass
+      if lParam.ParamType = nil then
+      begin
+        aError := Format('parameter "%s" has no type',[lParam.Name]);
+        Exit;
+      end;
       lName := EmptyStr;
       for lAtt in lParam.GetAttributes do
         if lAtt is Name then begin lName := Name(lAtt).Name; Break; end;
@@ -1295,11 +1344,17 @@ var
   lParam : TRttiParameter;
   missing : TArray<string>;
 begin
-  //class/interface parameters with no registration (others get their default value)
+  //class/interface parameters with no registration (others get their default value), and untyped
+  //parameters, which nothing can satisfy
   missing := nil;
   for lParam in aCtor.GetParameters do
   begin
-    if (lParam.ParamType = nil) or not (lParam.ParamType.TypeKind in [tkClass, tkInterface]) then Continue;
+    if lParam.ParamType = nil then
+    begin
+      missing := missing + [lParam.Name + ': untyped'];
+      Continue;
+    end;
+    if not (lParam.ParamType.TypeKind in [tkClass, tkInterface]) then Continue;
     if not fRegistrator.Dependencies.ContainsKey(fRegistrator.GetKey(lParam.ParamType.Handle,ParameterRegName(lParam))) then
       missing := missing + [lParam.Name + ': ' + lParam.ParamType.Name];
   end;
@@ -1318,95 +1373,149 @@ var
   ctx : TRttiContext;
   reg : TIocRegistration;
   checked : TList<TClass>;
-  rtype : TRttiInstanceType;
-  injectCtor : TRttiMethod;
-  chosen : TRttiMethod;
-  ctor : TRttiMethod;
-  candidates : TArray<TRttiMethod>;
-  others : TArray<string>;
-  hidden : TArray<string>;
-  declaresOwn : Boolean;
-  declaresBelowTObject : Boolean;
-  missing : string;
+  problems : TArray<string>;
+  warnings : TArray<string>;
+  pass : Boolean;
+  overridden : Boolean;
+
+  //a registration that a later one of the same key overrides is never returned by Resolve, only
+  //by ResolveAll: its problems are warnings, so a mock registered on top does not make Build fail
+  procedure Problem(const aText : string);
+  begin
+    if overridden then warnings := warnings + [aText + ' (registration overridden by a later one of the same key)']
+      else problems := problems + [aText];
+  end;
+
+  procedure CheckInterface(aReg : TIocRegistration);
+  begin
+    //an instance reaches its service type through QueryInterface, by GUID
+    if not (aReg is TIocRegistrationInterface) or (aReg.IntfInfo.Kind <> tkInterface) then Exit;
+    if not (ifHasGuid in GetTypeData(aReg.IntfInfo).IntfFlags) then
+      Problem(Format('%s has no GUID: the container hands out interfaces by GUID, declare one',[aReg.IntfInfo.Name]))
+    else if aReg.&Implementation.GetInterfaceEntry(GetTypeData(aReg.IntfInfo).Guid) = nil then
+      Problem(Format('%s is registered for %s but does not implement it',[aReg.&Implementation.ClassName,aReg.IntfInfo.Name]));
+  end;
+
+  procedure CheckConstructors(aClass : TClass);
+  var
+    rtype : TRttiInstanceType;
+    injectCtor : TRttiMethod;
+    chosen : TRttiMethod;
+    ctor : TRttiMethod;
+    candidates : TArray<TRttiMethod>;
+    others : TArray<string>;
+    hidden : TArray<string>;
+    tied : TArray<string>;
+    declaresOwn : Boolean;
+    declaresBelowTObject : Boolean;
+    missing : string;
+  begin
+    rtype := TRttiInstanceType(ctx.GetType(aClass));
+    if rtype = nil then Exit;
+
+    try
+      injectCtor := FindInjectConstructor(rtype);
+    except
+      on E : EIocRegisterError do
+      begin
+        Problem(E.Message);
+        Exit;
+      end;
+    end;
+    if injectCtor <> nil then
+    begin
+      missing := MissingParameters(injectCtor);
+      if not missing.IsEmpty then
+        Problem(Format('%s: %s marked [Inject] has unregistered parameters: %s',
+          [rtype.Name,ConstructorSignature(injectCtor),missing]));
+      Exit;
+    end;
+
+    //simulates the default rule: first candidate whose class/interface parameters are registered
+    candidates := GetConstructorCandidates(rtype);
+    chosen := nil;
+    for ctor in candidates do
+      if MissingParameters(ctor).IsEmpty then
+      begin
+        chosen := ctor;
+        Break;
+      end;
+    if chosen = nil then Exit;
+
+    declaresOwn := False;
+    declaresBelowTObject := False;
+    others := nil;
+    for ctor in candidates do
+    begin
+      if ctor.Parent = rtype then declaresOwn := True;
+      if ctor.Parent.Handle <> TypeInfo(TObject) then declaresBelowTObject := True;
+      if ctor = chosen then Continue;
+      missing := MissingParameters(ctor);
+      if missing.IsEmpty then others := others + [ConstructorSignature(ctor)]
+        else others := others + [ConstructorSignature(ctor) + ' (unregistered: ' + missing + ')'];
+    end;
+
+    if (chosen.Parent.Handle = TypeInfo(TObject)) and declaresBelowTObject then
+      Problem(Format('%s would be created by TObject.Create, leaving its dependencies nil. ' +
+        'Other constructors: %s. Mark the intended one with [Inject].',[rtype.Name,string.Join('; ',others)]))
+    else if declaresOwn and (chosen.Parent <> rtype) then
+      Problem(Format('%s declares constructors but none is satisfiable; inherited %s would be used. ' +
+        'Other constructors: %s.',[rtype.Name,ConstructorSignature(chosen),string.Join('; ',others)]))
+    else if chosen.Parent = rtype then
+    begin
+      //a warning, not an error: the author may prefer the shorter constructor on purpose
+      hidden := nil;
+      for ctor in candidates do
+        if (ctor <> chosen) and (ctor.Parent = rtype) and MissingParameters(ctor).IsEmpty and
+          (InjectableCount(ctor) > InjectableCount(chosen)) then hidden := hidden + [ConstructorSignature(ctor)];
+      if Length(hidden) > 0 then
+        warnings := warnings + [Format('%s will be created by %s, although %s can also be satisfied and receives ' +
+          'more dependencies. Mark the intended constructor with [Inject].',
+          [rtype.Name,ConstructorSignature(chosen),string.Join('; ',hidden)])];
+    end;
+
+    //a warning: another satisfiable constructor of the same class with as many parameters; which
+    //one is used depends on the order RTTI lists them
+    tied := nil;
+    for ctor in candidates do
+      if (ctor <> chosen) and (ctor.Parent = chosen.Parent) and
+        (Length(ctor.GetParameters) = Length(chosen.GetParameters)) and MissingParameters(ctor).IsEmpty then
+        tied := tied + [ConstructorSignature(ctor)];
+    if Length(tied) > 0 then
+      warnings := warnings + [Format('%s can be created by %s or by %s, with as many parameters: the one used ' +
+        'depends on the order RTTI lists them. Mark the intended constructor with [Inject].',
+        [rtype.Name,ConstructorSignature(chosen),string.Join('; ',tied)])];
+  end;
+
 begin
-  Result := nil;
-  aWarnings := nil;
+  problems := nil;
+  warnings := nil;
   checked := TList<TClass>.Create;
   try
-    for reg in fRegistrator.DependencyOrder do
+    //the registrations Resolve returns first, then the overridden ones: a class registered both
+    //ways is checked as the former
+    for pass := False to True do
     begin
-      //only registrations the container builds through a constructor, each class once
-      if (reg.&Implementation = nil) or Assigned(reg.ActivatorDelegate) or Assigned(reg.ContextActivatorDelegate) or
-        checked.Contains(reg.&Implementation) then Continue;
-      if (reg is TIocRegistrationInterface) and (TIocRegistrationInterface(reg).Instance <> nil) then Continue;
-      checked.Add(reg.&Implementation);
-      rtype := TRttiInstanceType(ctx.GetType(reg.&Implementation));
-      if rtype = nil then Continue;
-
-      try
-        injectCtor := FindInjectConstructor(rtype);
-      except
-        on E : EIocRegisterError do
-        begin
-          Result := Result + [E.Message];
-          Continue;
-        end;
-      end;
-      if injectCtor <> nil then
+      overridden := pass;
+      for reg in fRegistrator.DependencyOrder do
       begin
-        missing := MissingParameters(injectCtor);
-        if not missing.IsEmpty then
-          Result := Result + [Format('%s: %s marked [Inject] has unregistered parameters: %s',
-            [rtype.Name,ConstructorSignature(injectCtor),missing])];
-        Continue;
-      end;
-
-      //simulates the default rule: first candidate whose class/interface parameters are registered
-      candidates := GetConstructorCandidates(rtype);
-      chosen := nil;
-      for ctor in candidates do
-        if MissingParameters(ctor).IsEmpty then
-        begin
-          chosen := ctor;
-          Break;
-        end;
-      if chosen = nil then Continue;
-
-      declaresOwn := False;
-      declaresBelowTObject := False;
-      others := nil;
-      for ctor in candidates do
-      begin
-        if ctor.Parent = rtype then declaresOwn := True;
-        if ctor.Parent.Handle <> TypeInfo(TObject) then declaresBelowTObject := True;
-        if ctor = chosen then Continue;
-        missing := MissingParameters(ctor);
-        if missing.IsEmpty then others := others + [ConstructorSignature(ctor)]
-          else others := others + [ConstructorSignature(ctor) + ' (unregistered: ' + missing + ')'];
-      end;
-
-      if (chosen.Parent.Handle = TypeInfo(TObject)) and declaresBelowTObject then
-        Result := Result + [Format('%s would be created by TObject.Create, leaving its dependencies nil. ' +
-          'Other constructors: %s. Mark the intended one with [Inject].',[rtype.Name,string.Join('; ',others)])]
-      else if declaresOwn and (chosen.Parent <> rtype) then
-        Result := Result + [Format('%s declares constructors but none is satisfiable; inherited %s would be used. ' +
-          'Other constructors: %s.',[rtype.Name,ConstructorSignature(chosen),string.Join('; ',others)])]
-      else if chosen.Parent = rtype then
-      begin
-        //a warning, not an error: the author may prefer the shorter constructor on purpose
-        hidden := nil;
-        for ctor in candidates do
-          if (ctor <> chosen) and (ctor.Parent = rtype) and MissingParameters(ctor).IsEmpty and
-            (InjectableCount(ctor) > InjectableCount(chosen)) then hidden := hidden + [ConstructorSignature(ctor)];
-        if Length(hidden) > 0 then
-          aWarnings := aWarnings + [Format('%s will be created by %s, although %s can also be satisfied and receives ' +
-            'more dependencies. Mark the intended constructor with [Inject].',
-            [rtype.Name,ConstructorSignature(chosen),string.Join('; ',hidden)])];
+        if fRegistrator.IsOverridden(reg) <> overridden then Continue;
+        //only registrations the container builds through a constructor; a singleton already built
+        //is checked too, an instance given at registration is not
+        if (reg.&Implementation = nil) or Assigned(reg.ActivatorDelegate) or Assigned(reg.ContextActivatorDelegate) then Continue;
+        if (reg is TIocRegistrationInterface) and TIocRegistrationInterface(reg).fGivenInstance then Continue;
+        CheckInterface(reg);
+        //the constructors, each class once
+        if checked.Contains(reg.&Implementation) then Continue;
+        checked.Add(reg.&Implementation);
+        CheckConstructors(reg.&Implementation);
       end;
     end;
   finally
     checked.Free;
   end;
+  aWarnings := warnings;
+  Result := problems;
 end;
 
 function TIocResolver.FindRegistration(aServiceType: PTypeInfo; const aName: string): TIocRegistration;
@@ -1467,7 +1576,8 @@ begin
         {$ENDIF}
         newInst := Activate().AsInterface;
       end;
-      if (newInst = nil) or (newInst.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0) then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+      if newInst = nil then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+      if newInst.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then RaiseNotImplemented(newInst,aServiceType);
       TValue.Make(@intf,aServiceType,Result);
     end
     else
@@ -1544,7 +1654,7 @@ begin
   if aReg is TIocRegistrationInterface then
   begin
     if IInterface(instance).QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then
-      raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+      RaiseNotImplemented(IInterface(instance),aServiceType);
     TValue.Make(@intf,aServiceType,Result);
   end
   else Result := TObject(instance);
@@ -1698,8 +1808,7 @@ begin
       fInterfaces.Add(aReg,cached);
       fCreated.Add(cached);
     end;
-    if cached.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then
-      raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+    if cached.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0 then RaiseNotImplemented(cached,aServiceType);
     TValue.Make(@intf,aServiceType,Result);
   end
   else

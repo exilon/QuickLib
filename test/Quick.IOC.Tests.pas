@@ -457,6 +457,59 @@ type
     function Logger: ILogger;
   end;
 
+  // implements no service interface: registering it for ILogger is a configuration error
+  TNotALogger = class(TInterfacedObject);
+
+  // interface declared without a GUID
+  INoGuid = interface
+    procedure Run;
+  end;
+
+  TNoGuidService = class(TInterfacedObject, INoGuid)
+  public
+    procedure Run;
+  end;
+
+  // two own constructors with one parameter each, both satisfiable when both are registered
+  TTiedConstructors = class(TInterfacedObject, IInjService)
+  public
+    constructor Create(logger: ILogger); overload;
+    constructor Create(email: IEmailService); overload;
+    function Logger: ILogger;
+  end;
+
+  // constructor with an untyped parameter: the container has nothing to pass to it
+  TUntypedParam = class(TInterfacedObject, IInjService)
+  public
+    constructor Create(const data);
+    function Logger: ILogger;
+  end;
+
+  // production e-mail service: needs SMTP settings that a test project does not register
+  ISmtpSettings = interface
+  ['{A304F1AF-91F2-4EE6-AC1A-94B678B43CD6}']
+  end;
+
+  TSmtpEmailService = class(TInterfacedObject, IEmailService)
+  private class var
+    FCreated: Integer;
+  public
+    [Inject]
+    constructor Create(settings: ISmtpSettings);
+    procedure SendEmail(const mailto, subject, body: string);
+    class property Created: Integer read FCreated write FCreated;
+  end;
+
+  // the mock a test registers on top of the production registration
+  TFakeEmailService = class(TInterfacedObject, IEmailService)
+  private class var
+    FCreated: Integer;
+  public
+    constructor Create;
+    procedure SendEmail(const mailto, subject, body: string);
+    class property Created: Integer read FCreated write FCreated;
+  end;
+
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
   private class var
@@ -605,11 +658,11 @@ type
     procedure Test_Singleton_CreatedOne_DoesNotWaitForAnotherBeingCreated;
     { Build and IOwned resolve each registration }
     [Test]
-    procedure Test_Build_PreCreatesEverySingletonRegistration;
+    procedure Test_Build_PreCreatesOnlyWhatResolveReturns;
     [Test]
     procedure Test_Build_LastRegistrationScoped_DoesNotFail;
     [Test]
-    procedure Test_Build_RegistrationWithoutClass_ReportsBuildError;
+    procedure Test_Build_RegistrationWithoutClass_NamesTheInterface;
     [Test]
     procedure Test_Owned_ResolveAll_EachRegistration;
     [Test]
@@ -698,6 +751,29 @@ type
     procedure Test_Owned_Release_FreesScopeEvenIfValueDestructorRaises;
     [Test]
     procedure Test_Owned_ResolutionFailure_NotHiddenByScopeRelease;
+    // diagnostics and messages (package B)
+    [Test]
+    procedure Test_DiagnoseConstructors_ReportsClassNotImplementingInterface;
+    [Test]
+    procedure Test_DiagnoseConstructors_ReportsInterfaceWithoutGuid;
+    [Test]
+    procedure Test_Resolve_ClassNotImplementingInterface_RaisesRegisterError;
+    [Test]
+    procedure Test_Build_ContainerError_KeepsItsClass;
+    [Test]
+    procedure Test_Build_ConstructorFailure_KeepsOriginalAsInner;
+    [Test]
+    procedure Test_DiagnoseConstructors_ChecksSingletonAlreadyBuilt;
+    [Test]
+    procedure Test_DiagnoseConstructors_WarnsOnTiedConstructors;
+    [Test]
+    procedure Test_Resolve_UntypedConstructorParameter_NotUsed;
+    [Test]
+    procedure Test_DelegateTo_NamedFunction_Compiles;
+    [Test]
+    procedure Test_Build_MockOnTop_OriginalNotBuilt;
+    [Test]
+    procedure Test_Build_ValidateConstructors_OverriddenRegistrationOnlyWarns;
   end;
 
 implementation
@@ -1556,17 +1632,16 @@ procedure TQuickIOCTests.Test_Inject_Unsatisfiable_MessageCarriesRealCause;
 var
   msg: string;
 begin
-  // ILogger is registered, but with a class that does not implement it: the [Inject] error must
-  // say why the parameter failed, not only that "a dependency could not be resolved"
-  FContainer.RegisterType<ILogger, TGraphX>.AsTransient;
+  // ILogger is not registered: the [Inject] error must say which parameter failed and why, not
+  // only that "a dependency could not be resolved"
   FContainer.RegisterType<IInjService, TInjMarked>.AsTransient;
   msg := '';
   try
     FContainer.Resolve<IInjService>;
   except
-    on E: EIocResolverError do msg := E.Message;
+    on E: EIocInjectError do msg := E.Message;
   end;
-  Assert.IsTrue(Pos('Implementation for "ILogger" not registered', msg) > 0,
+  Assert.IsTrue(Pos('parameter "logger: ILogger": Type "ILogger" not registered', msg) > 0,
     'The message must carry the real cause. Message: ' + msg);
 end;
 
@@ -1952,6 +2027,71 @@ begin
     end;
 end;
 
+{ TNoGuidService }
+
+procedure TNoGuidService.Run;
+begin
+end;
+
+{ TTiedConstructors }
+
+constructor TTiedConstructors.Create(logger: ILogger);
+begin
+  inherited Create;
+end;
+
+constructor TTiedConstructors.Create(email: IEmailService);
+begin
+  inherited Create;
+end;
+
+function TTiedConstructors.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
+{ TUntypedParam }
+
+constructor TUntypedParam.Create(const data);
+begin
+  inherited Create;
+end;
+
+function TUntypedParam.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
+{ TSmtpEmailService }
+
+constructor TSmtpEmailService.Create(settings: ISmtpSettings);
+begin
+  inherited Create;
+  Inc(FCreated);
+end;
+
+procedure TSmtpEmailService.SendEmail(const mailto, subject, body: string);
+begin
+end;
+
+{ TFakeEmailService }
+
+constructor TFakeEmailService.Create;
+begin
+  inherited Create;
+  Inc(FCreated);
+end;
+
+procedure TFakeEmailService.SendEmail(const mailto, subject, body: string);
+begin
+end;
+
+// named function for DelegateTo
+function NewConsoleLogger: TConsoleLogger;
+begin
+  Result := TConsoleLogger.Create;
+end;
+
 // transient class instances (RegisterInstance<T>) belong to the caller: free each distinct one
 procedure FreeDistinct(const aObjects: TArray<Pointer>);
 var
@@ -2108,15 +2248,21 @@ end;
 
 { Build and IOwned resolve each registration }
 
-procedure TQuickIOCTests.Test_Build_PreCreatesEverySingletonRegistration;
+procedure TQuickIOCTests.Test_Build_PreCreatesOnlyWhatResolveReturns;
+var
+  loggers: TList<ILogger>;
 begin
-  // two singletons under the same key: Build must pre-create both, not only the last one
+  // two singletons under the same key: Resolve returns the last one, so Build pre-creates only
+  // that one; the first is built once, by the first ResolveAll
   FContainer.RegisterType<ILogger, TBuildCountedLogger>.AsSingleton;
   FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
   TBuildCountedLogger.Created := 0;
   FContainer.Build;
-  Assert.AreEqual(1, TBuildCountedLogger.Created,
-    'Build must pre-create the first singleton registration too (it resolved only the last one)');
+  Assert.AreEqual(0, TBuildCountedLogger.Created,
+    'Build must not pre-create a singleton that a later registration of the same key overrides');
+  FContainer.ResolveAll<ILogger>.Free;
+  FContainer.ResolveAll<ILogger>.Free;
+  Assert.AreEqual(1, TBuildCountedLogger.Created, 'The overridden singleton is built once, by the first ResolveAll');
 end;
 
 procedure TQuickIOCTests.Test_Build_LastRegistrationScoped_DoesNotFail;
@@ -2132,7 +2278,7 @@ begin
     end, nil, 'Build must resolve each singleton registration itself, not the last one of the key');
 end;
 
-procedure TQuickIOCTests.Test_Build_RegistrationWithoutClass_ReportsBuildError;
+procedure TQuickIOCTests.Test_Build_RegistrationWithoutClass_NamesTheInterface;
 var
   raisedClass, msg: string;
 begin
@@ -2150,8 +2296,8 @@ begin
       msg := E.Message;
     end;
   end;
-  Assert.AreEqual('EIocBuildError', raisedClass, 'Build must report EIocBuildError. Message: ' + msg);
-  Assert.IsTrue(Pos('ILogger', msg) > 0, 'The message must name the interface. Message: ' + msg);
+  Assert.AreEqual('EIocResolverError', raisedClass, 'Build must keep the class of the container error. Message: ' + msg);
+  Assert.IsTrue(Pos('Build Error on "ILogger', msg) > 0, 'The message must name the interface. Message: ' + msg);
 end;
 
 procedure TQuickIOCTests.Test_Owned_ResolveAll_EachRegistration;
@@ -3061,6 +3207,182 @@ begin
   end;
   Assert.AreEqual('EIocInjectError', raised,
     'The resolution failure must reach the caller, not the exception raised while releasing the IOwned scope');
+end;
+
+{ Diagnostics and messages (package B) }
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_ReportsClassNotImplementingInterface;
+var
+  problems: TArray<string>;
+begin
+  FContainer.RegisterType<ILogger, TNotALogger>;
+  problems := FContainer.DiagnoseConstructors;
+  Assert.AreEqual(1, Integer(Length(problems)), 'One problem expected. Found: ' + string.Join(' | ', problems));
+  Assert.IsTrue(Pos('TNotALogger is registered for ILogger but does not implement it', problems[0]) > 0,
+    'The diagnostics must report the class that does not implement its interface. Found: ' + problems[0]);
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_ReportsInterfaceWithoutGuid;
+var
+  problems: TArray<string>;
+begin
+  FContainer.RegisterType<INoGuid, TNoGuidService>;
+  problems := FContainer.DiagnoseConstructors;
+  Assert.AreEqual(1, Integer(Length(problems)), 'One problem expected. Found: ' + string.Join(' | ', problems));
+  Assert.IsTrue(Pos('INoGuid has no GUID', problems[0]) > 0,
+    'The diagnostics must report the interface without a GUID. Found: ' + problems[0]);
+end;
+
+procedure TQuickIOCTests.Test_Resolve_ClassNotImplementingInterface_RaisesRegisterError;
+var
+  error: string;
+begin
+  // TUserService needs ILogger, registered with a class that does not implement it
+  FContainer.RegisterType<ILogger, TNotALogger>;
+  FContainer.RegisterType<IUserService, TUserService>;
+  error := '';
+  try
+    FContainer.Resolve<IUserService>;
+  except
+    on E: Exception do error := E.ClassName + ': ' + E.Message;
+  end;
+  Assert.IsTrue(error.StartsWith('EIocRegisterError:'),
+    'The wrong registration must surface, not build TUserService with a nil logger. Got: ' + error);
+  Assert.IsTrue(Pos('TNotALogger does not implement ILogger', error) > 0, 'The message must name both. Got: ' + error);
+end;
+
+procedure TQuickIOCTests.Test_Build_ContainerError_KeepsItsClass;
+var
+  raisedClass, msg: string;
+begin
+  FContainer.RegisterType<ICycleA, TCycleA>.AsSingleton;
+  FContainer.RegisterType<ICycleB, TCycleB>.AsSingleton;
+  raisedClass := '';
+  msg := '';
+  try
+    FContainer.Build;
+  except
+    on E: Exception do
+    begin
+      raisedClass := E.ClassName;
+      msg := E.Message;
+    end;
+  end;
+  Assert.AreEqual('EIocCycleError', raisedClass, 'Build must keep the class of the container error. Message: ' + msg);
+  Assert.IsTrue(Pos('Build Error on "TCycleA', msg) > 0, 'The message must name the registration. Message: ' + msg);
+  Assert.IsTrue(Pos('TCycleA -> TCycleB -> TCycleA', msg) > 0, 'The message must keep the original one. Message: ' + msg);
+end;
+
+procedure TQuickIOCTests.Test_Build_ConstructorFailure_KeepsOriginalAsInner;
+var
+  raisedClass, innerClass: string;
+begin
+  FContainer.RegisterInstance<TFlakySingleton>.AsSingleton;
+  TFlakySingleton.FailNext := True;
+  raisedClass := '';
+  innerClass := '';
+  try
+    try
+      FContainer.Build;
+    except
+      on E: Exception do
+      begin
+        raisedClass := E.ClassName;
+        if E.InnerException <> nil then innerClass := E.InnerException.ClassName;
+      end;
+    end;
+  finally
+    TFlakySingleton.FailNext := False;
+  end;
+  Assert.AreEqual('EIocBuildError', raisedClass, 'An exception of a constructor is reported as EIocBuildError');
+  Assert.AreEqual('EFlakyCreation', innerClass, 'The original exception must be kept in InnerException');
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_ChecksSingletonAlreadyBuilt;
+var
+  problems: TArray<string>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TNoInjDerived>.AsSingleton;
+  FContainer.Resolve<IInjService>; // built before the diagnostics run
+  problems := FContainer.DiagnoseConstructors;
+  Assert.AreEqual(1, Integer(Length(problems)),
+    'A singleton already built must still be checked. Found: ' + string.Join(' | ', problems));
+  Assert.IsTrue(Pos('TNoInjDerived would be created by TObject.Create', problems[0]) > 0, 'Found: ' + problems[0]);
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_WarnsOnTiedConstructors;
+var
+  problems, warnings: TArray<string>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IEmailService, TEmailService>.AsTransient;
+  FContainer.RegisterType<IInjService, TTiedConstructors>.AsTransient;
+  problems := FContainer.DiagnoseConstructors(warnings);
+  Assert.AreEqual(0, Integer(Length(problems)), 'Not an error. Found: ' + string.Join(' | ', problems));
+  Assert.AreEqual(1, Integer(Length(warnings)),
+    'Two satisfiable constructors with as many parameters: one warning expected. Found: ' + string.Join(' | ', warnings));
+  Assert.IsTrue((Pos('TTiedConstructors.Create(logger: ILogger)', warnings[0]) > 0) and
+    (Pos('TTiedConstructors.Create(email: IEmailService)', warnings[0]) > 0),
+    'The warning must name both constructors. Warning: ' + warnings[0]);
+end;
+
+procedure TQuickIOCTests.Test_Resolve_UntypedConstructorParameter_NotUsed;
+begin
+  FContainer.RegisterType<IInjService, TUntypedParam>.AsTransient;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.Resolve<IInjService>;
+    end, nil, 'A constructor with an untyped parameter cannot be satisfied: it must be skipped, not crash');
+end;
+
+procedure TQuickIOCTests.Test_DelegateTo_NamedFunction_Compiles;
+var
+  logger: ILogger;
+begin
+  // compile-time check: with two DelegateTo overloads, a named function still picks the plain one.
+  // DelegateTo(nil) does not compile (E2251, ambiguous), which is documented
+  FContainer.RegisterType<ILogger, TConsoleLogger>.DelegateTo(NewConsoleLogger);
+  logger := FContainer.Resolve<ILogger>;
+  Assert.IsTrue((logger as TObject) is TConsoleLogger, 'The named function must be used as the delegate');
+end;
+
+procedure TQuickIOCTests.Test_Build_MockOnTop_OriginalNotBuilt;
+var
+  email: IEmailService;
+begin
+  // the production registration (ISmtpSettings is not registered in a test project) and the
+  // test's mock on top of it, without removing anything
+  FContainer.RegisterType<IEmailService, TSmtpEmailService>.AsSingleton;
+  FContainer.RegisterType<IEmailService, TFakeEmailService>.AsSingleton;
+  TSmtpEmailService.Created := 0;
+  TFakeEmailService.Created := 0;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.Build;
+    end, nil, 'Build must not build a registration that Resolve never returns');
+  Assert.AreEqual(0, TSmtpEmailService.Created, 'The overridden production service must not be built');
+  Assert.AreEqual(1, TFakeEmailService.Created, 'Build pre-creates the singleton Resolve returns');
+  email := FContainer.Resolve<IEmailService>;
+  Assert.IsTrue((email as TObject) is TFakeEmailService, 'Resolve returns the mock');
+end;
+
+procedure TQuickIOCTests.Test_Build_ValidateConstructors_OverriddenRegistrationOnlyWarns;
+begin
+  FContainer.RegisterType<IEmailService, TSmtpEmailService>.AsSingleton;
+  FContainer.RegisterType<IEmailService, TFakeEmailService>.AsSingleton;
+  FContainer.ValidateConstructors := True;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.Build;
+    end, nil, 'The unregistered dependency of an overridden registration must not make Build fail');
+  Assert.AreEqual(1, Integer(Length(FContainer.ConstructorWarnings)),
+    'It is still reported, as a warning. Found: ' + string.Join(' | ', FContainer.ConstructorWarnings));
+  Assert.IsTrue(Pos('TSmtpEmailService', FContainer.ConstructorWarnings[0]) > 0,
+    'The warning must name the overridden class. Found: ' + FContainer.ConstructorWarnings[0]);
 end;
 
 initialization
