@@ -407,6 +407,9 @@ type
   /// it instead of swallowing it: a consumer must not fall back to another constructor and be
   /// built with that dependency nil.</summary>
   EIocInjectError = class(EIocResolverError);
+  /// <summary>A registration was resolved again while it was being built: a dependency cycle,
+  /// such as A -> B -> A, reported with the whole chain. Not an EIocResolverError, so constructor
+  /// selection does not swallow it and fall back to another constructor.</summary>
   EIocCycleError = class(EIocError);
 
   //singleton global instance
@@ -435,6 +438,48 @@ end;
 function TIocScopeLifetime.IsAlive: Boolean;
 begin
   Result := fAlive;
+end;
+
+type
+  //a registration being built in the current thread; each BuildValue keeps its node on its own
+  //stack frame, so the chain needs no allocation and no lock
+  PIocBuildNode = ^TIocBuildNode;
+  TIocBuildNode = record
+    Reg : TIocRegistration;
+    Parent : PIocBuildNode;
+  end;
+
+threadvar
+  BuildChain : PIocBuildNode;
+
+function RegistrationLabel(aReg : TIocRegistration) : string;
+begin
+  if aReg.&Implementation <> nil then Result := aReg.&Implementation.ClassName
+    else Result := string(aReg.IntfInfo.Name);
+end;
+
+procedure RaiseIfBuildCycle(aReg : TIocRegistration);
+var
+  node : PIocBuildNode;
+  chain : string;
+begin
+  node := BuildChain;
+  while node <> nil do
+  begin
+    if node.Reg = aReg then
+    begin
+      //from the first occurrence of aReg to the current one, in resolution order
+      chain := RegistrationLabel(aReg);
+      node := BuildChain;
+      while node.Reg <> aReg do
+      begin
+        chain := RegistrationLabel(node.Reg) + ' -> ' + chain;
+        node := node.Parent;
+      end;
+      raise EIocCycleError.CreateFmt('Dependency cycle: %s',[RegistrationLabel(aReg) + ' -> ' + chain]);
+    end;
+    node := node.Parent;
+  end;
 end;
 
 function GlobalContainer: TIocContainer;
@@ -1318,6 +1363,7 @@ function TIocResolver.BuildValue(aReg: TIocRegistration; aServiceType: PTypeInfo
 var
   intf : IInterface;
   newInst : IInterface;
+  node : TIocBuildNode;
 
   function Activate : TValue;
   var
@@ -1335,27 +1381,38 @@ var
   end;
 
 begin
-  //builds a new instance (or returns the one given to RegisterInstance<TInterface>); never caches
-  if aReg is TIocRegistrationInterface then
-  begin
-    newInst := TIocRegistrationInterface(aReg).Instance;
-    if newInst = nil then
+  //every path that builds an instance (transient, scoped, singleton, IOwned, delegates) passes
+  //here: a registration already being built in this thread is a dependency cycle, which would
+  //otherwise end in a stack overflow
+  RaiseIfBuildCycle(aReg);
+  node.Reg := aReg;
+  node.Parent := BuildChain;
+  BuildChain := @node;
+  try
+    //builds a new instance (or returns the one given to RegisterInstance<TInterface>); never caches
+    if aReg is TIocRegistrationInterface then
     begin
-      if aReg.&Implementation = nil then raise EIocResolverError.CreateFmt('Implemention for "%s" not defined!',[aServiceType.Name]);
+      newInst := TIocRegistrationInterface(aReg).Instance;
+      if newInst = nil then
+      begin
+        if aReg.&Implementation = nil then raise EIocResolverError.CreateFmt('Implemention for "%s" not defined!',[aServiceType.Name]);
+        {$IFDEF DEBUG_IOC}
+        TDebugger.Trace(Self,'Building dependency: %s',[aReg.fIntfInfo.Name]);
+        {$ENDIF}
+        newInst := Activate().AsInterface;
+      end;
+      if (newInst = nil) or (newInst.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0) then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
+      TValue.Make(@intf,aServiceType,Result);
+    end
+    else
+    begin
       {$IFDEF DEBUG_IOC}
       TDebugger.Trace(Self,'Building dependency: %s',[aReg.fIntfInfo.Name]);
       {$ENDIF}
-      newInst := Activate().AsInterface;
+      Result := Activate().AsObject;
     end;
-    if (newInst = nil) or (newInst.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0) then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
-    TValue.Make(@intf,aServiceType,Result);
-  end
-  else
-  begin
-    {$IFDEF DEBUG_IOC}
-    TDebugger.Trace(Self,'Building dependency: %s',[aReg.fIntfInfo.Name]);
-    {$ENDIF}
-    Result := Activate().AsObject;
+  finally
+    BuildChain := node.Parent;
   end;
 end;
 
