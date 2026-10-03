@@ -391,14 +391,17 @@ type
   Inject = class(TCustomAttribute)
   end;
 
+  /// <summary>Base of every exception raised by the container: catch it to handle them all.
+  /// Constructor selection swallows only EIocResolverError (except EIocInjectError) to try the
+  /// next constructor; the other descendants always reach the caller.</summary>
   EIocError = class(Exception);
-  EIocRegisterError = class(Exception);
-  EIocResolverError = class(Exception);
-  EIocBuildError = class(Exception);
+  EIocRegisterError = class(EIocError);
+  EIocResolverError = class(EIocError);
+  EIocBuildError = class(EIocError);
   /// <summary>Scoped service resolved outside a scope. Deliberately NOT an EIocResolverError:
   /// constructor selection swallows EIocResolverError to try other constructors, and a scope
   /// violation must surface instead of yielding an object with nil dependencies.</summary>
-  EIocScopeError = class(Exception);
+  EIocScopeError = class(EIocError);
   /// <summary>A constructor marked [Inject] could not be satisfied. It descends from
   /// EIocResolverError, so existing handlers still catch it, but constructor selection re-raises
   /// it instead of swallowing it: a consumer must not fall back to another constructor and be
