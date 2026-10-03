@@ -350,7 +350,8 @@ type
   /// <summary>Marks the constructor the container must use. It is honored on the class itself
   /// or on the nearest ancestor that declares constructors (so a class that inherits its
   /// constructor does not fall back to TObject.Create). If the marked constructor cannot be
-  /// satisfied, resolution fails instead of trying another constructor. Classes without it
+  /// satisfied, resolution raises EIocInjectError instead of trying another constructor, also
+  /// when the class is a dependency of another one. Classes without it
   /// keep the default rule: own constructors before inherited ones, fewest parameters first.</summary>
   Inject = class(TCustomAttribute)
   end;
@@ -362,6 +363,11 @@ type
   /// constructor selection swallows EIocResolverError to try other constructors, and a scope
   /// violation must surface instead of yielding an object with nil dependencies.</summary>
   EIocScopeError = class(Exception);
+  /// <summary>A constructor marked [Inject] could not be satisfied. It descends from
+  /// EIocResolverError, so existing handlers still catch it, but constructor selection re-raises
+  /// it instead of swallowing it: a consumer must not fall back to another constructor and be
+  /// built with that dependency nil.</summary>
+  EIocInjectError = class(EIocResolverError);
 
   //singleton global instance
   function GlobalContainer : TIocContainer;
@@ -884,9 +890,10 @@ var
   rtype : TRttiType;
   injectCtor : TRttiMethod;
   bestCtor : TRttiMethod;
-  missing : string;
+  reason : string;
 
-  function TryInvoke(aCtor: TRttiMethod; out aResult: TValue): Boolean;
+  //aError: why the constructor was given up (failed parameter and original message)
+  function TryInvoke(aCtor: TRttiMethod; out aResult: TValue; out aError: string): Boolean;
   var
     lParam : TRttiParameter;
     lAtt : TCustomAttribute;
@@ -895,22 +902,34 @@ var
     lVals : TArray<TValue>;
   begin
     Result := False;
+    aError := EmptyStr;
     lVals := nil;
     for lParam in aCtor.GetParameters do
     begin
       lName := EmptyStr;
       for lAtt in lParam.GetAttributes do
         if lAtt is Name then begin lName := Name(lAtt).Name; Break; end;
+      //an [Inject] failure deeper in the chain is re-raised, never swallowed: falling back to
+      //another constructor would build this object with that dependency nil
       if lParam.ParamType.TypeKind in [tkClass, tkInterface] then
       begin
         try lVal := Resolve(lParam.ParamType.Handle, lName, aScope);
-        except on EIocResolverError do Exit; // required dep not found
+        except
+          on EIocInjectError do raise;
+          on E : EIocResolverError do
+          begin
+            aError := Format('parameter "%s: %s": %s',[lParam.Name,lParam.ParamType.Name,E.Message]);
+            Exit; // required dep not found
+          end;
         end;
       end
       else
       begin
         try lVal := Resolve(lParam.ParamType.Handle, lName, aScope);
-        except on EIocResolverError do TValue.Make(nil, lParam.ParamType.Handle, lVal); end;
+        except
+          on EIocInjectError do raise;
+          on EIocResolverError do TValue.Make(nil, lParam.ParamType.Handle, lVal);
+        end;
       end;
       lVals := lVals + [lVal];
     end;
@@ -927,19 +946,18 @@ begin
   injectCtor := FindInjectConstructor(TRttiInstanceType(rtype));
   if injectCtor <> nil then
   begin
-    if not TryInvoke(injectCtor, Result) then
+    if not TryInvoke(injectCtor, Result, reason) then
     begin
-      missing := MissingParameters(injectCtor);
-      if missing.IsEmpty then missing := 'a dependency could not be resolved';
-      raise EIocResolverError.CreateFmt('Constructor %s.%s marked [Inject] could not be satisfied: %s',
-        [aClass.ClassName,injectCtor.Name,missing]);
+      if reason.IsEmpty then reason := 'a dependency could not be resolved';
+      raise EIocInjectError.CreateFmt('Constructor %s.%s marked [Inject] could not be satisfied: %s',
+        [aClass.ClassName,injectCtor.Name,reason]);
     end;
     Exit;
   end;
 
   for bestCtor in GetConstructorCandidates(TRttiInstanceType(rtype)) do
   begin
-    if TryInvoke(bestCtor, Result) then Exit;
+    if TryInvoke(bestCtor, Result, reason) then Exit;
   end;
 end;
 

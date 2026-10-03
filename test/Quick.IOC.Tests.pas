@@ -225,6 +225,21 @@ type
     function Logger: ILogger;
   end;
 
+  // depends on IInjService without [Inject]: the default rule tries Create(service), then
+  // the inherited TObject.Create
+  IInjOuter = interface
+  ['{B3F7C1E9-5D2A-4E86-9A41-0C6E8D3B7F25}']
+    function Service: IInjService;
+  end;
+
+  TInjOuter = class(TInterfacedObject, IInjOuter)
+  private
+    FService: IInjService;
+  public
+    constructor Create(service: IInjService);
+    function Service: IInjService;
+  end;
+
   // Singleton whose constructor is slow, for the concurrency tests
   ISlowSingleton = interface
   ['{4D8A2F6C-1B3E-4975-A0C8-E7F2B5D19A63}']
@@ -351,6 +366,10 @@ type
     procedure Test_Inject_InheritedMarkedConstructorIsUsed;
     [Test]
     procedure Test_Inject_Unsatisfiable_RaisesInsteadOfFallback;
+    [Test]
+    procedure Test_Inject_UnsatisfiableAsDependency_RaisesInsteadOfFallback;
+    [Test]
+    procedure Test_Inject_Unsatisfiable_MessageCarriesRealCause;
     [Test]
     procedure Test_Inject_MoreThanOneMarked_RaisesRegisterError;
     [Test]
@@ -1143,6 +1162,16 @@ begin
   Result := nil;
 end;
 
+constructor TInjOuter.Create(service: IInjService);
+begin
+  FService := service;
+end;
+
+function TInjOuter.Service: IInjService;
+begin
+  Result := FService;
+end;
+
 { [Inject] and constructor diagnostics }
 
 procedure TQuickIOCTests.Test_Inject_UsesMarkedConstructor;
@@ -1170,11 +1199,53 @@ procedure TQuickIOCTests.Test_Inject_Unsatisfiable_RaisesInsteadOfFallback;
 begin
   // ILogger is not registered: the default rule would silently use the parameterless constructor
   FContainer.RegisterType<IInjService, TInjMarked>.AsTransient;
-  Assert.WillRaise(
+  Assert.WillRaiseDescendant(
     procedure
     begin
       FContainer.Resolve<IInjService>;
     end, EIocResolverError, 'An unsatisfiable [Inject] constructor must raise, not fall back');
+end;
+
+procedure TQuickIOCTests.Test_Inject_UnsatisfiableAsDependency_RaisesInsteadOfFallback;
+var
+  outer: IInjOuter;
+  failure: string;
+begin
+  // TInjOuter has no [Inject] and depends on IInjService; the [Inject] constructor of TInjMarked
+  // needs ILogger, which is not registered. The consumer must not swallow that error and fall
+  // back to TObject.Create, which would leave its service nil
+  FContainer.RegisterType<IInjService, TInjMarked>.AsTransient;
+  FContainer.RegisterType<IInjOuter, TInjOuter>.AsTransient;
+  failure := '';
+  try
+    outer := FContainer.Resolve<IInjOuter>;
+    if outer.Service = nil then
+      failure := 'No exception: TInjOuter fell back to TObject.Create and was created with Service = nil'
+    else
+      failure := 'No exception: TInjOuter was created';
+  except
+    on EIocResolverError do ; // expected
+  end;
+  outer := nil;
+  if failure <> '' then Assert.Fail(failure);
+end;
+
+procedure TQuickIOCTests.Test_Inject_Unsatisfiable_MessageCarriesRealCause;
+var
+  msg: string;
+begin
+  // ILogger is registered, but with a class that does not implement it: the [Inject] error must
+  // say why the parameter failed, not only that "a dependency could not be resolved"
+  FContainer.RegisterType<ILogger, TGraphX>.AsTransient;
+  FContainer.RegisterType<IInjService, TInjMarked>.AsTransient;
+  msg := '';
+  try
+    FContainer.Resolve<IInjService>;
+  except
+    on E: EIocResolverError do msg := E.Message;
+  end;
+  Assert.IsTrue(Pos('Implementation for "ILogger" not registered', msg) > 0,
+    'The message must carry the real cause. Message: ' + msg);
 end;
 
 procedure TQuickIOCTests.Test_Inject_MoreThanOneMarked_RaisesRegisterError;
