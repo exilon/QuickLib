@@ -162,6 +162,7 @@ type
     function FindRegistration(aServiceType : PTypeInfo; const aName : string) : TIocRegistration;
     function BuildValue(aReg : TIocRegistration; aServiceType : PTypeInfo; aScope : TIocScope) : TValue;
     function ResolveSingleton(aReg : TIocRegistration; aServiceType : PTypeInfo) : TValue;
+    function ResolveRegistration(aReg : TIocRegistration; aServiceType : PTypeInfo; aScope : TIocScope) : TValue;
   public
     constructor Create(aRegistrator : TIocRegistrator; aInjector : TIocInjector);
     destructor Destroy; override;
@@ -169,7 +170,11 @@ type
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
     /// <summary>Resolves within aScope. aScope = nil means the root (no scope).</summary>
     function Resolve(aServiceType: PTypeInfo; const aName : string; aScope : TIocScope): TValue; overload;
-    function ResolveAll<T>(const aName : string = '') : TList<T>;
+    /// <summary>One instance per registration of T (and aName), in registration order, each
+    /// with its own lifetime. The caller owns the returned list.</summary>
+    function ResolveAll<T>(const aName : string = '') : TList<T>; overload;
+    /// <summary>Same as ResolveAll&lt;T&gt;, within aScope (nil = root).</summary>
+    function ResolveAll<T>(const aName : string; aScope : TIocScope) : TList<T>; overload;
     /// <summary>True (default): resolving a scoped service outside a scope (from the root
     /// container or as a dependency of a singleton) raises EIocScopeError.
     /// False: legacy behaviour, a scoped service outside a scope is built as transient.</summary>
@@ -193,6 +198,8 @@ type
     destructor Destroy; override;
     function Resolve<T>(const aName : string = ''): T; overload;
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
+    /// <summary>One instance per registration of T, within this scope. The caller owns the list.</summary>
+    function ResolveAll<T>(const aName : string = '') : TList<T>;
   end;
 
   // Non-generic helper for typed factory creation (kept for possible future use)
@@ -1145,27 +1152,30 @@ begin
 end;
 
 function TIocResolver.Resolve(aServiceType: PTypeInfo; const aName: string; aScope: TIocScope): TValue;
-var
-  reg : TIocRegistration;
 begin
-  reg := FindRegistration(aServiceType,aName);
-  if reg.IsSingleton then Result := ResolveSingleton(reg,aServiceType)
-  else if reg.IsScoped then
+  Result := ResolveRegistration(FindRegistration(aServiceType,aName),aServiceType,aScope);
+end;
+
+function TIocResolver.ResolveRegistration(aReg: TIocRegistration; aServiceType: PTypeInfo; aScope: TIocScope): TValue;
+begin
+  //applies aReg's own lifetime: shared by Resolve (last registration) and ResolveAll (each one)
+  if aReg.IsSingleton then Result := ResolveSingleton(aReg,aServiceType)
+  else if aReg.IsScoped then
   begin
-    if aScope <> nil then Result := aScope.GetOrCreate(reg,aServiceType)
+    if aScope <> nil then Result := aScope.GetOrCreate(aReg,aServiceType)
     else if fValidateScopes then
       raise EIocScopeError.CreateFmt('Scoped service "%s" resolved outside a scope. Resolve it from a TIocScope ' +
         '(TIocContainer.CreateScope), not from the root container nor as a dependency of a singleton.',[aServiceType.Name])
-    else Result := BuildValue(reg,aServiceType,nil); //legacy (ValidateScopes = False): behaves as transient
+    else Result := BuildValue(aReg,aServiceType,nil); //legacy (ValidateScopes = False): behaves as transient
   end
   else
   begin
-    Result := BuildValue(reg,aServiceType,aScope);
+    Result := BuildValue(aReg,aServiceType,aScope);
     //legacy: class registrations kept the last built instance
-    if reg is TIocRegistrationInstance then TIocRegistrationInstance(reg).Instance := Result.AsObject;
+    if aReg is TIocRegistrationInstance then TIocRegistrationInstance(aReg).Instance := Result.AsObject;
   end;
   {$IFDEF DEBUG_IOC}
-  TDebugger.Trace(Self,'Built dependency: %s',[reg.fIntfInfo.Name]);
+  TDebugger.Trace(Self,'Built dependency: %s',[aReg.fIntfInfo.Name]);
   {$ENDIF}
 end;
 
@@ -1180,27 +1190,28 @@ begin
 end;
 
 function TIocResolver.ResolveAll<T>(const aName : string = '') : TList<T>;
+begin
+  Result := ResolveAll<T>(aName,nil);
+end;
+
+function TIocResolver.ResolveAll<T>(const aName : string; aScope : TIocScope) : TList<T>;
 var
   pInfo : PTypeInfo;
   regList : TObjectList<TIocRegistration>;
   reg : TIocRegistration;
-  key : string;
-  resolved : TValue;
 begin
   Result := TList<T>.Create;
-  pInfo := TypeInfo(T);
-  key := fRegistrator.GetKey(pInfo, aName);
-
-  if fRegistrator.Dependencies.TryGetValue(key, regList) then
-  begin
-    for reg in regList do
+  try
+    pInfo := TypeInfo(T);
+    if fRegistrator.Dependencies.TryGetValue(fRegistrator.GetKey(pInfo,aName),regList) then
     begin
-      // Resolve each registration individually
-      // For singletons, this will return the same instance
-      // For transients, this will create new instances
-      resolved := Resolve(pInfo, reg.Name);
-      Result.Add(resolved.AsType<T>);
+      //resolve each registration itself: going through Resolve(pInfo, reg.Name) would always
+      //find the last registration of the key and return it once per entry
+      for reg in regList do Result.Add(ResolveRegistration(reg,pInfo,aScope).AsType<T>);
     end;
+  except
+    Result.Free;
+    raise;
   end;
 end;
 
@@ -1271,6 +1282,11 @@ end;
 function TIocScope.Resolve<T>(const aName: string): T;
 begin
   Result := Resolve(TypeInfo(T),aName).AsType<T>;
+end;
+
+function TIocScope.ResolveAll<T>(const aName: string): TList<T>;
+begin
+  Result := fResolver.ResolveAll<T>(aName,Self);
 end;
 
 { TOwned<T> }

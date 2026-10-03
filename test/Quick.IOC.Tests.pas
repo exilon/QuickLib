@@ -340,6 +340,15 @@ type
     procedure Test_Build_ValidateConstructorsOffByDefault;
     [Test]
     procedure Test_DiagnoseConstructors_CleanRegistrations;
+    { ResolveAll }
+    [Test]
+    procedure Test_ResolveAll_ReturnsEachRegistration;
+    [Test]
+    procedure Test_ResolveAll_KeepsEachRegistrationLifetime;
+    [Test]
+    procedure Test_ResolveAll_InScope_ScopedEntriesPerScope;
+    [Test]
+    procedure Test_ResolveAll_ScopedFromRoot_RaisesScopeError;
   end;
 
 implementation
@@ -1201,6 +1210,82 @@ begin
   problems := FContainer.DiagnoseConstructors;
   // Length returns NativeInt on Win64: cast so AreEqual can infer a single type
   Assert.AreEqual(0, Integer(Length(problems)), 'No problems expected. Found: ' + string.Join(' | ', problems));
+end;
+
+{ ResolveAll }
+
+procedure TQuickIOCTests.Test_ResolveAll_ReturnsEachRegistration;
+var
+  loggers: TList<ILogger>;
+begin
+  // different implementations under the same key: each registration must appear once
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  FContainer.RegisterType<ILogger, TFileLogger>.AsTransient;
+  loggers := FContainer.ResolveAll<ILogger>;
+  try
+    Assert.AreEqual<Integer>(2, loggers.Count, 'One instance per registration');
+    Assert.IsTrue((loggers[0] as TObject) is TConsoleLogger, 'First registration must be TConsoleLogger');
+    Assert.IsTrue((loggers[1] as TObject) is TFileLogger, 'Second registration must be TFileLogger');
+  finally
+    loggers.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_ResolveAll_KeepsEachRegistrationLifetime;
+var
+  first, second: TList<ILogger>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  FContainer.RegisterType<ILogger, TFileLogger>.AsTransient;
+  first := FContainer.ResolveAll<ILogger>;
+  second := FContainer.ResolveAll<ILogger>;
+  try
+    Assert.AreSame(first[0], second[0], 'The singleton registration returns the same instance every time');
+    Assert.AreNotSame(first[1], second[1], 'The transient registration returns a new instance every time');
+  finally
+    first.Free;
+    second.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_ResolveAll_InScope_ScopedEntriesPerScope;
+var
+  scope1, scope2: TIocScope;
+  a, b, c: TList<ILogger>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterType<ILogger, TFileLogger>.AsScoped;
+  scope1 := FContainer.CreateScope;
+  scope2 := FContainer.CreateScope;
+  a := nil;
+  b := nil;
+  c := nil;
+  try
+    a := scope1.ResolveAll<ILogger>;
+    b := scope1.ResolveAll<ILogger>;
+    c := scope2.ResolveAll<ILogger>;
+    Assert.AreEqual<Integer>(2, a.Count, 'One instance per registration in the scope');
+    Assert.AreNotSame(a[0], a[1], 'Each scoped registration has its own instance');
+    Assert.AreSame(a[0], b[0], 'Same scope: same instance for the first registration');
+    Assert.AreSame(a[1], b[1], 'Same scope: same instance for the second registration');
+    Assert.AreNotSame(a[0], c[0], 'Other scope: another instance');
+  finally
+    a.Free;
+    b.Free;
+    c.Free;
+    scope2.Free;
+    scope1.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_ResolveAll_ScopedFromRoot_RaisesScopeError;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.ResolveAll<ILogger>().Free;
+    end, EIocScopeError, 'ResolveAll of a scoped registration from the root must raise EIocScopeError');
 end;
 
 initialization
