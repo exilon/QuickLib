@@ -240,6 +240,25 @@ type
     function Service: IInjService;
   end;
 
+  // own Create and own Create(logger) without [Inject]: the default rule picks the
+  // parameterless one even with ILogger registered
+  TParameterlessHidesLogger = class(TInterfacedObject, IInjService)
+  private
+    FLogger: ILogger;
+  public
+    constructor Create; overload;
+    constructor Create(logger: ILogger); overload;
+    function Logger: ILogger;
+  end;
+
+  // own Create and own Create(name): the second one injects nothing
+  TParameterlessAndValue = class(TInterfacedObject, IInjService)
+  public
+    constructor Create; overload;
+    constructor Create(const name: string); overload;
+    function Logger: ILogger;
+  end;
+
   // counts constructions, to check what Build pre-creates
   TBuildCountedLogger = class(TInterfacedObject, ILogger)
   private class var
@@ -392,6 +411,12 @@ type
     procedure Test_Build_ValidateConstructorsOffByDefault;
     [Test]
     procedure Test_DiagnoseConstructors_CleanRegistrations;
+    [Test]
+    procedure Test_DiagnoseConstructors_WarnsWhenParameterlessHidesDependencies;
+    [Test]
+    procedure Test_Build_ConstructorWarnings_DoNotFail;
+    [Test]
+    procedure Test_DiagnoseConstructors_NoWarningWithoutHiddenDependency;
     { ResolveAll }
     [Test]
     procedure Test_ResolveAll_ReturnsEachRegistration;
@@ -1207,6 +1232,41 @@ begin
   Result := FService;
 end;
 
+{ TParameterlessHidesLogger }
+
+constructor TParameterlessHidesLogger.Create;
+begin
+  inherited Create;
+end;
+
+constructor TParameterlessHidesLogger.Create(logger: ILogger);
+begin
+  inherited Create;
+  FLogger := logger;
+end;
+
+function TParameterlessHidesLogger.Logger: ILogger;
+begin
+  Result := FLogger;
+end;
+
+{ TParameterlessAndValue }
+
+constructor TParameterlessAndValue.Create;
+begin
+  inherited Create;
+end;
+
+constructor TParameterlessAndValue.Create(const name: string);
+begin
+  inherited Create;
+end;
+
+function TParameterlessAndValue.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
 { [Inject] and constructor diagnostics }
 
 procedure TQuickIOCTests.Test_Inject_UsesMarkedConstructor;
@@ -1359,6 +1419,50 @@ begin
   problems := FContainer.DiagnoseConstructors;
   // Length returns NativeInt on Win64: cast so AreEqual can infer a single type
   Assert.AreEqual(0, Integer(Length(problems)), 'No problems expected. Found: ' + string.Join(' | ', problems));
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_WarnsWhenParameterlessHidesDependencies;
+var
+  problems, warnings: TArray<string>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TParameterlessHidesLogger>.AsTransient;
+  problems := FContainer.DiagnoseConstructors(warnings);
+  Assert.AreEqual(0, Integer(Length(problems)),
+    'Not an error: the author may prefer the parameterless constructor. Found: ' + string.Join(' | ', problems));
+  Assert.AreEqual(1, Integer(Length(warnings)),
+    'The parameterless constructor hides Create(logger) with ILogger registered: one warning expected. Found: ' +
+    string.Join(' | ', warnings));
+  Assert.IsTrue(Pos('TParameterlessHidesLogger.Create(logger: ILogger)', warnings[0]) > 0,
+    'The warning must name the constructor that is not used. Warning: ' + warnings[0]);
+end;
+
+procedure TQuickIOCTests.Test_Build_ConstructorWarnings_DoNotFail;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TParameterlessHidesLogger>.AsTransient;
+  FContainer.ValidateConstructors := True;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.Build;
+    end, nil, 'A warning must not make Build fail');
+  Assert.AreEqual(1, Integer(Length(FContainer.ConstructorWarnings)),
+    'Build must keep the warning in ConstructorWarnings. Found: ' + string.Join(' | ', FContainer.ConstructorWarnings));
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_NoWarningWithoutHiddenDependency;
+var
+  problems, warnings: TArray<string>;
+begin
+  // single constructors, an inherited [Inject] one and Create(name) next to Create: nothing hidden
+  RegisterGraph(FContainer);
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IInjService, TInjDerived>.AsTransient;
+  FContainer.RegisterType<IInjService, TParameterlessAndValue>.AsTransient;
+  problems := FContainer.DiagnoseConstructors(warnings);
+  Assert.AreEqual(0, Integer(Length(problems)), 'No problems expected. Found: ' + string.Join(' | ', problems));
+  Assert.AreEqual(0, Integer(Length(warnings)), 'No warnings expected. Found: ' + string.Join(' | ', warnings));
 end;
 
 { ResolveAll }

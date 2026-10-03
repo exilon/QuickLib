@@ -191,7 +191,8 @@ type
     function FindInjectConstructor(aType : TRttiInstanceType) : TRttiMethod;
     function GetConstructorCandidates(aType : TRttiInstanceType) : TArray<TRttiMethod>;
     function MissingParameters(aCtor : TRttiMethod) : string;
-    function DiagnoseConstructors : TArray<string>;
+    function DiagnoseConstructors : TArray<string>; overload;
+    function DiagnoseConstructors(out aWarnings : TArray<string>) : TArray<string>; overload;
     function FindRegistration(aServiceType : PTypeInfo; const aName : string) : TIocRegistration;
     function BuildValue(aReg : TIocRegistration; aServiceType : PTypeInfo; aScope : TIocScope) : TValue;
     function ResolveSingleton(aReg : TIocRegistration; aServiceType : PTypeInfo) : TValue;
@@ -303,6 +304,7 @@ type
     fInjector : TIocInjector;
     fLogger : ILogger;
     fValidateConstructors : Boolean;
+    fConstructorWarnings : TArray<string>;
     function GetValidateScopes : Boolean;
     procedure SetValidateScopes(aValue : Boolean);
     procedure RegisterOwned<T>(aTarget : TIocRegistration; const aName : string);
@@ -335,13 +337,27 @@ type
     function CreateScope : TIocScope;
     /// <summary>Static check of the constructor each registration would use, without building
     /// anything. Reports classes that would be created by TObject.Create although they declare
-    /// other constructors, and [Inject] constructors with unregistered parameters.</summary>
-    function DiagnoseConstructors : TArray<string>;
+    /// other constructors, classes none of whose own constructors is satisfiable, and [Inject]
+    /// constructors with unregistered parameters.
+    /// Limits: it checks one level only (the parameters are registered, not that their own
+    /// constructors can be satisfied), so a deeper dependency can still fail at runtime;
+    /// [Inject] is only seen on public and published constructors (RTTI does not list the
+    /// others); registrations with DelegateTo, factories and instances are not checked; a
+    /// TComponent descendant without a constructor of its own is reported, since
+    /// TComponent.Create(AOwner) is not satisfiable.</summary>
+    function DiagnoseConstructors : TArray<string>; overload;
+    /// <summary>Same as DiagnoseConstructors, plus warnings, which do not make Build fail: the
+    /// default rule picks an own constructor while another own constructor, also satisfiable,
+    /// would receive more dependencies (e.g. an empty Create next to Create(aLogger)).</summary>
+    function DiagnoseConstructors(out aWarnings : TArray<string>) : TArray<string>; overload;
     /// <summary>See TIocResolver.ValidateScopes.</summary>
     property ValidateScopes : Boolean read GetValidateScopes write SetValidateScopes;
     /// <summary>True: Build runs DiagnoseConstructors and raises EIocBuildError listing the
-    /// problems. False (default): Build does not run the diagnostics.</summary>
+    /// problems; warnings do not fail, they are kept in ConstructorWarnings. False (default):
+    /// Build does not run the diagnostics.</summary>
     property ValidateConstructors : Boolean read fValidateConstructors write fValidateConstructors;
+    /// <summary>Warnings of the last Build run with ValidateConstructors (empty otherwise).</summary>
+    property ConstructorWarnings : TArray<string> read fConstructorWarnings;
     /// <summary>Exposes the internal registrator for advanced operations (Replace, Decorate).</summary>
     property Registrator: TIocRegistrator read fRegistrator;
   end;
@@ -510,9 +526,10 @@ begin
   {$IFDEF DEBUG_IOC}
   TDebugger.TimeIt(Self,'Build','Container dependencies building...');
   {$ENDIF}
+  fConstructorWarnings := nil;
   if fValidateConstructors then
   begin
-    problems := DiagnoseConstructors;
+    problems := DiagnoseConstructors(fConstructorWarnings);
     if Length(problems) > 0 then
       raise EIocBuildError.Create('Constructor diagnostics failed:' + sLineBreak + string.Join(sLineBreak,problems));
   end;
@@ -548,6 +565,11 @@ end;
 function TIocContainer.DiagnoseConstructors: TArray<string>;
 begin
   Result := fResolver.DiagnoseConstructors;
+end;
+
+function TIocContainer.DiagnoseConstructors(out aWarnings: TArray<string>): TArray<string>;
+begin
+  Result := fResolver.DiagnoseConstructors(aWarnings);
 end;
 
 function TIocContainer.GetValidateScopes: Boolean;
@@ -1053,6 +1075,16 @@ begin
   Result := Format('%s.%s(%s)',[aCtor.Parent.Name,aCtor.Name,string.Join('; ',params)]);
 end;
 
+function InjectableCount(aCtor : TRttiMethod) : Integer;
+var
+  lParam : TRttiParameter;
+begin
+  //class/interface parameters: the ones the container injects
+  Result := 0;
+  for lParam in aCtor.GetParameters do
+    if (lParam.ParamType <> nil) and (lParam.ParamType.TypeKind in [tkClass, tkInterface]) then Inc(Result);
+end;
+
 function TIocResolver.FindInjectConstructor(aType: TRttiInstanceType): TRttiMethod;
 var
   level : TRttiInstanceType;
@@ -1135,6 +1167,13 @@ end;
 
 function TIocResolver.DiagnoseConstructors: TArray<string>;
 var
+  warnings : TArray<string>;
+begin
+  Result := DiagnoseConstructors(warnings);
+end;
+
+function TIocResolver.DiagnoseConstructors(out aWarnings: TArray<string>): TArray<string>;
+var
   ctx : TRttiContext;
   reg : TIocRegistration;
   checked : TList<TClass>;
@@ -1144,11 +1183,13 @@ var
   ctor : TRttiMethod;
   candidates : TArray<TRttiMethod>;
   others : TArray<string>;
+  hidden : TArray<string>;
   declaresOwn : Boolean;
   declaresBelowTObject : Boolean;
   missing : string;
 begin
   Result := nil;
+  aWarnings := nil;
   checked := TList<TClass>.Create;
   try
     for reg in fRegistrator.DependencyOrder do
@@ -1208,7 +1249,19 @@ begin
           'Other constructors: %s. Mark the intended one with [Inject].',[rtype.Name,string.Join('; ',others)])]
       else if declaresOwn and (chosen.Parent <> rtype) then
         Result := Result + [Format('%s declares constructors but none is satisfiable; inherited %s would be used. ' +
-          'Other constructors: %s.',[rtype.Name,ConstructorSignature(chosen),string.Join('; ',others)])];
+          'Other constructors: %s.',[rtype.Name,ConstructorSignature(chosen),string.Join('; ',others)])]
+      else if chosen.Parent = rtype then
+      begin
+        //a warning, not an error: the author may prefer the shorter constructor on purpose
+        hidden := nil;
+        for ctor in candidates do
+          if (ctor <> chosen) and (ctor.Parent = rtype) and MissingParameters(ctor).IsEmpty and
+            (InjectableCount(ctor) > InjectableCount(chosen)) then hidden := hidden + [ConstructorSignature(ctor)];
+        if Length(hidden) > 0 then
+          aWarnings := aWarnings + [Format('%s will be created by %s, although %s can also be satisfied and receives ' +
+            'more dependencies. Mark the intended constructor with [Inject].',
+            [rtype.Name,ConstructorSignature(chosen),string.Join('; ',hidden)])];
+      end;
     end;
   finally
     checked.Free;
