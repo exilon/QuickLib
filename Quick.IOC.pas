@@ -610,6 +610,7 @@ var
   factoryAsIntf : IInterface;
   typedIntf : TFactoryInterface;
   resolver : TIocResolver;
+  reg : TIocRegistration;
 begin
   factoryAsIntf := TSimpleFactory<TFactoryType>.Create(fResolver);
   if factoryAsIntf.QueryInterface(GetTypeData(TypeInfo(TFactoryInterface))^.Guid, typedIntf) <> S_OK then
@@ -618,7 +619,8 @@ begin
   // TFactoryInterface is compatible with IFactory<TFactoryType>. Transient: each resolution gets
   // a factory bound to the scope it was resolved in (resolved outside a scope = root, as before)
   resolver := fResolver;
-  fRegistrator.RegisterType(TypeInfo(TFactoryInterface),TSimpleFactory<TFactoryType>,aName).ContextActivatorDelegate :=
+  reg := fRegistrator.RegisterType(TypeInfo(TFactoryInterface),TSimpleFactory<TFactoryType>,aName);
+  reg.ContextActivatorDelegate :=
     function(const aContext : TIocResolveContext) : TValue
     var
       factory : IInterface;
@@ -628,7 +630,8 @@ begin
       factory.QueryInterface(GetTypeData(TypeInfo(TFactoryInterface))^.Guid,intf);
       Result := TValue.From<TFactoryInterface>(intf);
     end;
-  Result := Default(TIocRegistration<TTypedFactory<TFactoryType>>);
+  //the real registration, so the lifetime can be changed (AsSingleton: one factory bound to the root)
+  Result := TIocRegistration<TTypedFactory<TFactoryType>>.Create(reg);
 end;
 
 function TIocContainer.RegisterInstance(aTypeInfo : PTypeInfo; const aName : string = '') : TIocRegistration;

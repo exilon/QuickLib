@@ -432,6 +432,11 @@ type
     procedure Test_TypedFactory_InScope_UsesScopedDependencies;
     [Test]
     procedure Test_Scope_AbstractFactory_UsesScope;
+    { RegisterTypedFactory returns its registration }
+    [Test]
+    procedure Test_TypedFactory_AsSingleton_SharesFactory;
+    [Test]
+    procedure Test_TypedFactory_AsSingleton_NotBoundToFirstScope;
   end;
 
 implementation
@@ -1760,6 +1765,48 @@ begin
     logger := nil;
     scope.Free;
   end;
+end;
+
+{ RegisterTypedFactory returns its registration }
+
+procedure TQuickIOCTests.Test_TypedFactory_AsSingleton_SharesFactory;
+var
+  factory1, factory2: IFactory<TUserService>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.RegisterTypedFactory<IFactory<TUserService>, TUserService>.AsSingleton;
+    end, nil, 'RegisterTypedFactory must return its registration, so the factory can be made singleton again');
+  factory1 := FContainer.Resolve<IFactory<TUserService>>;
+  factory2 := FContainer.Resolve<IFactory<TUserService>>;
+  Assert.AreSame(factory1, factory2, 'AsSingleton: every resolution must return the same factory');
+end;
+
+procedure TQuickIOCTests.Test_TypedFactory_AsSingleton_NotBoundToFirstScope;
+var
+  scope: TIocScope;
+  factory: IFactory<TUserService>;
+begin
+  // a singleton factory outlives every scope: created inside one, it must not keep it
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  Assert.WillNotRaise(
+    procedure
+    begin
+      FContainer.RegisterTypedFactory<IFactory<TUserService>, TUserService>.AsSingleton;
+    end, nil, 'RegisterTypedFactory must return its registration, so the factory can be made singleton again');
+  scope := FContainer.CreateScope;
+  try
+    factory := scope.Resolve<IFactory<TUserService>>;
+  finally
+    scope.Free;
+  end;
+  Assert.WillRaise(
+    procedure
+    begin
+      factory.New;
+    end, EIocScopeError, 'A singleton factory is bound to the root, not to the scope it was first resolved in');
 end;
 
 initialization
