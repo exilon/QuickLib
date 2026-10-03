@@ -321,7 +321,7 @@ begin
   if aSectionName.IsEmpty then option.Name := Copy(T.ClassName,2,T.ClassName.Length)
     else option.Name := aSectionName;
   fSections.Add(option);
-  Result.Create(T(option)); // patch local: o Delphi 13 não converte TOptions -> T implicitamente
+  Result.Create(T(option)); //Delphi 13 does not convert TOptions to T implicitly (E2010)
 end;
 
 function TOptionsContainer.Count: Integer;

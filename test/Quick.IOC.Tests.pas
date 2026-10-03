@@ -67,6 +67,113 @@ type
     procedure SendEmail(const mailto, subject, body: string);
   end;
 
+  // Dependency graph for IOwned<T>, with X scoped:
+  //   A(X, B, C, D, E);  B(X, IOwned<D>, E);  C(X, IOwned<D>, E);  D(X, E);  E(X)
+  IGraphX = interface
+  ['{5C2E8A41-7D3F-4B19-9E06-A1F4C8D2B735}']
+  end;
+
+  IGraphE = interface
+  ['{8E1F3C72-4A5B-4D60-B9C7-2F6E0A1D3B48}']
+    function X: IGraphX;
+  end;
+
+  IGraphD = interface
+  ['{2A7C9E15-6B3D-4F82-A0E4-9D1B5C7F3E26}']
+    function X: IGraphX;
+    function E: IGraphE;
+  end;
+
+  IGraphBranch = interface
+  ['{D4B6F803-1E2A-4C57-8F39-6A0C2E5D7B91}']
+    function X: IGraphX;
+    function E: IGraphE;
+    function OwnedD: IOwned<IGraphD>;
+  end;
+
+  IGraphB = interface(IGraphBranch)
+  ['{7F3A1D96-2C4E-4B08-9A57-E0B6D3C1F842}']
+  end;
+
+  IGraphC = interface(IGraphBranch)
+  ['{1B9E4C27-8D6A-4E31-B5F0-3C7A2E9D6F54}']
+  end;
+
+  IGraphA = interface
+  ['{9C5D2E68-3F7B-4A14-8E92-B6D0F1A4C375}']
+    function X: IGraphX;
+    function B: IGraphB;
+    function C: IGraphC;
+    function D: IGraphD;
+    function E: IGraphE;
+  end;
+
+  TGraphX = class(TInterfacedObject, IGraphX)
+  private class var
+    FDestroyed: Integer;
+  public
+    destructor Destroy; override;
+    class property Destroyed: Integer read FDestroyed write FDestroyed;
+  end;
+
+  TGraphE = class(TInterfacedObject, IGraphE)
+  private
+    FX: IGraphX;
+  public
+    constructor Create(x: IGraphX);
+    function X: IGraphX;
+  end;
+
+  TGraphD = class(TInterfacedObject, IGraphD)
+  private
+    FX: IGraphX;
+    FE: IGraphE;
+  public
+    constructor Create(x: IGraphX; e: IGraphE);
+    function X: IGraphX;
+    function E: IGraphE;
+  end;
+
+  TGraphBranch = class(TInterfacedObject, IGraphB, IGraphC)
+  private
+    FX: IGraphX;
+    FE: IGraphE;
+    FOwnedD: IOwned<IGraphD>;
+  public
+    constructor Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+    function X: IGraphX;
+    function E: IGraphE;
+    function OwnedD: IOwned<IGraphD>;
+  end;
+
+  // own constructors: CreateInstance tries a class's own constructors first and, among
+  // inherited ones, the parameterless TObject.Create before any other
+  TGraphB = class(TGraphBranch)
+  public
+    constructor Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+  end;
+
+  TGraphC = class(TGraphBranch)
+  public
+    constructor Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+  end;
+
+  TGraphA = class(TInterfacedObject, IGraphA)
+  private
+    FX: IGraphX;
+    FB: IGraphB;
+    FC: IGraphC;
+    FD: IGraphD;
+    FE: IGraphE;
+  public
+    constructor Create(x: IGraphX; b: IGraphB; c: IGraphC; d: IGraphD; e: IGraphE);
+    function X: IGraphX;
+    function B: IGraphB;
+    function C: IGraphC;
+    function D: IGraphD;
+    function E: IGraphE;
+  end;
+
   // Logger that counts destructions, to check scope release
   TTrackedLogger = class(TInterfacedObject, ILogger)
   private class var
@@ -154,6 +261,17 @@ type
     procedure Test_Scope_Free_ReleasesScopedInstances;
     [Test]
     procedure Test_Singleton_ResolvedWithinScope_SameAsRoot;
+    { IOwned<T> }
+    [Test]
+    procedure Test_Owned_IsRegisteredAutomatically;
+    [Test]
+    procedure Test_Owned_Graph_ConsumerScopeSharedOutsideOwnedBranches;
+    [Test]
+    procedure Test_Owned_Graph_EachBranchGetsItsOwnScope;
+    [Test]
+    procedure Test_Owned_Release_FreesItsScopedInstances;
+    [Test]
+    procedure Test_Owned_ResolvedFromRoot_OpensItsOwnScope;
   end;
 
 implementation
@@ -626,6 +744,233 @@ begin
     a := nil;
     b := nil;
     scope.Free;
+  end;
+end;
+
+{ IOwned<T> test graph }
+
+destructor TGraphX.Destroy;
+begin
+  Inc(FDestroyed);
+  inherited;
+end;
+
+constructor TGraphE.Create(x: IGraphX);
+begin
+  FX := x;
+end;
+
+function TGraphE.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+constructor TGraphD.Create(x: IGraphX; e: IGraphE);
+begin
+  FX := x;
+  FE := e;
+end;
+
+function TGraphD.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+function TGraphD.E: IGraphE;
+begin
+  Result := FE;
+end;
+
+constructor TGraphBranch.Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+begin
+  FX := x;
+  FOwnedD := ownedD;
+  FE := e;
+end;
+
+function TGraphBranch.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+function TGraphBranch.E: IGraphE;
+begin
+  Result := FE;
+end;
+
+function TGraphBranch.OwnedD: IOwned<IGraphD>;
+begin
+  Result := FOwnedD;
+end;
+
+constructor TGraphB.Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+begin
+  inherited Create(x, ownedD, e);
+end;
+
+constructor TGraphC.Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+begin
+  inherited Create(x, ownedD, e);
+end;
+
+constructor TGraphA.Create(x: IGraphX; b: IGraphB; c: IGraphC; d: IGraphD; e: IGraphE);
+begin
+  FX := x;
+  FB := b;
+  FC := c;
+  FD := d;
+  FE := e;
+end;
+
+function TGraphA.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+function TGraphA.B: IGraphB;
+begin
+  Result := FB;
+end;
+
+function TGraphA.C: IGraphC;
+begin
+  Result := FC;
+end;
+
+function TGraphA.D: IGraphD;
+begin
+  Result := FD;
+end;
+
+function TGraphA.E: IGraphE;
+begin
+  Result := FE;
+end;
+
+{ IOwned<T> }
+
+procedure RegisterGraph(aContainer: TIocContainer);
+begin
+  aContainer.RegisterType<IGraphX, TGraphX>.AsScoped;
+  aContainer.RegisterType<IGraphE, TGraphE>.AsTransient;
+  aContainer.RegisterType<IGraphD, TGraphD>.AsTransient;
+  aContainer.RegisterType<IGraphB, TGraphB>.AsTransient;
+  aContainer.RegisterType<IGraphC, TGraphC>.AsTransient;
+  aContainer.RegisterType<IGraphA, TGraphA>.AsTransient;
+end;
+
+procedure TQuickIOCTests.Test_Owned_IsRegisteredAutomatically;
+begin
+  FContainer.RegisterType<IGraphD, TGraphD>.AsTransient;
+  Assert.IsTrue(FContainer.IsRegistered<IOwned<IGraphD>>(''),
+    'RegisterType<I,T> must also register IOwned<I>');
+end;
+
+procedure TQuickIOCTests.Test_Owned_Graph_ConsumerScopeSharedOutsideOwnedBranches;
+var
+  scope: TIocScope;
+  a: IGraphA;
+  x0: IGraphX;
+begin
+  // everything A receives directly, and what B and C receive directly, is in A's scope
+  RegisterGraph(FContainer);
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<IGraphA>;
+    x0 := a.X;
+    Assert.IsNotNull(x0, 'X must be injected into A');
+    Assert.AreSame(x0, a.D.X, 'D received directly by A shares A''s X');
+    Assert.AreSame(x0, a.E.X, 'E received directly by A shares A''s X');
+    Assert.AreSame(x0, a.D.E.X, 'E inside A''s own D shares A''s X');
+    Assert.AreSame(x0, a.B.X, 'B shares A''s X');
+    Assert.AreSame(x0, a.B.E.X, 'E received directly by B shares A''s X');
+    Assert.AreSame(x0, a.C.X, 'C shares A''s X');
+    Assert.AreSame(x0, a.C.E.X, 'E received directly by C shares A''s X');
+  finally
+    x0 := nil;
+    a := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_Graph_EachBranchGetsItsOwnScope;
+var
+  scope: TIocScope;
+  a: IGraphA;
+  x0, xB, xC: IGraphX;
+  dB, dC: IGraphD;
+begin
+  // the D -> E chain behind each IOwned<D> lives in its own scope, one per consumer
+  RegisterGraph(FContainer);
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<IGraphA>;
+    x0 := a.X;
+    dB := a.B.OwnedD.Value;
+    dC := a.C.OwnedD.Value;
+    xB := dB.X;
+    xC := dC.X;
+    Assert.IsNotNull(xB, 'X must be injected into B''s owned D');
+    Assert.IsNotNull(xC, 'X must be injected into C''s owned D');
+    Assert.AreNotSame(x0, xB, 'B''s owned D must not share A''s X');
+    Assert.AreNotSame(x0, xC, 'C''s owned D must not share A''s X');
+    Assert.AreNotSame(xB, xC, 'B and C must each open their own scope');
+    Assert.AreSame(xB, dB.E.X, 'D and E in B''s owned chain share that chain''s X');
+    Assert.AreSame(xC, dC.E.X, 'D and E in C''s owned chain share that chain''s X');
+  finally
+    dB := nil;
+    dC := nil;
+    x0 := nil;
+    xB := nil;
+    xC := nil;
+    a := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_Release_FreesItsScopedInstances;
+var
+  scope: TIocScope;
+  owned: IOwned<IGraphD>;
+  d: IGraphD;
+  x: IGraphX;
+begin
+  // releasing the IOwned frees its scope (and its X), while the consumer's scope lives on.
+  // explicit variables, released before the assertion: chained calls such as owned.Value.X
+  // would keep implicit interface temporaries alive until the end of this routine
+  RegisterGraph(FContainer);
+  TGraphX.Destroyed := 0;
+  scope := FContainer.CreateScope;
+  try
+    owned := scope.Resolve<IOwned<IGraphD>>;
+    d := owned.Value;
+    x := d.X;
+    Assert.IsNotNull(x, 'Owned D must receive an X');
+    x := nil;
+    d := nil;
+    Assert.AreEqual(0, TGraphX.Destroyed, 'Owned scope must live while IOwned is referenced');
+    owned := nil;
+    Assert.AreEqual(1, TGraphX.Destroyed, 'Releasing IOwned must free its scope''s X');
+  finally
+    x := nil;
+    d := nil;
+    owned := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_ResolvedFromRoot_OpensItsOwnScope;
+var
+  owned: IOwned<IGraphD>;
+begin
+  // IOwned does not need an outer scope: it opens one, so scoped dependencies resolve
+  RegisterGraph(FContainer);
+  owned := FContainer.Resolve<IOwned<IGraphD>>;
+  try
+    Assert.IsNotNull(owned.Value.X, 'Scoped X must resolve inside the owned scope');
+    Assert.AreSame(owned.Value.X, owned.Value.E.X, 'D and E share the owned scope''s X');
+  finally
+    owned := nil;
   end;
 end;
 

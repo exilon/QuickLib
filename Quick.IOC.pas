@@ -166,8 +166,8 @@ type
     /// <summary>Resolves within aScope. aScope = nil means the root (no scope).</summary>
     function Resolve(aServiceType: PTypeInfo; const aName : string; aScope : TIocScope): TValue; overload;
     function ResolveAll<T>(const aName : string = '') : TList<T>;
-    /// <summary>True (default): resolving a scoped service outside a scope — from the root
-    /// container or as a dependency of a singleton — raises EIocScopeError.
+    /// <summary>True (default): resolving a scoped service outside a scope (from the root
+    /// container or as a dependency of a singleton) raises EIocScopeError.
     /// False: legacy behaviour, a scoped service outside a scope is built as transient.</summary>
     property ValidateScopes : Boolean read fValidateScopes write fValidateScopes;
   end;
@@ -204,6 +204,26 @@ type
     function New : T;
   end;
 
+  /// <summary>A dependency resolved in its own, new scope (like Autofac's Owned&lt;T&gt;).
+  /// Asking for IOwned&lt;T&gt; in a constructor opens an independent scope, resolves T in it
+  /// and keeps that scope alive while the IOwned&lt;T&gt; is referenced: scoped services in
+  /// T's dependency chain get their own instances instead of the consumer's.
+  /// IOwned&lt;T&gt; is registered automatically by RegisterType&lt;T,TImplementation&gt;.</summary>
+  IOwned<T> = interface
+  ['{3B0E6F52-9C1D-4A7E-8B25-D4F1A0C6E913}']
+    function Value : T;
+  end;
+
+  TOwned<T> = class(TInterfacedObject,IOwned<T>)
+  private
+    fScope : TIocScope;
+    fValue : T;
+  public
+    constructor Create(aScope : TIocScope; const aValue : T);
+    destructor Destroy; override;
+    function Value : T;
+  end;
+
   TSimpleFactory<T : class, constructor> = class(TInterfacedObject,IFactory<T>)
   private
     fResolver : TIocResolver;
@@ -229,6 +249,7 @@ type
     fLogger : ILogger;
     function GetValidateScopes : Boolean;
     procedure SetValidateScopes(aValue : Boolean);
+    procedure RegisterOwned<T>(const aName : string);
   class var
     GlobalInstance: TIocContainer;
   protected
@@ -433,6 +454,35 @@ end;
 function TIocContainer.RegisterType<TInterface, TImplementation>(const aName: string): TIocRegistration<TImplementation>;
 begin
   Result := fRegistrator.RegisterType<TInterface, TImplementation>(aName);
+  //IOwned<TInterface> must be registered here: generic types cannot be instantiated at runtime
+  RegisterOwned<TInterface>(aName);
+end;
+
+procedure TIocContainer.RegisterOwned<T>(const aName: string);
+var
+  container : TIocContainer;
+  regName : string;
+begin
+  container := Self;
+  regName := aName;
+  //transient: every consumer gets its own scope. Registered through the non-generic
+  //RegisterType so it does not recurse into RegisterOwned<IOwned<T>>
+  fRegistrator.RegisterType(TypeInfo(IOwned<T>),TOwned<T>,aName).ActivatorDelegate :=
+    function : TValue
+    var
+      scope : TIocScope;
+      owned : IOwned<T>;
+    begin
+      //independent scope: it does not see the consumer's scoped instances, only singletons
+      scope := container.CreateScope;
+      try
+        owned := TOwned<T>.Create(scope,scope.Resolve<T>(regName));
+      except
+        scope.Free;
+        raise;
+      end;
+      Result := TValue.From<IOwned<T>>(owned);
+    end;
 end;
 
 function TIocContainer.RegisterType(aInterface: PTypeInfo; aImplementation: TClass; const aName: string): TIocRegistration;
@@ -476,7 +526,7 @@ end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TOptions): TIocRegistration<T>;
 begin
-  Result := fRegistrator.RegisterOptions<T>(T(aOptions)).AsSingleton; // patch local: Delphi 13 (E2010)
+  Result := fRegistrator.RegisterOptions<T>(T(aOptions)).AsSingleton; //Delphi 13 does not convert TOptions to T implicitly (E2010)
 end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TConfigureOptionsProc<T>): TIocRegistration<T>;
@@ -1021,6 +1071,27 @@ begin
   Result := Resolve(TypeInfo(T),aName).AsType<T>;
 end;
 
+{ TOwned<T> }
+
+constructor TOwned<T>.Create(aScope: TIocScope; const aValue: T);
+begin
+  fScope := aScope;
+  fValue := aValue;
+end;
+
+destructor TOwned<T>.Destroy;
+begin
+  //release the value before its scope: it may hold references to the scope's instances
+  fValue := Default(T);
+  fScope.Free;
+  inherited;
+end;
+
+function TOwned<T>.Value: T;
+begin
+  Result := fValue;
+end;
+
 { TIocRegistration<T> }
 
 function TIocRegistration<T>.AsScoped: TIocRegistration<T>;
@@ -1051,7 +1122,7 @@ begin
   Result := Self;
   fRegistration.ActivatorDelegate := function: TValue
                                      begin
-                                       Result := TValue.From<T>(aDelegate()); // patch local: chamada explícita
+                                       Result := TValue.From<T>(aDelegate()); //invoke the delegate explicitly
                                      end;
 end;
 
