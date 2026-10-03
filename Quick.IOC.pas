@@ -7,7 +7,7 @@
   Author      : Kike Perez
   Version     : 1.0
   Created     : 19/10/2019
-  Modified    : 02/10/2026
+  Modified    : 08/05/2026
 
   This file is part of QuickLib: https://github.com/exilon/QuickLib
 
@@ -42,7 +42,6 @@ uses
   System.TypInfo,
   System.Generics.Collections,
   System.Generics.Defaults,
-  System.SyncObjs,
   Quick.Logger.Intf,
   Quick.Options;
 
@@ -61,7 +60,8 @@ type
   /// <summary>What a DelegateTo delegate receives: resolves dependencies in the same scope as
   /// the service being built. Scope is nil when it is built outside a scope (from the root
   /// container, or as a singleton). Use it during the delegate call only: kept and used after
-  /// its scope is freed, Resolve raises EIocScopeError (Scope itself is a plain reference).</summary>
+  /// its scope is freed, Resolve raises EIocScopeError (Scope itself is a plain reference). A
+  /// context the container did not create (Default(TIocResolveContext)) raises EIocError.</summary>
   TIocResolveContext = record
   private
     fResolver : TIocResolver;
@@ -417,7 +417,11 @@ type
 
   TIocServiceLocator = class
   public
+    /// <summary>Resolves T from GlobalContainer, outside any scope.</summary>
     class function GetService<T> : T;
+    /// <summary>False when T is not registered in GlobalContainer; otherwise resolves it, outside
+    /// any scope. "Try" covers only the registration: a scoped service raises EIocScopeError, as in
+    /// GetService (only a TIocScope can provide it), and other resolution errors are raised too.</summary>
     class function TryToGetService<T: IInterface>(out aService : T) : Boolean;
   end;
 
@@ -472,6 +476,9 @@ type
 
 implementation
 
+uses
+  System.SyncObjs;
+
 type
   TIocScopeLifetime = class(TInterfacedObject,IIocScopeLifetime)
   private
@@ -498,8 +505,8 @@ type
   //stack frame, so the chain needs no allocation and no lock
   PIocBuildNode = ^TIocBuildNode;
   TIocBuildNode = record
-    Reg : TIocRegistration;
-    Parent : PIocBuildNode;
+    fReg : TIocRegistration;
+    fParent : PIocBuildNode;
   end;
 
 threadvar
@@ -519,19 +526,19 @@ begin
   node := BuildChain;
   while node <> nil do
   begin
-    if node.Reg = aReg then
+    if node.fReg = aReg then
     begin
       //from the first occurrence of aReg to the current one, in resolution order
       chain := RegistrationLabel(aReg);
       node := BuildChain;
-      while node.Reg <> aReg do
+      while node.fReg <> aReg do
       begin
-        chain := RegistrationLabel(node.Reg) + ' -> ' + chain;
-        node := node.Parent;
+        chain := RegistrationLabel(node.fReg) + ' -> ' + chain;
+        node := node.fParent;
       end;
       raise EIocCycleError.CreateFmt('Dependency cycle: %s',[RegistrationLabel(aReg) + ' -> ' + chain]);
     end;
-    node := node.Parent;
+    node := node.fParent;
   end;
 end;
 
@@ -586,6 +593,8 @@ end;
 
 function TIocResolveContext.Resolve<T>(const aName: string): T;
 begin
+  if fResolver = nil then
+    raise EIocError.Create('This TIocResolveContext was not created by the container: use the one a DelegateTo delegate receives.');
   if (fLifetime <> nil) and not fLifetime.IsAlive then
     raise EIocScopeError.Create('The scope of this TIocResolveContext has been freed: use the context during the delegate call only.');
   Result := fResolver.Resolve(TypeInfo(T),aName,fScope).AsType<T>;
@@ -893,7 +902,9 @@ end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TOptions): TIocRegistration<T>;
 begin
-  Result := fRegistrator.RegisterOptions<T>(T(aOptions)).AsSingleton; //Delphi 13 does not convert TOptions to T implicitly (E2010)
+  //Delphi 13 does not convert TOptions to T implicitly (E2010); "as" also refuses options of
+  //another class (EInvalidCast) instead of registering them as T
+  Result := fRegistrator.RegisterOptions<T>(aOptions as T).AsSingleton;
 end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TConfigureOptionsProc<T>): TIocRegistration<T>;
@@ -1650,8 +1661,8 @@ begin
   //here: a registration already being built in this thread is a dependency cycle, which would
   //otherwise end in a stack overflow
   RaiseIfBuildCycle(aReg);
-  node.Reg := aReg;
-  node.Parent := BuildChain;
+  node.fReg := aReg;
+  node.fParent := BuildChain;
   BuildChain := @node;
   try
     //builds a new instance (or returns the one given to RegisterInstance<TInterface>); never caches
@@ -1678,7 +1689,7 @@ begin
       Result := Activate().AsObject;
     end;
   finally
-    BuildChain := node.Parent;
+    BuildChain := node.fParent;
   end;
 end;
 

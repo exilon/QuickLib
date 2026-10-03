@@ -1,7 +1,7 @@
 unit Quick.IOC.Tests;
 
 { ***************************************************************************
-  Modified : 02/10/2026
+  Modified : 05/07/2025
  *************************************************************************** }
 
 interface
@@ -547,6 +547,14 @@ type
     property MaxConnections: Integer read FMaxConnections write FMaxConnections;
   end;
 
+  // another options class: a TOptions, but not a TAppSettings
+  TOtherSettings = class(TOptions)
+  private
+    FPort: Integer;
+  published
+    property Port: Integer read FPort write FPort;
+  end;
+
   [TestFixture]
   TQuickIOCTests = class(TObject)
   private
@@ -802,6 +810,11 @@ type
     procedure Test_Owned_NotRegistered_ConsumerRaisesRegisterError;
     [Test]
     procedure Test_DiagnoseConstructors_ReportsOwnedNotRegistered;
+    // API polish (package C)
+    [Test]
+    procedure Test_RegisterOptions_WrongClass_RaisesInvalidCast;
+    [Test]
+    procedure Test_ResolveContext_NotFromContainer_RaisesIocError;
   end;
 
 implementation
@@ -3516,6 +3529,38 @@ begin
   Assert.AreEqual(1, Integer(Length(problems)), 'One problem expected. Found: ' + string.Join(' | ', problems));
   Assert.IsTrue((Pos('TOwnedOrEmpty.Create(owned: IOwned<', problems[0]) > 0) and (Pos('asks for IOwned<', problems[0]) > 0),
     'The diagnostics must report the unregistered IOwned, whichever constructor is chosen. Found: ' + problems[0]);
+end;
+
+{ API polish (package C) }
+
+procedure TQuickIOCTests.Test_RegisterOptions_WrongClass_RaisesInvalidCast;
+var
+  other: TOptions;
+  raised: Boolean;
+begin
+  other := TOtherSettings.Create;
+  raised := False;
+  try
+    FContainer.RegisterOptions<TAppSettings>(other);
+  except
+    on EInvalidCast do raised := True;
+  end;
+  // refused: not registered, so it is still ours to free
+  if raised then other.Free;
+  Assert.IsTrue(raised, 'Options of another class must be refused with EInvalidCast, not registered as TAppSettings');
+end;
+
+procedure TQuickIOCTests.Test_ResolveContext_NotFromContainer_RaisesIocError;
+var
+  context: TIocResolveContext;
+begin
+  // a context the container did not create, such as a record field never assigned
+  context := Default(TIocResolveContext);
+  Assert.WillRaise(
+    procedure
+    begin
+      context.Resolve<ILogger>;
+    end, EIocError, 'A TIocResolveContext not created by the container must raise EIocError, not an access violation');
 end;
 
 initialization
