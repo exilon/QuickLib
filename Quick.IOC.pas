@@ -144,6 +144,7 @@ type
   private
     fDependencies : TDictionary<string, TObjectList<TIocRegistration>>;
     fDependencyOrder : TObjectList<TIocRegistration>;
+    procedure ReleaseInstances;
   public
     constructor Create;
     destructor Destroy; override;
@@ -649,6 +650,9 @@ end;
 
 destructor TIocContainer.Destroy;
 begin
+  //the instances the container holds are released first, while the resolver and the
+  //registrations still exist: a singleton destructor may still use the container (a factory)
+  fRegistrator.ReleaseInstances;
   fInjector.Free;
   fResolver.Free;
   fRegistrator.Free;
@@ -832,6 +836,25 @@ begin
   fDependencies.Free; // Free the dictionary itself
   fDependencyOrder.Free; // Just frees the list, not the objects (OwnsObjects = False)
   inherited;
+end;
+
+procedure TIocRegistrator.ReleaseInstances;
+var
+  i : Integer;
+  reg : TIocRegistration;
+begin
+  //in reverse order of registration: interface instances (singletons and the ones given to
+  //RegisterInstance<TInterface>) and the class singletons the container owns
+  for i := fDependencyOrder.Count - 1 downto 0 do
+  begin
+    reg := fDependencyOrder[i];
+    if reg is TIocRegistrationInterface then TIocRegistrationInterface(reg).Instance := nil
+    else if (reg is TIocRegistrationInstance) and reg.IsSingleton then
+    begin
+      TIocRegistrationInstance(reg).Instance.Free;
+      TIocRegistrationInstance(reg).Instance := nil;
+    end;
+  end;
 end;
 
 function TIocRegistrator.GetKey(aPInfo : PTypeInfo; const aName : string = ''): string;
