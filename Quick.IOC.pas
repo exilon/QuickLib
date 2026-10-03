@@ -47,7 +47,24 @@ uses
   Quick.Options;
 
 type
+  TIocResolver = class;
+  TIocScope = class;
+
+  /// <summary>What a DelegateTo delegate receives: resolves dependencies in the same scope as
+  /// the service being built. Scope is nil when it is built outside a scope (from the root
+  /// container, or as a singleton).</summary>
+  TIocResolveContext = record
+  private
+    fResolver : TIocResolver;
+    fScope : TIocScope;
+  public
+    constructor Create(aResolver : TIocResolver; aScope : TIocScope);
+    function Resolve<T>(const aName : string = '') : T;
+    property Scope : TIocScope read fScope;
+  end;
+
   TActivatorDelegate<T> = reference to function: T;
+  TContextActivatorDelegate<T> = reference to function(const aContext : TIocResolveContext) : T;
 
   TIocRegistration = class
   type
@@ -58,6 +75,7 @@ type
     fIntfInfo : PTypeInfo;
     fImplementation : TClass;
     fActivatorDelegate : TActivatorDelegate<TValue>;
+    fContextActivatorDelegate : TContextActivatorDelegate<TValue>;
   public
     constructor Create(const aName : string);
     property Name : string read fName;
@@ -70,6 +88,9 @@ type
     function AsTransient : TIocRegistration;
     function AsScoped : TIocRegistration;
     property ActivatorDelegate : TActivatorDelegate<TValue> read fActivatorDelegate write fActivatorDelegate;
+    /// <summary>Like ActivatorDelegate, but receives the scope of the resolution. It takes
+    /// precedence over ActivatorDelegate when both are assigned.</summary>
+    property ContextActivatorDelegate : TContextActivatorDelegate<TValue> read fContextActivatorDelegate write fContextActivatorDelegate;
   end;
 
   TIocRegistrationInterface = class(TIocRegistration)
@@ -94,7 +115,10 @@ type
     function AsSingleton : TIocRegistration<T>;
     function AsTransient : TIocRegistration<T>;
     function AsScoped : TIocRegistration<T>;
-    function DelegateTo(aDelegate : TActivatorDelegate<T>) : TIocRegistration<T>;
+    function DelegateTo(aDelegate : TActivatorDelegate<T>) : TIocRegistration<T>; overload;
+    /// <summary>The delegate receives a TIocResolveContext to resolve its dependencies in the
+    /// scope of the service being built, so scoped dependencies are the scope's own.</summary>
+    function DelegateTo(aDelegate : TContextActivatorDelegate<T>) : TIocRegistration<T>; overload;
   end;
 
   IIocRegistrator = interface
@@ -145,8 +169,6 @@ type
   ['{B7C07604-B862-46B2-BF33-FF941BBE53CA}']
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
   end;
-
-  TIocScope = class;
 
   TIocResolver = class(TInterfacedObject,IIocResolver)
   private
@@ -201,6 +223,9 @@ type
     function Resolve(aServiceType: PTypeInfo; const aName : string = ''): TValue; overload;
     /// <summary>One instance per registration of T, within this scope. The caller owns the list.</summary>
     function ResolveAll<T>(const aName : string = '') : TList<T>;
+    /// <summary>Like TIocContainer.AbstractFactory, with dependencies resolved in this scope.</summary>
+    function AbstractFactory<T : class, constructor>(aClass : TClass) : T; overload;
+    function AbstractFactory<T : class, constructor> : T; overload;
   end;
 
   // Non-generic helper for typed factory creation (kept for possible future use)
@@ -236,19 +261,24 @@ type
     function Value : T;
   end;
 
+  /// <summary>Creates instances with constructor injection. aScope is the scope used for the
+  /// dependencies of what it creates (nil = root); a factory bound to a scope must not be used
+  /// after that scope is freed.</summary>
   TSimpleFactory<T : class, constructor> = class(TInterfacedObject,IFactory<T>)
   private
     fResolver : TIocResolver;
+    fScope : TIocScope;
   public
-    constructor Create(aResolver : TIocResolver);
+    constructor Create(aResolver : TIocResolver; aScope : TIocScope = nil);
     function New : T;
   end;
 
   TSimpleFactory<TInterface : IInterface; TImplementation : class, constructor> = class(TInterfacedObject,IFactory<TInterface>)
   private
     fResolver : TIocResolver;
+    fScope : TIocScope;
   public
-    constructor Create(aResolver : TIocResolver);
+    constructor Create(aResolver : TIocResolver; aScope : TIocScope = nil);
     function New : TInterface;
   end;
 
@@ -348,6 +378,19 @@ end;
 function ServiceLocator : TIocServiceLocator;
 begin
   Result := TIocServiceLocator.Create;
+end;
+
+{ TIocResolveContext }
+
+constructor TIocResolveContext.Create(aResolver: TIocResolver; aScope: TIocScope);
+begin
+  fResolver := aResolver;
+  fScope := aScope;
+end;
+
+function TIocResolveContext.Resolve<T>(const aName: string): T;
+begin
+  Result := fResolver.Resolve(TypeInfo(T),aName,fScope).AsType<T>;
 end;
 
 { TIocRegistration }
@@ -537,20 +580,27 @@ end;
 
 function TIocContainer.RegisterTypedFactory<TFactoryInterface,TFactoryType>(const aName: string): TIocRegistration<TTypedFactory<TFactoryType>>;
 var
-  factory : TSimpleFactory<TFactoryType>;
   factoryAsIntf : IInterface;
   typedIntf : TFactoryInterface;
+  resolver : TIocResolver;
 begin
-  factory := TSimpleFactory<TFactoryType>.Create(fResolver);
-  factoryAsIntf := factory;
-  if factoryAsIntf.QueryInterface(GetTypeData(TypeInfo(TFactoryInterface))^.Guid, typedIntf) = S_OK then
-  begin
-    // TFactoryInterface is compatible with IFactory<TFactoryType> - use direct registration
-    fRegistrator.RegisterInstance<TFactoryInterface>(typedIntf, aName).AsSingleton;
-  end
-  else
+  factoryAsIntf := TSimpleFactory<TFactoryType>.Create(fResolver);
+  if factoryAsIntf.QueryInterface(GetTypeData(TypeInfo(TFactoryInterface))^.Guid, typedIntf) <> S_OK then
     raise EIocResolverError.CreateFmt('AddTypedFactory: %s must be IFactory<%s> on Win64',
       [GetTypeName(TypeInfo(TFactoryInterface)), TFactoryType.ClassName]);
+  // TFactoryInterface is compatible with IFactory<TFactoryType>. Transient: each resolution gets
+  // a factory bound to the scope it was resolved in (resolved outside a scope = root, as before)
+  resolver := fResolver;
+  fRegistrator.RegisterType(TypeInfo(TFactoryInterface),TSimpleFactory<TFactoryType>,aName).ContextActivatorDelegate :=
+    function(const aContext : TIocResolveContext) : TValue
+    var
+      factory : IInterface;
+      intf : TFactoryInterface;
+    begin
+      factory := TSimpleFactory<TFactoryType>.Create(resolver,aContext.Scope);
+      factory.QueryInterface(GetTypeData(TypeInfo(TFactoryInterface))^.Guid,intf);
+      Result := TValue.From<TFactoryInterface>(intf);
+    end;
   Result := Default(TIocRegistration<TTypedFactory<TFactoryType>>);
 end;
 
@@ -579,8 +629,21 @@ begin
 end;
 
 function TIocContainer.RegisterSimpleFactory<TInterface, TImplementation>(const aName: string): TIocRegistration;
+var
+  resolver : TIocResolver;
 begin
-  Result := fRegistrator.RegisterInstance<IFactory<TInterface>>(TSimpleFactory<TInterface,TImplementation>.Create(fResolver),aName).AsSingleton;
+  resolver := fResolver;
+  //transient: each resolution gets a factory bound to the scope it was resolved in, so what it
+  //creates receives that scope's scoped dependencies (resolved outside a scope = root, as before)
+  Result := fRegistrator.RegisterType(TypeInfo(IFactory<TInterface>),TSimpleFactory<TInterface,TImplementation>,aName);
+  Result.ContextActivatorDelegate :=
+    function(const aContext : TIocResolveContext) : TValue
+    var
+      factory : IFactory<TInterface>;
+    begin
+      factory := TSimpleFactory<TInterface,TImplementation>.Create(resolver,aContext.Scope);
+      Result := TValue.From<IFactory<TInterface>>(factory);
+    end;
 end;
 
 function TIocContainer.Resolve(aServiceType: PTypeInfo; const aName: string): TValue;
@@ -1011,7 +1074,8 @@ begin
     for reg in fRegistrator.DependencyOrder do
     begin
       //only registrations the container builds through a constructor, each class once
-      if (reg.&Implementation = nil) or Assigned(reg.ActivatorDelegate) or checked.Contains(reg.&Implementation) then Continue;
+      if (reg.&Implementation = nil) or Assigned(reg.ActivatorDelegate) or Assigned(reg.ContextActivatorDelegate) or
+        checked.Contains(reg.&Implementation) then Continue;
       if (reg is TIocRegistrationInterface) and (TIocRegistrationInterface(reg).Instance <> nil) then Continue;
       checked.Add(reg.&Implementation);
       rtype := TRttiInstanceType(ctx.GetType(reg.&Implementation));
@@ -1091,6 +1155,22 @@ function TIocResolver.BuildValue(aReg: TIocRegistration; aServiceType: PTypeInfo
 var
   intf : IInterface;
   newInst : IInterface;
+
+  function Activate : TValue;
+  var
+    contextDelegate : TContextActivatorDelegate<TValue>;
+  begin
+    //the context delegate gets the scope of this resolution, so it can resolve scoped
+    //dependencies from it; the plain delegate and constructor injection are as before
+    if Assigned(aReg.ContextActivatorDelegate) then
+    begin
+      contextDelegate := aReg.ContextActivatorDelegate;
+      Result := contextDelegate(TIocResolveContext.Create(Self,aScope));
+    end
+    else if Assigned(aReg.ActivatorDelegate) then Result := aReg.ActivatorDelegate()
+    else Result := CreateInstance(aReg.&Implementation,aScope);
+  end;
+
 begin
   //builds a new instance (or returns the one given to RegisterInstance<TInterface>); never caches
   if aReg is TIocRegistrationInterface then
@@ -1102,8 +1182,7 @@ begin
       {$IFDEF DEBUG_IOC}
       TDebugger.Trace(Self,'Building dependency: %s',[aReg.fIntfInfo.Name]);
       {$ENDIF}
-      if Assigned(aReg.ActivatorDelegate) then newInst := aReg.ActivatorDelegate().AsInterface
-        else newInst := CreateInstance(aReg.&Implementation,aScope).AsInterface;
+      newInst := Activate().AsInterface;
     end;
     if (newInst = nil) or (newInst.QueryInterface(GetTypeData(aServiceType).Guid,intf) <> 0) then raise EIocResolverError.CreateFmt('Implementation for "%s" not registered!',[aServiceType.Name]);
     TValue.Make(@intf,aServiceType,Result);
@@ -1113,8 +1192,7 @@ begin
     {$IFDEF DEBUG_IOC}
     TDebugger.Trace(Self,'Building dependency: %s',[aReg.fIntfInfo.Name]);
     {$ENDIF}
-    if Assigned(aReg.ActivatorDelegate) then Result := aReg.ActivatorDelegate().AsObject
-      else Result := CreateInstance(aReg.&Implementation,aScope).AsObject;
+    Result := Activate().AsObject;
   end;
 end;
 
@@ -1320,6 +1398,16 @@ begin
   Result := fResolver.ResolveAll<T>(aName,Self);
 end;
 
+function TIocScope.AbstractFactory<T>(aClass: TClass): T;
+begin
+  Result := fResolver.CreateInstance(aClass,Self).AsType<T>;
+end;
+
+function TIocScope.AbstractFactory<T> : T;
+begin
+  Result := fResolver.CreateInstance(TClass(T),Self).AsType<T>;
+end;
+
 { TOwned<T> }
 
 constructor TOwned<T>.Create(aScope: TIocScope; const aValue: T);
@@ -1366,9 +1454,20 @@ begin
   fRegistration := aRegistration;
 end;
 
+function TIocRegistration<T>.DelegateTo(aDelegate: TContextActivatorDelegate<T>): TIocRegistration<T>;
+begin
+  Result := Self;
+  fRegistration.ActivatorDelegate := nil;
+  fRegistration.ContextActivatorDelegate := function(const aContext : TIocResolveContext) : TValue
+                                            begin
+                                              Result := TValue.From<T>(aDelegate(aContext));
+                                            end;
+end;
+
 function TIocRegistration<T>.DelegateTo(aDelegate: TActivatorDelegate<T>): TIocRegistration<T>;
 begin
   Result := Self;
+  fRegistration.ContextActivatorDelegate := nil;
   fRegistration.ActivatorDelegate := function: TValue
                                      begin
                                        Result := TValue.From<T>(aDelegate()); //invoke the delegate explicitly
@@ -1392,26 +1491,28 @@ end;
 
 { TSimpleFactory<T> }
 
-constructor TSimpleFactory<T>.Create(aResolver: TIocResolver);
+constructor TSimpleFactory<T>.Create(aResolver: TIocResolver; aScope: TIocScope = nil);
 begin
   fResolver := aResolver;
+  fScope := aScope;
 end;
 
 function TSimpleFactory<T>.New: T;
 begin
-  Result := fResolver.CreateInstance(TClass(T)).AsType<T>;
+  Result := fResolver.CreateInstance(TClass(T),fScope).AsType<T>;
 end;
 
 { TSimpleFactory<TInterface, TImplementation> }
 
-constructor TSimpleFactory<TInterface, TImplementation>.Create(aResolver: TIocResolver);
+constructor TSimpleFactory<TInterface, TImplementation>.Create(aResolver: TIocResolver; aScope: TIocScope = nil);
 begin
   fResolver := aResolver;
+  fScope := aScope;
 end;
 
 function TSimpleFactory<TInterface, TImplementation>.New: TInterface;
 begin
-  Result := fResolver.CreateInstance(TClass(TImplementation)).AsType<TInterface>;
+  Result := fResolver.CreateInstance(TClass(TImplementation),fScope).AsType<TInterface>;
 end;
 
 { Name }

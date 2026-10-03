@@ -377,6 +377,21 @@ type
     procedure Test_Singleton_ConcurrentFirstResolve_CreatesOnce;
     [Test]
     procedure Test_Singleton_CreatedOne_DoesNotWaitForAnotherBeingCreated;
+    { Scope in DelegateTo and factories }
+    [Test]
+    procedure Test_DelegateTo_Context_ResolvesFromCurrentScope;
+    [Test]
+    procedure Test_DelegateTo_Context_ScopeIsNilOutsideScope;
+    [Test]
+    procedure Test_DelegateTo_Context_FromRoot_ScopedDependencyRaises;
+    [Test]
+    procedure Test_SimpleFactory_InScope_UsesScopedDependencies;
+    [Test]
+    procedure Test_SimpleFactory_FromRoot_ScopedDependencyRaises;
+    [Test]
+    procedure Test_TypedFactory_InScope_UsesScopedDependencies;
+    [Test]
+    procedure Test_Scope_AbstractFactory_UsesScope;
   end;
 
 implementation
@@ -1410,6 +1425,156 @@ begin
     logger := nil;
     TSlowSingleton.Started.Free;
     TSlowSingleton.Started := nil;
+  end;
+end;
+
+{ Scope in DelegateTo and factories }
+
+procedure TQuickIOCTests.Test_DelegateTo_Context_ResolvesFromCurrentScope;
+var
+  scope: TIocScope;
+  user: IUserService;
+  logger: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterType<IUserService, TUserService>.AsTransient.DelegateTo(
+    function(const aContext: TIocResolveContext): TUserService
+    begin
+      Result := TUserService.Create(aContext.Resolve<ILogger>);
+    end);
+  scope := FContainer.CreateScope;
+  try
+    user := scope.Resolve<IUserService>;
+    logger := scope.Resolve<ILogger>;
+    Assert.AreSame(logger, TUserService(user as TObject).FLogger,
+      'The delegate must receive the scoped logger of the current scope');
+  finally
+    user := nil;
+    logger := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_DelegateTo_Context_ScopeIsNilOutsideScope;
+var
+  scope: TIocScope;
+  seen: TIocScope;
+  user: IUserService;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsTransient;
+  FContainer.RegisterType<IUserService, TUserService>.AsTransient.DelegateTo(
+    function(const aContext: TIocResolveContext): TUserService
+    begin
+      seen := aContext.Scope;
+      Result := TUserService.Create(aContext.Resolve<ILogger>);
+    end);
+  scope := FContainer.CreateScope;
+  try
+    user := scope.Resolve<IUserService>;
+    Assert.IsTrue(seen = scope, 'Inside a scope the context must carry that scope');
+    user := FContainer.Resolve<IUserService>;
+    Assert.IsTrue(seen = nil, 'Outside a scope the context scope must be nil');
+  finally
+    user := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_DelegateTo_Context_FromRoot_ScopedDependencyRaises;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterType<IUserService, TUserService>.AsTransient.DelegateTo(
+    function(const aContext: TIocResolveContext): TUserService
+    begin
+      Result := TUserService.Create(aContext.Resolve<ILogger>);
+    end);
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.Resolve<IUserService>;
+    end, EIocScopeError, 'A scoped dependency resolved by the delegate outside a scope must raise');
+end;
+
+procedure TQuickIOCTests.Test_SimpleFactory_InScope_UsesScopedDependencies;
+var
+  scope: TIocScope;
+  factory: IFactory<IUserService>;
+  user1, user2: IUserService;
+  logger: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterSimpleFactory<IUserService, TUserService>;
+  scope := FContainer.CreateScope;
+  try
+    factory := scope.Resolve<IFactory<IUserService>>;
+    user1 := factory.New;
+    user2 := factory.New;
+    logger := scope.Resolve<ILogger>;
+    Assert.AreNotSame(user1, user2, 'New must create a new instance each time');
+    Assert.AreSame(logger, TUserService(user1 as TObject).FLogger, 'Created instances get the scope''s logger');
+    Assert.AreSame(logger, TUserService(user2 as TObject).FLogger, 'Created instances get the scope''s logger');
+  finally
+    user1 := nil;
+    user2 := nil;
+    logger := nil;
+    factory := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_SimpleFactory_FromRoot_ScopedDependencyRaises;
+var
+  factory: IFactory<IUserService>;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterSimpleFactory<IUserService, TUserService>;
+  factory := FContainer.Resolve<IFactory<IUserService>>;
+  Assert.WillRaise(
+    procedure
+    begin
+      factory.New;
+    end, EIocScopeError, 'A factory resolved outside a scope cannot build scoped dependencies');
+end;
+
+procedure TQuickIOCTests.Test_TypedFactory_InScope_UsesScopedDependencies;
+var
+  scope: TIocScope;
+  factory: IFactory<TUserService>;
+  user: IUserService;
+  logger: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterTypedFactory<IFactory<TUserService>, TUserService>;
+  scope := FContainer.CreateScope;
+  try
+    factory := scope.Resolve<IFactory<TUserService>>;
+    user := factory.New;
+    logger := scope.Resolve<ILogger>;
+    Assert.AreSame(logger, TUserService(user as TObject).FLogger, 'Created instance gets the scope''s logger');
+  finally
+    user := nil;
+    logger := nil;
+    factory := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scope_AbstractFactory_UsesScope;
+var
+  scope: TIocScope;
+  user: IUserService;
+  logger: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  scope := FContainer.CreateScope;
+  try
+    user := scope.AbstractFactory<TUserService>;
+    logger := scope.Resolve<ILogger>;
+    Assert.AreSame(logger, TUserService(user as TObject).FLogger, 'AbstractFactory of a scope uses that scope');
+  finally
+    user := nil;
+    logger := nil;
+    scope.Free;
   end;
 end;
 
