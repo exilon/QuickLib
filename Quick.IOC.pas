@@ -270,11 +270,14 @@ type
     function New : T;
   end;
 
-  /// <summary>A dependency resolved in its own, new scope (like Autofac's Owned&lt;T&gt;).
-  /// Asking for IOwned&lt;T&gt; in a constructor opens an independent scope, resolves T in it
-  /// and keeps that scope alive while the IOwned&lt;T&gt; is referenced: scoped services in
-  /// T's dependency chain get their own instances instead of the consumer's.
-  /// IOwned&lt;T&gt; is registered automatically by RegisterType&lt;T,TImplementation&gt;.</summary>
+  /// <summary>An owned instance (Autofac's Owned&lt;T&gt;): a dependency resolved in a nested
+  /// scope of its own. Asking for IOwned&lt;T&gt; in a constructor opens that scope, resolves T in
+  /// it and keeps it alive while the IOwned&lt;T&gt; is referenced: scoped services in T's
+  /// dependency chain get their own instances instead of the consumer's. The nested scope is not
+  /// a child of the consumer's scope: it shares only the singletons.
+  /// RegisterType&lt;T,TImplementation&gt; registers IOwned&lt;T&gt; (AutoRegisterOwned, True by
+  /// default); otherwise call RegisterOwned&lt;T&gt;. A constructor that asks for an IOwned&lt;T&gt;
+  /// that is not registered raises EIocRegisterError.</summary>
   IOwned<T> = interface
   ['{3B0E6F52-9C1D-4A7E-8B25-D4F1A0C6E913}']
     //every instantiation of a generic interface shares this GUID, so Supports cannot tell
@@ -325,9 +328,10 @@ type
     fLogger : ILogger;
     fValidateConstructors : Boolean;
     fConstructorWarnings : TArray<string>;
+    fAutoRegisterOwned : Boolean;
     function GetValidateScopes : Boolean;
     procedure SetValidateScopes(aValue : Boolean);
-    procedure RegisterOwned<T>(aTarget : TIocRegistration; const aName : string);
+    procedure AddOwned<T>(aTarget : TIocRegistration; const aName : string);
   class var
     GlobalInstance: TIocContainer;
   protected
@@ -358,6 +362,12 @@ type
     function AbstractFactory<T : class, constructor> : T; overload;
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
     function RegisterSimpleFactory<TInterface : IInterface; TImplementation : class, constructor>(const aName : string = '') : TIocRegistration;
+    /// <summary>Registers IOwned&lt;TInterface&gt; for each registration of TInterface (and aName) that
+    /// does not have one yet: the ones made with AutoRegisterOwned off, by RegisterInstance, by
+    /// the non-generic RegisterType or through Registrator. Covers the registrations that exist when
+    /// it is called; raises EIocRegisterError if there is none. The IOwned registrations keep the
+    /// order of their targets, so Resolve&lt;IOwned&lt;I&gt;&gt; wraps what Resolve&lt;I&gt; returns.</summary>
+    procedure RegisterOwned<TInterface : IInterface>(const aName : string = '');
     /// <summary>Validates the constructors (with ValidateConstructors) and pre-creates the
     /// singletons Resolve returns: the last registration of each key, if it is a singleton. A
     /// singleton that a later registration of the same key overrides (a mock registered on top of
@@ -395,6 +405,12 @@ type
     property ValidateConstructors : Boolean read fValidateConstructors write fValidateConstructors;
     /// <summary>Warnings of the last Build run with ValidateConstructors (empty otherwise).</summary>
     property ConstructorWarnings : TArray<string> read fConstructorWarnings;
+    /// <summary>True (default): RegisterType&lt;I,T&gt; also registers IOwned&lt;I&gt;, so a
+    /// constructor can ask for IOwned&lt;I&gt; with nothing else to register. False: IOwned&lt;I&gt; is
+    /// registered only by RegisterOwned&lt;I&gt;. Either way, a constructor that asks for an
+    /// IOwned&lt;I&gt; that is not registered raises EIocRegisterError instead of falling back to
+    /// another constructor, and DiagnoseConstructors reports it. Set it before registering.</summary>
+    property AutoRegisterOwned : Boolean read fAutoRegisterOwned write fAutoRegisterOwned;
     /// <summary>Exposes the internal registrator for advanced operations (Replace, Decorate).</summary>
     property Registrator: TIocRegistrator read fRegistrator;
   end;
@@ -525,6 +541,27 @@ begin
   //build the consumer with this dependency nil
   raise EIocRegisterError.CreateFmt('%s does not implement %s %s: check what is registered for it',
     [(aInstance as TObject).ClassName,aServiceType.Name,GUIDToString(GetTypeData(aServiceType).Guid)]);
+end;
+
+function IsOwnedType(aType : PTypeInfo) : Boolean;
+begin
+  //every IOwned<T> has the GUID of the generic declaration: what tells them apart from other
+  //interfaces without knowing T
+  Result := (aType <> nil) and (aType.Kind = tkInterface) and
+    IsEqualGUID(GetTypeData(aType).Guid,GetTypeData(TypeInfo(IOwned<IInterface>)).Guid);
+end;
+
+function OwnedNotRegistered(const aConsumer : string; aOwnedType : PTypeInfo) : string;
+var
+  owned : string;
+  target : string;
+begin
+  //IOwned<Unit.IFoo> -> Unit.IFoo, for the call that fixes it
+  owned := string(aOwnedType.Name);
+  target := owned.Substring(owned.IndexOf('<') + 1);
+  target := target.Substring(0,target.LastIndexOf('>'));
+  Result := Format('%s asks for %s, which is not registered: call RegisterOwned<%s> or enable AutoRegisterOwned',
+    [aConsumer,owned,target]);
 end;
 
 function GlobalContainer: TIocContainer;
@@ -694,6 +731,7 @@ begin
   fRegistrator := TIocRegistrator.Create;
   fInjector := TIocInjector.Create;
   fResolver := TIocResolver.Create(fRegistrator,fInjector);
+  fAutoRegisterOwned := True;
 end;
 
 destructor TIocContainer.Destroy;
@@ -726,10 +764,48 @@ function TIocContainer.RegisterType<TInterface, TImplementation>(const aName: st
 begin
   Result := fRegistrator.RegisterType<TInterface, TImplementation>(aName);
   //IOwned<TInterface> must be registered here: generic types cannot be instantiated at runtime
-  RegisterOwned<TInterface>(Result.fRegistration,aName);
+  if fAutoRegisterOwned then AddOwned<TInterface>(Result.fRegistration,aName);
 end;
 
-procedure TIocContainer.RegisterOwned<T>(aTarget : TIocRegistration; const aName: string);
+procedure TIocContainer.RegisterOwned<TInterface>(const aName : string);
+var
+  targets : TObjectList<TIocRegistration>;
+  owned : TObjectList<TIocRegistration>;
+  target : TIocRegistration;
+  reg : TIocRegistration;
+  hasOwned : Boolean;
+  named : string;
+begin
+  if not fRegistrator.Dependencies.TryGetValue(fRegistrator.GetKey(TypeInfo(TInterface),aName),targets) then
+  begin
+    if aName.IsEmpty then named := ''
+      else named := ' with the name "' + aName + '"';
+    raise EIocRegisterError.CreateFmt('RegisterOwned<%s>: %s is not registered%s; register it first',
+      [GetTypeName(TypeInfo(TInterface)),GetTypeName(TypeInfo(TInterface)),named]);
+  end;
+  for target in targets do
+  begin
+    //one IOwned per registration: RegisterType<I,T> may have registered it already
+    hasOwned := False;
+    if fRegistrator.Dependencies.TryGetValue(fRegistrator.GetKey(TypeInfo(IOwned<TInterface>),aName),owned) then
+      for reg in owned do
+        if reg.fOwnedTarget = target then
+        begin
+          hasOwned := True;
+          Break;
+        end;
+    if not hasOwned then AddOwned<TInterface>(target,aName);
+  end;
+  //in the order of their targets: the last IOwned wraps the last registration, the one Resolve returns
+  if fRegistrator.Dependencies.TryGetValue(fRegistrator.GetKey(TypeInfo(IOwned<TInterface>),aName),owned) then
+    owned.Sort(TComparer<TIocRegistration>.Construct(
+      function(const aLeft, aRight : TIocRegistration) : Integer
+      begin
+        Result := targets.IndexOf(aLeft.fOwnedTarget) - targets.IndexOf(aRight.fOwnedTarget);
+      end));
+end;
+
+procedure TIocContainer.AddOwned<T>(aTarget : TIocRegistration; const aName: string);
 var
   container : TIocContainer;
   target : TIocRegistration;
@@ -738,7 +814,7 @@ begin
   container := Self;
   target := aTarget;
   //transient: every consumer gets its own scope. Registered through the non-generic
-  //RegisterType so it does not recurse into RegisterOwned<IOwned<T>>
+  //RegisterType so it does not recurse into AddOwned<IOwned<T>>
   reg := fRegistrator.RegisterType(TypeInfo(IOwned<T>),TOwned<T>,aName);
   //RemoveRegistrations removes it together with its target, so the target is always alive here
   reg.fOwnedTarget := aTarget;
@@ -1183,6 +1259,11 @@ var
       lName := EmptyStr;
       for lAtt in lParam.GetAttributes do
         if lAtt is Name then begin lName := Name(lAtt).Name; Break; end;
+      //IOwned<I> is asked for on purpose, for a nested scope: without its registration this is a
+      //configuration error, never a reason to try another constructor
+      if IsOwnedType(lParam.ParamType.Handle) and
+        not fRegistrator.Dependencies.ContainsKey(fRegistrator.GetKey(lParam.ParamType.Handle,lName)) then
+        raise EIocRegisterError.Create(OwnedNotRegistered(aCtor.Parent.Name + '.' + aCtor.Name,lParam.ParamType.Handle));
       //an [Inject] failure deeper in the chain is re-raised, never swallowed: falling back to
       //another constructor would build this object with that dependency nil
       if lParam.ParamType.TypeKind in [tkClass, tkInterface] then
@@ -1402,6 +1483,7 @@ var
     injectCtor : TRttiMethod;
     chosen : TRttiMethod;
     ctor : TRttiMethod;
+    lParam : TRttiParameter;
     candidates : TArray<TRttiMethod>;
     others : TArray<string>;
     hidden : TArray<string>;
@@ -1431,8 +1513,16 @@ var
       Exit;
     end;
 
-    //simulates the default rule: first candidate whose class/interface parameters are registered
     candidates := GetConstructorCandidates(rtype);
+    //a constructor that asks for IOwned<I> wants a nested scope on purpose: without that
+    //registration it is an error, whichever constructor the default rule picks
+    for ctor in candidates do
+      for lParam in ctor.GetParameters do
+        if (lParam.ParamType <> nil) and IsOwnedType(lParam.ParamType.Handle) and
+          not fRegistrator.Dependencies.ContainsKey(fRegistrator.GetKey(lParam.ParamType.Handle,ParameterRegName(lParam))) then
+          Problem(OwnedNotRegistered(ConstructorSignature(ctor),lParam.ParamType.Handle));
+
+    //simulates the default rule: first candidate whose class/interface parameters are registered
     chosen := nil;
     for ctor in candidates do
       if MissingParameters(ctor).IsEmpty then

@@ -500,6 +500,23 @@ type
     class property Created: Integer read FCreated write FCreated;
   end;
 
+  // asks only for IOwned<ILogger>
+  TOwnedConsumer = class(TInterfacedObject, IInjService)
+  private
+    FOwned: IOwned<ILogger>;
+  public
+    constructor Create(owned: IOwned<ILogger>);
+    function Logger: ILogger;
+  end;
+
+  // an empty Create (kept for tests) next to the one that asks for IOwned<ILogger>
+  TOwnedOrEmpty = class(TInterfacedObject, IInjService)
+  public
+    constructor Create; overload;
+    constructor Create(owned: IOwned<ILogger>); overload;
+    function Logger: ILogger;
+  end;
+
   // the mock a test registers on top of the production registration
   TFakeEmailService = class(TInterfacedObject, IEmailService)
   private class var
@@ -774,6 +791,17 @@ type
     procedure Test_Build_MockOnTop_OriginalNotBuilt;
     [Test]
     procedure Test_Build_ValidateConstructors_OverriddenRegistrationOnlyWarns;
+    // IOwned configurable (package G)
+    [Test]
+    procedure Test_Owned_AutoRegisterOff_NotRegistered;
+    [Test]
+    procedure Test_Owned_RegisterOwned_CompletesAndKeepsOrder;
+    [Test]
+    procedure Test_Owned_RegisterOwned_WithoutRegistration_Raises;
+    [Test]
+    procedure Test_Owned_NotRegistered_ConsumerRaisesRegisterError;
+    [Test]
+    procedure Test_DiagnoseConstructors_ReportsOwnedNotRegistered;
   end;
 
 implementation
@@ -2086,6 +2114,37 @@ procedure TFakeEmailService.SendEmail(const mailto, subject, body: string);
 begin
 end;
 
+{ TOwnedConsumer }
+
+constructor TOwnedConsumer.Create(owned: IOwned<ILogger>);
+begin
+  inherited Create;
+  FOwned := owned;
+end;
+
+function TOwnedConsumer.Logger: ILogger;
+begin
+  if FOwned <> nil then Result := FOwned.Value
+    else Result := nil;
+end;
+
+{ TOwnedOrEmpty }
+
+constructor TOwnedOrEmpty.Create;
+begin
+  inherited Create;
+end;
+
+constructor TOwnedOrEmpty.Create(owned: IOwned<ILogger>);
+begin
+  inherited Create;
+end;
+
+function TOwnedOrEmpty.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
 // named function for DelegateTo
 function NewConsoleLogger: TConsoleLogger;
 begin
@@ -3383,6 +3442,80 @@ begin
     'It is still reported, as a warning. Found: ' + string.Join(' | ', FContainer.ConstructorWarnings));
   Assert.IsTrue(Pos('TSmtpEmailService', FContainer.ConstructorWarnings[0]) > 0,
     'The warning must name the overridden class. Found: ' + FContainer.ConstructorWarnings[0]);
+end;
+
+{ IOwned configurable (package G) }
+
+procedure TQuickIOCTests.Test_Owned_AutoRegisterOff_NotRegistered;
+begin
+  FContainer.AutoRegisterOwned := False;
+  FContainer.RegisterType<ILogger, TConsoleLogger>;
+  Assert.IsFalse(FContainer.IsRegistered<IOwned<ILogger>>(''),
+    'With AutoRegisterOwned off, RegisterType<I,T> must not register IOwned<I>');
+end;
+
+procedure TQuickIOCTests.Test_Owned_RegisterOwned_CompletesAndKeepsOrder;
+var
+  logger: ILogger;
+  owned: TList<IOwned<ILogger>>;
+  last: IOwned<ILogger>;
+begin
+  logger := TFileLogger.Create('given.log');
+  FContainer.RegisterInstance<ILogger>(logger);      // no IOwned of its own
+  FContainer.RegisterType<ILogger, TConsoleLogger>;  // IOwned registered automatically; Resolve<ILogger> returns it
+  FContainer.RegisterOwned<ILogger>;                 // adds only the missing IOwned
+  owned := FContainer.ResolveAll<IOwned<ILogger>>;
+  try
+    Assert.AreEqual<Integer>(2, owned.Count, 'One IOwned per registration, the automatic one not duplicated');
+    Assert.IsTrue((owned[0].Value as TObject) = (logger as TObject),
+      'The IOwned keep the order of their targets: the first wraps the given instance');
+    Assert.IsTrue((owned[1].Value as TObject) is TConsoleLogger, 'The second wraps TConsoleLogger');
+  finally
+    owned.Free;
+  end;
+  last := FContainer.Resolve<IOwned<ILogger>>;
+  Assert.IsTrue((last.Value as TObject) is TConsoleLogger, 'Resolve<IOwned<I>> must wrap what Resolve<I> returns');
+end;
+
+procedure TQuickIOCTests.Test_Owned_RegisterOwned_WithoutRegistration_Raises;
+begin
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.RegisterOwned<ILogger>;
+    end, EIocRegisterError, 'RegisterOwned<I> before any registration of I must raise EIocRegisterError');
+end;
+
+procedure TQuickIOCTests.Test_Owned_NotRegistered_ConsumerRaisesRegisterError;
+var
+  error: string;
+begin
+  // the non-generic RegisterType never registers IOwned
+  FContainer.RegisterType(TypeInfo(ILogger), TConsoleLogger);
+  FContainer.RegisterType<IInjService, TOwnedConsumer>;
+  error := '';
+  try
+    FContainer.Resolve<IInjService>;
+  except
+    on E: Exception do error := E.ClassName + ': ' + E.Message;
+  end;
+  Assert.IsTrue(error.StartsWith('EIocRegisterError:'),
+    'Asking for an unregistered IOwned must raise, not fall back to TObject.Create. Got: ' + error);
+  Assert.IsTrue((Pos('TOwnedConsumer.Create asks for IOwned<', error) > 0) and (Pos('RegisterOwned<', error) > 0),
+    'The message must name the constructor and the fix. Got: ' + error);
+end;
+
+procedure TQuickIOCTests.Test_DiagnoseConstructors_ReportsOwnedNotRegistered;
+var
+  problems: TArray<string>;
+begin
+  // the default rule picks the empty Create in silence; the one asking for IOwned is the intended one
+  FContainer.RegisterType(TypeInfo(ILogger), TConsoleLogger);
+  FContainer.RegisterType<IInjService, TOwnedOrEmpty>;
+  problems := FContainer.DiagnoseConstructors;
+  Assert.AreEqual(1, Integer(Length(problems)), 'One problem expected. Found: ' + string.Join(' | ', problems));
+  Assert.IsTrue((Pos('TOwnedOrEmpty.Create(owned: IOwned<', problems[0]) > 0) and (Pos('asks for IOwned<', problems[0]) > 0),
+    'The diagnostics must report the unregistered IOwned, whichever constructor is chosen. Found: ' + problems[0]);
 end;
 
 initialization
