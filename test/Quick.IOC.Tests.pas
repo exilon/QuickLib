@@ -620,6 +620,8 @@ type
     [Test]
     procedure Test_Scoped_FromRoot_RaisesScopeError;
     [Test]
+    procedure Test_Scoped_FromRoot_MessageShowsHowToKeepOldBehaviour;
+    [Test]
     procedure Test_Scoped_AsSingletonDependency_RaisesScopeError;
     [Test]
     procedure Test_Scoped_ValidateScopesOff_BehavesAsTransient;
@@ -1215,6 +1217,23 @@ begin
     begin
       FContainer.Resolve<ILogger>;
     end, EIocScopeError, 'Resolving a scoped service from the root must raise EIocScopeError');
+end;
+
+procedure TQuickIOCTests.Test_Scoped_FromRoot_MessageShowsHowToKeepOldBehaviour;
+var
+  msg: string;
+begin
+  // ValidateScopes is True by default: code that resolved AsScoped from the root (as transient)
+  // must be told how to keep that behaviour
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  msg := '';
+  try
+    FContainer.Resolve<ILogger>;
+  except
+    on E: EIocScopeError do msg := E.Message;
+  end;
+  Assert.IsTrue(Pos('ValidateScopes := False', msg) > 0,
+    'The message must show how to keep the previous behaviour. Message: ' + msg);
 end;
 
 procedure TQuickIOCTests.Test_Scoped_AsSingletonDependency_RaisesScopeError;

@@ -225,7 +225,8 @@ type
     function ResolveAll<T>(const aName : string; aScope : TIocScope) : TList<T>; overload;
     /// <summary>True (default): resolving a scoped service outside a scope (from the root
     /// container or as a dependency of a singleton) raises EIocScopeError.
-    /// False: legacy behaviour, a scoped service outside a scope is built as transient.</summary>
+    /// False: previous behaviour, kept for compatibility: a scoped service outside a scope is
+    /// built as transient, as AsScoped always did before scopes existed.</summary>
     property ValidateScopes : Boolean read fValidateScopes write fValidateScopes;
   end;
 
@@ -1780,7 +1781,8 @@ begin
     if aScope <> nil then Result := aScope.GetOrCreate(aReg,aServiceType)
     else if fValidateScopes then
       raise EIocScopeError.CreateFmt('Scoped service "%s" resolved outside a scope. Resolve it from a TIocScope ' +
-        '(TIocContainer.CreateScope), not from the root container nor as a dependency of a singleton.',[aServiceType.Name])
+        '(TIocContainer.CreateScope), not from the root container nor as a dependency of a singleton; or set ' +
+        'ValidateScopes := False to keep the previous behaviour (resolved as transient).',[aServiceType.Name])
     else Result := BuildValue(aReg,aServiceType,nil); //legacy (ValidateScopes = False): behaves as transient
   end
   else
