@@ -33,6 +33,8 @@ msbuild test\QuickLib.dproj /p:Config=Debug /p:Platform=Win64 /p:DCC_Define=CONS
 test\Win64\Debug\QuickLib.exe
 ```
 
+To run only the Quick.IOC tests, open `test/QuickIocTests.dproj`, build and run it (console; exit code 0 when every test passes).
+
 **Areas of functionality:**
   
 * **Mapping**: Map fields from a class to other class, copy objects, etc..
@@ -92,6 +94,7 @@ test\Win64\Debug\QuickLib.exe
 
 **Updates:**
 
+* NEW: Quick.IOC scopes (AsScoped), owned instances (`IOwned<T>`), [Inject] and constructor diagnostics. Read the breaking changes in the Quick.IOC section before upgrading.
 * NEW: RAD Studio 13 Florence supported
 * NEW: RAD Studio 12 Athens supported
 * NEW: RAD Studio 11 supported
@@ -979,9 +982,10 @@ iocContainer := TIocContainer.Create;
 ```
 **Register Types:**
 
-You need to register types before you can inject them. A Type can be registered as Singleton, Transient.
+You need to register types before you can inject them. A Type can be registered as Singleton, Transient or Scoped.
 **Singleton**: Life cycle will be one single instance for all injections, similar to a Global variable.
 **Transient**: Life cycle will be one instance per each injection.
+**Scoped**: Life cycle will be one instance per scope, for example one per HTTP request (see Scopes below).
 Register an interface type into container as transient:
 ```delphi
 iocContainer.RegisterType<IMultService,TMultService>.AsTransient;
@@ -1032,6 +1036,132 @@ divideservice := iocContainer.Resolve<TDivideService>('other');
 result := divideservice.Divide(100,2);
 ```
 Interface instances will be freed automatically, but instance dependencies only will be freed if defined as singleton, transient instances will be destroyed by code.
+
+**Scopes:**
+
+A scope groups the instances of one unit of work, such as an HTTP request. Services registered as Scoped are created once per scope, also when they are injected into constructors at any depth, and are released when the scope is freed, in reverse order of creation.
+```delphi
+iocContainer.RegisterType<IUnitOfWork,TUnitOfWork>.AsScoped;
+iocContainer.RegisterType<IClientRepository,TClientRepository>.AsTransient;
+iocContainer.RegisterType<IClientService,TClientService>.AsTransient;
+
+scope := iocContainer.CreateScope;
+try
+  service := scope.Resolve<IClientService>; //the service and its repositories share the scope's IUnitOfWork
+  service.Save(client);
+finally
+  service := nil; //release what was resolved before the scope
+  scope.Free;
+end;
+```
+With ValidateScopes = True (default), resolving a scoped service outside a scope (from the container, or as a dependency of a singleton) raises EIocScopeError. Set `iocContainer.ValidateScopes := False` to keep the previous behaviour, where a scoped service is built as transient.
+
+A scope also offers `ResolveAll<T>` and `AbstractFactory<T>`. Use a scope from one thread at a time. Once Free starts, resolving from the scope raises EIocScopeError.
+
+**Owned instances (`IOwned<T>`):**
+
+Asking for `IOwned<T>` instead of T in a constructor gives the consumer an owned instance: T is resolved in a new nested scope, which lives as long as the `IOwned<T>` is referenced. The scoped services in T's dependency chain get their own instances instead of the consumer's. The nested scope shares only the singletons with the consumer: it is not a child of the consumer's scope.
+```delphi
+constructor TExporter.Create(aReport: IOwned<IReport>);
+begin
+  FReport := aReport;
+end;
+...
+FReport.Value.Generate;
+```
+`RegisterType<I,T>` also registers `IOwned<I>` while AutoRegisterOwned is True (default). With AutoRegisterOwned := False, or for services registered by RegisterInstance, by the non-generic RegisterType or through Registrator, call `RegisterOwned<I>`:
+```delphi
+iocContainer.AutoRegisterOwned := False; //before registering
+iocContainer.RegisterType<IReport,TReport>;
+iocContainer.RegisterOwned<IReport>; //one IOwned<IReport> per registration of IReport
+```
+A constructor that asks for an `IOwned<I>` that is not registered raises EIocRegisterError.
+
+**Choosing the constructor ([Inject]):**
+
+By default, the container tries the constructors declared by the class before the inherited ones, fewest parameters first, and uses the first one whose class and interface parameters are registered. Mark a constructor with [Inject] to use it instead:
+```delphi
+TClientService = class(TInterfacedObject,IClientService)
+public
+  constructor Create; overload; //kept for tests
+  [Inject]
+  constructor Create(aUnitOfWork: IUnitOfWork); overload; //the one the container uses
+end;
+```
+The marked constructor is the only one tried: if it cannot be satisfied, resolution raises EIocInjectError with the parameter that failed, instead of falling back to another constructor, also when the class is a dependency of another one. The nearest class in the hierarchy that declares constructors decides, so a class without constructors of its own inherits the mark. Two marked constructors in the same class raise EIocRegisterError. [Inject] is seen only on public and published constructors (RTTI does not list the others). [Name('name')] on a parameter selects a named registration. If you also use another container that defines an Inject attribute (such as Spring4D), qualify it: [Quick.IOC.Inject].
+
+**Constructor diagnostics:**
+
+Build can check, without creating anything, the constructor each registration would use:
+```delphi
+iocContainer.ValidateConstructors := True;
+iocContainer.Build; //raises EIocBuildError listing the problems
+for warning in iocContainer.ConstructorWarnings do Log(warning);
+```
+Errors: a class that would be created by TObject.Create although it declares other constructors; a class none of whose own constructors is satisfiable; an [Inject] constructor with unregistered parameters; two constructors marked [Inject]; a constructor asking for an unregistered `IOwned<I>`; a class registered for an interface it does not implement; an interface without a GUID. Warnings, which do not make Build fail: a shorter own constructor hides another one, also satisfiable, that receives more dependencies; two satisfiable constructors of the same class with as many parameters. DiagnoseConstructors(warnings) runs the same check at any time, for example in a test. Limits: it checks one level (the parameters are registered, not that their own constructors can be satisfied), and delegates, factories and given instances are not checked.
+
+**Several registrations for the same interface:**
+
+Resolve returns the last registration of a key. ResolveAll returns one instance per registration, in registration order, each with its own lifetime:
+```delphi
+iocContainer.RegisterType<INotifier,TEmailNotifier>.AsSingleton;
+iocContainer.RegisterType<INotifier,TSmsNotifier>.AsTransient;
+notifiers := iocContainer.ResolveAll<INotifier>; //the caller owns the list
+```
+Registering again does not remove the previous registration. Build pre-creates only what Resolve returns (the last registration of each key, if it is a singleton), so a test can register a mock on top of the production registration, and the original is never built:
+```delphi
+RegisterServices; //production registrations: TSmtpEmailSender connects in its constructor
+iocContainer.RegisterType<IEmailSender,TFakeEmailSender>.AsSingleton; //the mock wins
+iocContainer.Build;
+```
+An overridden singleton is built by the first ResolveAll, if ever asked for. With ValidateConstructors, the problems of an overridden registration are reported as warnings.
+
+To remove every registration of a key, and their IOwned, use `Registrator.RemoveRegistrations(Registrator.GetKey(TypeInfo(IEmailSender)))`. Call it while no scope is alive (a scope keeps its instances by registration), and note that the instance of a class singleton already created is not freed.
+
+**Delegates and factories within a scope:**
+
+DelegateTo can receive a TIocResolveContext, to resolve dependencies in the scope of the service being built. Use the context during the delegate call only:
+```delphi
+iocContainer.RegisterType<IClientRepository,TClientRepository>.DelegateTo(
+  function(const aContext: TIocResolveContext): TClientRepository
+  begin
+    Result := TClientRepository.Create(aContext.Resolve<IUnitOfWork>);
+    Result.PageSize := 50;
+  end);
+```
+Factories registered by RegisterSimpleFactory and RegisterTypedFactory are transient and bound to the scope they are resolved in, so what they create receives that scope's scoped dependencies. Used after that scope is freed, a factory raises EIocScopeError. Chain .AsSingleton to get a single factory bound to the container instead. DelegateTo(nil) does not compile: it is ambiguous between the two overloads.
+
+**Exceptions:**
+
+All container exceptions descend from EIocError:
+* **EIocResolverError:** a dependency could not be resolved. Constructor selection swallows it to try the next constructor.
+* **EIocInjectError:** an EIocResolverError raised when a constructor marked [Inject] cannot be satisfied. Never swallowed.
+* **EIocRegisterError:** a configuration error: two [Inject] constructors, a class that does not implement its interface, an unregistered `IOwned<I>`. Never swallowed.
+* **EIocScopeError:** a service used outside its lifetime: a scoped service outside a scope, a scope (or a factory or context bound to it) used while or after it is freed, a singleton resolved while the container is being freed.
+* **EIocCycleError:** a dependency cycle, with the whole chain in the message.
+* **EIocBuildError:** Build failed: the constructor diagnostics, or an exception raised by a constructor (kept in InnerException). The container's own errors raised in Build keep their class.
+
+**Releasing instances:**
+
+Freeing a scope releases its instances in reverse order of creation. Freeing the container releases the singletons it created in reverse order of creation (a singleton before the ones it received in its constructor), then the instances given at registration; meanwhile, resolving a singleton already released raises EIocScopeError. In both cases, if a destructor raises, the other instances are still released and the first exception is raised again by Free.
+
+**Threads:**
+
+Resolve and ResolveAll can run from several threads at the same time, and a singleton is created only once. Registering, removing registrations and using one scope from several threads at the same time are not thread-safe. Creating singletons is serialized: a singleton constructor that waits for another thread which creates another singleton deadlocks. Re-entering the container in the same thread while a service is being built (ProcessMessages, Synchronize) can raise a false EIocCycleError.
+
+**Upgrading: breaking changes**
+
+Compared with the previous Quick.IOC:
+* ValidateScopes is True by default: a scoped service resolved outside a scope raises EIocScopeError, where it used to be built as transient. Set ValidateScopes := False to keep the previous behaviour (the error message says so).
+* RegisterSimpleFactory and RegisterTypedFactory register the factory as transient, bound to the scope it is resolved in: two resolutions return two factories, and a factory kept after its scope is freed raises EIocScopeError. Chain .AsSingleton for the previous single factory.
+* ResolveAll returns one instance per registration (it used to return the last registration N times). A registration overridden by a later one is now built by ResolveAll: with a mock registered on top of a production registration, `ResolveAll<I>` also creates the production one, and fails if its dependencies are missing.
+* Exception classes your handlers see: a class registered for an interface it does not implement raises EIocRegisterError (it was an EIocResolverError, and the consumer was built with that dependency nil), so `on E: EIocResolverError` no longer catches it; a dependency cycle raises EIocCycleError instead of overflowing the stack. In Build, the container's own errors keep their class instead of becoming EIocBuildError, and an exception raised by a constructor becomes an EIocBuildError with the original one in InnerException.
+* Creating singletons is serialized by a single lock (before, two threads could build two instances of the same singleton): a singleton constructor that waits for another thread which creates another singleton deadlocks. Re-entering the container in the same thread while a service is being built (ProcessMessages, Synchronize) can raise EIocCycleError.
+* `RegisterOptions<T>(aOptions)` raises EInvalidCast if aOptions is not a T.
+* DelegateTo(nil) no longer compiles (it raised an access violation when resolved).
+* Quick.IOC declares new public identifiers (Inject, `IOwned<T>`, TIocScope, EIocError...). In a unit that also uses another container with its own Inject attribute, the one that applies depends on the uses order: qualify it, for example [Quick.IOC.Inject].
+
+Other behaviour changes: Build still pre-creates only the last registration of each key, and now only if it is a singleton (it used to build and discard an instance when a transient registration came last); `RegisterType<I,T>` also registers `IOwned<I>` (AutoRegisterOwned := False avoids it), and these registrations appear in Registrator.Dependencies, Registrator.DependencyOrder and `IsRegistered<IOwned<I>>`; RemoveRegistrations also removes the IOwned of the removed registrations; freeing the container releases its singletons before the resolver, in reverse order of creation, and releases them all even if a destructor raises (the first exception is still raised by Free); while the container is being freed, resolving a singleton already released, or never created, raises EIocScopeError instead of building it; all container exceptions descend from EIocError (their names did not change).
 
 **Quick.Options:**
  --
