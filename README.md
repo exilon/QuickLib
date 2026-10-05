@@ -1069,7 +1069,7 @@ end;
 ...
 FReport.Value.Generate;
 ```
-`RegisterType<I,T>` also registers `IOwned<I>` while AutoRegisterOwned is True (default). With AutoRegisterOwned := False, or for services registered by RegisterInstance, by the non-generic RegisterType or through Registrator, call `RegisterOwned<I>`:
+`RegisterType<I,T>` and `RegisterInstance<I>(instance)` also register `IOwned<I>` while AutoRegisterOwned is True (default), so `IOwned<I>` wraps what `Resolve<I>` returns, also a mock given on top of another registration. With AutoRegisterOwned := False, or for services registered by the non-generic RegisterType or RegisterInstance or through Registrator, call `RegisterOwned<I>`:
 ```delphi
 iocContainer.AutoRegisterOwned := False; //before registering
 iocContainer.RegisterType<IReport,TReport>;
@@ -1136,7 +1136,7 @@ Factories registered by RegisterSimpleFactory and RegisterTypedFactory are trans
 All container exceptions descend from EIocError:
 * **EIocResolverError:** a dependency could not be resolved. Constructor selection swallows it to try the next constructor.
 * **EIocInjectError:** an EIocResolverError raised when a constructor marked [Inject] cannot be satisfied. Never swallowed.
-* **EIocRegisterError:** a configuration error: two [Inject] constructors, a class that does not implement its interface, an unregistered `IOwned<I>`. Never swallowed.
+* **EIocRegisterError:** a configuration error: two [Inject] constructors, a class that does not implement its interface, an unregistered `IOwned<I>`, `RegisterOwned<I>` before any registration of I. Never swallowed.
 * **EIocScopeError:** a service used outside its lifetime: a scoped service outside a scope, a scope (or a factory or context bound to it) used while or after it is freed, a singleton resolved while the container is being freed.
 * **EIocCycleError:** a dependency cycle, with the whole chain in the message. Also raised when the container is re-entered in the same thread while it builds a service (see Threads).
 * **EIocBuildError:** Build failed: the constructor diagnostics, or an exception raised by a constructor (kept in InnerException). The container's own errors raised in Build keep their class.
@@ -1161,7 +1161,7 @@ Compared with the previous Quick.IOC:
 * DelegateTo(nil) no longer compiles (it raised an access violation when resolved).
 * Quick.IOC declares new public identifiers (Inject, `IOwned<T>`, TIocScope, EIocError...). In a unit that also uses another container with its own Inject attribute, the one that applies depends on the uses order: qualify it, for example [Quick.IOC.Inject].
 
-Other behaviour changes: Build still pre-creates only the last registration of each key, and now only if it is a singleton (it used to build and discard an instance when a transient registration came last); `RegisterType<I,T>` also registers `IOwned<I>` (AutoRegisterOwned := False avoids it), and these registrations appear in Registrator.Dependencies, Registrator.DependencyOrder and `IsRegistered<IOwned<I>>`; RemoveRegistrations also removes the IOwned of the removed registrations; freeing the container releases its singletons before the resolver, in reverse order of creation, and releases them all even if a destructor raises (the first exception is still raised by Free); while the container is being freed, resolving a singleton already released, or never created, raises EIocScopeError instead of building it; all container exceptions descend from EIocError (their names did not change).
+Other behaviour changes: Build still pre-creates only the last registration of each key, and now only if it is a singleton (it used to build and discard an instance when a transient registration came last); `RegisterType<I,T>` and `RegisterInstance<I>(instance)` also register `IOwned<I>` (AutoRegisterOwned := False avoids it), and these registrations appear in Registrator.Dependencies, Registrator.DependencyOrder and `IsRegistered<IOwned<I>>`; RemoveRegistrations also removes the IOwned of the removed registrations; freeing the container releases its singletons before the resolver, in reverse order of creation, and releases them all even if a destructor raises (the first exception is still raised by Free); while the container is being freed, resolving a singleton already released, or never created, raises EIocScopeError instead of building it; all container exceptions descend from EIocError (their names did not change).
 
 **Quick.Options:**
  --

@@ -233,8 +233,8 @@ type
   end;
 
   /// <summary>A resolution scope (e.g. one per HTTP request). Services registered AsScoped
-  /// are created once per scope and released when the scope is freed, in reverse order of
-  /// creation; if a destructor raises, the others are still released and the first exception
+  /// are created once per scope and released when the scope is freed: the interface instances
+  /// first, then the class instances, each in reverse order of creation; if a destructor raises, the others are still released and the first exception
   /// is raised again by Free. Once Free starts, resolving from the scope raises EIocScopeError.
   /// Singletons and transients behave as usual. A scope is not thread-safe: use it from one
   /// thread at a time.</summary>
@@ -278,8 +278,8 @@ type
   /// it and keeps it alive while the IOwned&lt;T&gt; is referenced: scoped services in T's
   /// dependency chain get their own instances instead of the consumer's. The nested scope is not
   /// a child of the consumer's scope: it shares only the singletons.
-  /// RegisterType&lt;T,TImplementation&gt; registers IOwned&lt;T&gt; (AutoRegisterOwned, True by
-  /// default); otherwise call RegisterOwned&lt;T&gt;. A constructor that asks for an IOwned&lt;T&gt;
+  /// RegisterType&lt;T,TImplementation&gt; and RegisterInstance&lt;T&gt;(aInstance) register IOwned&lt;T&gt;
+  /// (AutoRegisterOwned, True by default); otherwise call RegisterOwned&lt;T&gt;. A constructor that asks for an IOwned&lt;T&gt;
   /// that is not registered raises EIocRegisterError.</summary>
   IOwned<T> = interface
   ['{3B0E6F52-9C1D-4A7E-8B25-D4F1A0C6E913}']
@@ -346,8 +346,9 @@ type
     /// it created, in reverse order of creation (a singleton before the ones it received in its
     /// constructor), then the instances given at registration. Meanwhile a singleton already
     /// released, or never created, is not built again: resolving it raises EIocScopeError. If a
-    /// destructor raises, the others are still released, the container is freed and the first
-    /// exception is raised again by Free.</summary>
+    /// destructor raises, the others are still released, the registrations and the resolver are
+    /// freed, and the first exception is raised again by Free (as with any destructor that raises,
+    /// the memory of the container object itself is not released).</summary>
     destructor Destroy; override;
     function IsRegistered<TInterface: IInterface; TImplementation: class>(const aName: string): Boolean; overload;
     function IsRegistered<TInterface : IInterface>(const aName: string): Boolean; overload;
@@ -366,8 +367,8 @@ type
     function RegisterTypedFactory<TFactoryInterface : IInterface; TFactoryType : class, constructor>(const aName : string = '') : TIocRegistration<TTypedFactory<TFactoryType>>;
     function RegisterSimpleFactory<TInterface : IInterface; TImplementation : class, constructor>(const aName : string = '') : TIocRegistration;
     /// <summary>Registers IOwned&lt;TInterface&gt; for each registration of TInterface (and aName) that
-    /// does not have one yet: the ones made with AutoRegisterOwned off, by RegisterInstance, by
-    /// the non-generic RegisterType or through Registrator. Covers the registrations that exist when
+    /// does not have one yet: the ones made with AutoRegisterOwned off, by the non-generic
+    /// RegisterType or RegisterInstance, or through Registrator. Covers the registrations that exist when
     /// it is called; raises EIocRegisterError if there is none. The IOwned registrations keep the
     /// order of their targets, so Resolve&lt;IOwned&lt;I&gt;&gt; wraps what Resolve&lt;I&gt; returns.</summary>
     procedure RegisterOwned<TInterface : IInterface>(const aName : string = '');
@@ -384,8 +385,9 @@ type
     /// <summary>Static check of the constructor each registration would use, without building
     /// anything. Reports classes that would be created by TObject.Create although they declare
     /// other constructors, classes none of whose own constructors is satisfiable, [Inject]
-    /// constructors with unregistered parameters, classes registered for an interface they do
-    /// not implement, and interfaces without a GUID. A registration that a later one of the same
+    /// constructors with unregistered parameters, constructors that ask for an unregistered
+    /// IOwned&lt;I&gt;, classes registered for an interface they do not implement, and interfaces
+    /// without a GUID. A registration that a later one of the same
     /// key overrides is never returned by Resolve: its problems are reported as warnings.
     /// Limits: it checks one level only (the parameters are registered, not that their own
     /// constructors can be satisfied), so a deeper dependency can still fail at runtime;
@@ -408,8 +410,8 @@ type
     property ValidateConstructors : Boolean read fValidateConstructors write fValidateConstructors;
     /// <summary>Warnings of the last Build run with ValidateConstructors (empty otherwise).</summary>
     property ConstructorWarnings : TArray<string> read fConstructorWarnings;
-    /// <summary>True (default): RegisterType&lt;I,T&gt; also registers IOwned&lt;I&gt;, so a
-    /// constructor can ask for IOwned&lt;I&gt; with nothing else to register. False: IOwned&lt;I&gt; is
+    /// <summary>True (default): RegisterType&lt;I,T&gt; and RegisterInstance&lt;I&gt;(aInstance) also
+    /// register IOwned&lt;I&gt;, so a constructor can ask for IOwned&lt;I&gt; with nothing else to register. False: IOwned&lt;I&gt; is
     /// registered only by RegisterOwned&lt;I&gt;. Either way, a constructor that asks for an
     /// IOwned&lt;I&gt; that is not registered raises EIocRegisterError instead of falling back to
     /// another constructor, and DiagnoseConstructors reports it. Set it before registering.</summary>
@@ -440,7 +442,9 @@ type
   /// or on the nearest ancestor that declares constructors (so a class that inherits its
   /// constructor does not fall back to TObject.Create). If the marked constructor cannot be
   /// satisfied, resolution raises EIocInjectError instead of trying another constructor, also
-  /// when the class is a dependency of another one. Classes without it
+  /// when the class is a dependency of another one. Two marked constructors in one class raise
+  /// EIocRegisterError, and so does a constructor, marked or not, that asks for an unregistered
+  /// IOwned&lt;I&gt;. Classes without it
   /// keep the default rule: own constructors before inherited ones, fewest parameters first.</summary>
   Inject = class(TCustomAttribute)
   end;
@@ -449,9 +453,10 @@ type
   /// Constructor selection swallows only EIocResolverError (except EIocInjectError) to try the
   /// next constructor; the other descendants always reach the caller.</summary>
   EIocError = class(Exception);
-  /// <summary>A configuration error: two constructors marked [Inject], or a class registered for
-  /// an interface it does not implement. Not an EIocResolverError, so constructor selection does
-  /// not swallow it.</summary>
+  /// <summary>A configuration error: two constructors marked [Inject], a class registered for an
+  /// interface it does not implement, a constructor that asks for an unregistered IOwned&lt;I&gt;, or
+  /// RegisterOwned&lt;I&gt; called before any registration of I. Not an EIocResolverError, so
+  /// constructor selection does not swallow it.</summary>
   EIocRegisterError = class(EIocError);
   EIocResolverError = class(EIocError);
   EIocBuildError = class(EIocError);
@@ -904,6 +909,9 @@ end;
 function TIocContainer.RegisterInstance<TInterface>(aInstance: TInterface; const aName: string): TIocRegistration;
 begin
   Result := fRegistrator.RegisterInstance<TInterface>(aInstance,aName);
+  //as in RegisterType<I,T>: an instance given on top of another registration (a mock) is what
+  //Resolve<I> returns, so IOwned<I> must wrap it too, not the registration it overrides
+  if fAutoRegisterOwned then AddOwned<TInterface>(Result,aName);
 end;
 
 function TIocContainer.RegisterOptions<T>(aOptions: TOptions): TIocRegistration<T>;

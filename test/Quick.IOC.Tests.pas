@@ -863,6 +863,8 @@ type
     procedure Test_Cycle_ReentryInSameThread_MessageExplainsIt;
     [Test]
     procedure Test_Singleton_ClassDelegateReturnsNil_ResolvingKeepsNoMemory;
+    [Test]
+    procedure Test_Owned_GivenInstanceOnTop_OwnedWrapsIt;
   end;
 
 implementation
@@ -2438,15 +2440,18 @@ end;
 
 procedure TQuickIOCTests.Test_Build_LastRegistrationScoped_DoesNotFail;
 begin
-  // the singleton must be built by Build; the scoped registration after it must not be
-  // resolved in its place (which raised EIocScopeError wrapped in EIocBuildError)
-  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  // Build pre-creates only what Resolve returns, and the last registration of the key is scoped:
+  // it builds nothing. Neither the scoped one outside a scope (which raised EIocScopeError wrapped
+  // in EIocBuildError) nor the singleton the scoped registration overrides
+  FContainer.RegisterType<ILogger, TBuildCountedLogger>.AsSingleton;
   FContainer.RegisterType<ILogger, TFileLogger>.AsScoped;
+  TBuildCountedLogger.Created := 0;
   Assert.WillNotRaise(
     procedure
     begin
       FContainer.Build;
-    end, nil, 'Build must resolve each singleton registration itself, not the last one of the key');
+    end, nil, 'Build must not resolve the scoped registration outside a scope');
+  Assert.AreEqual(0, TBuildCountedLogger.Created, 'Build must not create the singleton the scoped registration overrides');
 end;
 
 procedure TQuickIOCTests.Test_Build_RegistrationWithoutClass_NamesTheInterface;
@@ -3573,7 +3578,9 @@ var
   last: IOwned<ILogger>;
 begin
   logger := TFileLogger.Create('given.log');
+  FContainer.AutoRegisterOwned := False;
   FContainer.RegisterInstance<ILogger>(logger);      // no IOwned of its own
+  FContainer.AutoRegisterOwned := True;
   FContainer.RegisterType<ILogger, TConsoleLogger>;  // IOwned registered automatically; Resolve<ILogger> returns it
   FContainer.RegisterOwned<ILogger>;                 // adds only the missing IOwned
   owned := FContainer.ResolveAll<IOwned<ILogger>>;
@@ -3759,6 +3766,23 @@ begin
   Assert.AreEqual(RESOLUTIONS + 1, calls, 'Each resolution calls the delegate again');
   Assert.IsTrue(kept < 16 * 1024,
     Format('%d resolutions must not keep memory; kept %d bytes', [RESOLUTIONS, kept]));
+end;
+
+procedure TQuickIOCTests.Test_Owned_GivenInstanceOnTop_OwnedWrapsIt;
+var
+  mock: ILogger;
+  consumer: IInjService;
+begin
+  // a mock given with RegisterInstance<I> on top of the production registration: Resolve<I>
+  // returns the mock, and IOwned<I> must wrap it too. It wrapped the production class, because
+  // only RegisterType<I,T> registered IOwned<I>
+  FContainer.RegisterType<ILogger, TConsoleLogger>;
+  mock := TFileLogger.Create('mock');
+  FContainer.RegisterInstance<ILogger>(mock);
+  FContainer.RegisterType<IInjService, TOwnedConsumer>;
+  Assert.IsTrue(FContainer.Resolve<ILogger> = mock, 'Resolve<ILogger> must return the given instance');
+  consumer := FContainer.Resolve<IInjService>;
+  Assert.IsTrue(consumer.Logger = mock, 'IOwned<ILogger> must wrap what Resolve<ILogger> returns: the given instance');
 end;
 
 initialization
