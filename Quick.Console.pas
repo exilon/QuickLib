@@ -883,12 +883,12 @@ begin
             end;
             //Application.ProcessMessages;
           until (dRunning <> WAIT_TIMEOUT);
+          GetExitCodeProcess(piProcess.hProcess,Result);
         finally
           CloseHandle(piProcess.hProcess);
           CloseHandle(piProcess.hThread);
         end;
       end;
-      GetExitCodeProcess(piProcess.hProcess,Result);
     finally
       CloseHandle(hRead);
       CloseHandle(hWrite);
