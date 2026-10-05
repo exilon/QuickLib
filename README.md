@@ -1138,7 +1138,7 @@ All container exceptions descend from EIocError:
 * **EIocInjectError:** an EIocResolverError raised when a constructor marked [Inject] cannot be satisfied. Never swallowed.
 * **EIocRegisterError:** a configuration error: two [Inject] constructors, a class that does not implement its interface, an unregistered `IOwned<I>`. Never swallowed.
 * **EIocScopeError:** a service used outside its lifetime: a scoped service outside a scope, a scope (or a factory or context bound to it) used while or after it is freed, a singleton resolved while the container is being freed.
-* **EIocCycleError:** a dependency cycle, with the whole chain in the message.
+* **EIocCycleError:** a dependency cycle, with the whole chain in the message. Also raised when the container is re-entered in the same thread while it builds a service (see Threads).
 * **EIocBuildError:** Build failed: the constructor diagnostics, or an exception raised by a constructor (kept in InnerException). The container's own errors raised in Build keep their class.
 
 **Releasing instances:**
@@ -1147,7 +1147,7 @@ Freeing a scope releases its instances in reverse order of creation. Freeing the
 
 **Threads:**
 
-Resolve and ResolveAll can run from several threads at the same time, and a singleton is created only once. Registering, removing registrations and using one scope from several threads at the same time are not thread-safe. Creating singletons is serialized: a singleton constructor that waits for another thread which creates another singleton deadlocks. Re-entering the container in the same thread while a service is being built (ProcessMessages, Synchronize) can raise a false EIocCycleError.
+Resolve and ResolveAll can run from several threads at the same time, and a singleton is created only once: it is created under a lock of its own registration, so creating it waits only for the creation of that same singleton, or of one it depends on. Constructors of different singletons can run at the same time. Registering, removing registrations and using one scope from several threads at the same time are not thread-safe. A singleton constructor that waits for another thread (a worker, TThread.Synchronize) deadlocks if that thread needs a singleton the waiting thread is still creating, such as the one whose constructor waits. Re-entering the container in the same thread while a service is being built (ProcessMessages, Synchronize) can raise a false EIocCycleError, or deadlock if another thread is creating a singleton that depends on the one being built. A dependency cycle between singletons, resolved for the first time by two threads at once, can deadlock instead of raising EIocCycleError; Build reports it at startup.
 
 **Upgrading: breaking changes**
 
@@ -1156,7 +1156,7 @@ Compared with the previous Quick.IOC:
 * RegisterSimpleFactory and RegisterTypedFactory register the factory as transient, bound to the scope it is resolved in: two resolutions return two factories, and a factory kept after its scope is freed raises EIocScopeError. Chain .AsSingleton for the previous single factory.
 * ResolveAll returns one instance per registration (it used to return the last registration N times). A registration overridden by a later one is now built by ResolveAll: with a mock registered on top of a production registration, `ResolveAll<I>` also creates the production one, and fails if its dependencies are missing.
 * Exception classes your handlers see: a class registered for an interface it does not implement raises EIocRegisterError (it was an EIocResolverError, and the consumer was built with that dependency nil), so `on E: EIocResolverError` no longer catches it; a dependency cycle raises EIocCycleError instead of overflowing the stack. In Build, the container's own errors keep their class instead of becoming EIocBuildError, and an exception raised by a constructor becomes an EIocBuildError with the original one in InnerException.
-* Creating singletons is serialized by a single lock (before, two threads could build two instances of the same singleton): a singleton constructor that waits for another thread which creates another singleton deadlocks. Re-entering the container in the same thread while a service is being built (ProcessMessages, Synchronize) can raise EIocCycleError.
+* A singleton is created under a lock of its registration (before, two threads could build two instances of the same singleton): a singleton constructor that waits for another thread which needs a singleton the waiting thread is still creating deadlocks, where a second instance used to be built. Re-entering the container in the same thread while a service is being built (ProcessMessages, Synchronize) can raise EIocCycleError, or deadlock if another thread is creating a singleton that depends on the one being built.
 * `RegisterOptions<T>(aOptions)` raises EInvalidCast if aOptions is not a T.
 * DelegateTo(nil) no longer compiles (it raised an access violation when resolved).
 * Quick.IOC declares new public identifiers (Inject, `IOwned<T>`, TIocScope, EIocError...). In a unit that also uses another container with its own Inject attribute, the one that applies depends on the uses order: qualify it, for example [Quick.IOC.Inject].

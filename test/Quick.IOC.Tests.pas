@@ -291,6 +291,31 @@ type
     class property Release: TLightweightEvent read FRelease write FRelease;
   end;
 
+  // singleton whose constructor waits for a thread that resolves another singleton (ILogger), as a
+  // constructor waiting for a worker thread, or for TThread.Synchronize, would
+  IWaitsForAnother = interface
+  ['{0661C77C-F997-49FF-9CBE-A18613A9783E}']
+  end;
+
+  TWaitsForAnother = class(TInterfacedObject, IWaitsForAnother)
+  private class var
+    FContainer: TIocContainer;
+    FResolved: TLightweightEvent;
+    FWorker: TThread;
+    FWorkerError: string;
+    FWaitResult: TWaitResult;
+  public
+    constructor Create;
+    class property Container: TIocContainer read FContainer write FContainer;
+    // signaled by the thread once it resolved ILogger
+    class property Resolved: TLightweightEvent read FResolved write FResolved;
+    // the thread started by the constructor: the test waits for it and frees it
+    class property Worker: TThread read FWorker write FWorker;
+    class property WorkerError: string read FWorkerError write FWorkerError;
+    // wrTimeout: the thread could not resolve ILogger while the constructor ran
+    class property WaitResult: TWaitResult read FWaitResult write FWaitResult;
+  end;
+
   // plain class (no interface) registered with RegisterInstance<T>: slow, counted constructor
   TSlowPlainSingleton = class
   private class var
@@ -372,6 +397,20 @@ type
   TCycleB = class(TInterfacedObject, ICycleB)
   public
     constructor Create(a: ICycleA);
+  end;
+
+  // its constructor runs OnCreate, as Application.ProcessMessages runs a message handler while the
+  // service is being built; the handler may resolve this same service again (re-entry, no cycle)
+  IReentrant = interface
+  ['{491B4B5F-5A7B-47C8-B87D-F52F6C632822}']
+  end;
+
+  TReentrant = class(TInterfacedObject, IReentrant)
+  private class var
+    FOnCreate: TProc;
+  public
+    constructor Create;
+    class property OnCreate: TProc read FOnCreate write FOnCreate;
   end;
 
   EExplodingDestroy = class(Exception);
@@ -817,6 +856,11 @@ type
     procedure Test_RegisterOptions_WrongClass_RaisesInvalidCast;
     [Test]
     procedure Test_ResolveContext_NotFromContainer_RaisesIocError;
+    // singleton lock and re-entry (fourth review)
+    [Test]
+    procedure Test_Singleton_ConstructorWaitingForAnotherBeingCreated_DoesNotDeadlock;
+    [Test]
+    procedure Test_Cycle_ReentryInSameThread_MessageExplainsIt;
   end;
 
 implementation
@@ -1913,6 +1957,27 @@ begin
     else Sleep(FDelayMs);
 end;
 
+{ TWaitsForAnother }
+
+constructor TWaitsForAnother.Create;
+begin
+  inherited Create;
+  FWorker := TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        FContainer.Resolve<ILogger>;
+      except
+        on E: Exception do FWorkerError := E.ClassName + ': ' + E.Message;
+      end;
+      FResolved.SetEvent;
+    end);
+  FWorker.FreeOnTerminate := False;
+  FWorker.Start;
+  // without a timeout, a deadlock would hang the test run
+  FWaitResult := FResolved.WaitFor(5000);
+end;
+
 { TSlowPlainSingleton }
 
 constructor TSlowPlainSingleton.Create;
@@ -1980,6 +2045,19 @@ end;
 constructor TCycleB.Create(a: ICycleA);
 begin
   inherited Create;
+end;
+
+{ TReentrant }
+
+constructor TReentrant.Create;
+var
+  handler: TProc;
+begin
+  inherited Create;
+  // once: the instance the handler resolves does not run it again
+  handler := FOnCreate;
+  FOnCreate := nil;
+  if Assigned(handler) then handler();
 end;
 
 { TExplodingOnDestroy }
@@ -2257,9 +2335,9 @@ var
   resolved: TLightweightEvent;
   otherError: string;
 begin
-  // while a slow singleton is being created (lock held), resolving another singleton that
-  // already exists must take the fast path and not wait for the lock. Checked by order of
-  // events, not by time: the slow constructor is held until the other resolution finished
+  // while a slow singleton is being created (its lock held), resolving another singleton that
+  // already exists must not wait for it. Checked by order of events, not by time: the slow
+  // constructor is held until the other resolution finished
   FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
   FContainer.RegisterType<ISlowSingleton, TSlowSingleton>.AsSingleton;
   FContainer.Resolve<ILogger>;
@@ -3580,6 +3658,64 @@ begin
     begin
       context.Resolve<ILogger>;
     end, EIocError, 'A TIocResolveContext not created by the container must raise EIocError, not an access violation');
+end;
+
+{ Singleton lock and re-entry (fourth review) }
+
+procedure TQuickIOCTests.Test_Singleton_ConstructorWaitingForAnotherBeingCreated_DoesNotDeadlock;
+begin
+  // the constructor of a singleton waits for a thread that resolves another singleton, not created
+  // yet. With one lock for every singleton, the thread waits for the lock held during the
+  // constructor and the constructor waits for the thread: a deadlock, cut here by a 5 s timeout
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  FContainer.RegisterType<IWaitsForAnother, TWaitsForAnother>.AsSingleton;
+  TWaitsForAnother.Container := FContainer;
+  TWaitsForAnother.Resolved := TLightweightEvent.Create;
+  TWaitsForAnother.Worker := nil;
+  TWaitsForAnother.WorkerError := '';
+  TWaitsForAnother.WaitResult := wrError;
+  try
+    FContainer.Resolve<IWaitsForAnother>;
+    TWaitsForAnother.Worker.WaitFor;
+    Assert.AreEqual('', TWaitsForAnother.WorkerError, 'The thread failed to resolve ILogger');
+    Assert.IsTrue(TWaitsForAnother.WaitResult = wrSignaled,
+      'Creating a singleton must not wait for the creation of an unrelated one');
+  finally
+    TWaitsForAnother.Worker.Free;
+    TWaitsForAnother.Worker := nil;
+    TWaitsForAnother.Resolved.Free;
+    TWaitsForAnother.Resolved := nil;
+    TWaitsForAnother.Container := nil;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Cycle_ReentryInSameThread_MessageExplainsIt;
+var
+  error: string;
+begin
+  // no dependency cycle: while TReentrant is being built, code run by its constructor resolves
+  // IReentrant again in the same thread, as a handler run by Application.ProcessMessages would.
+  // The container cannot tell this from a cycle, so the message must explain both. The handler
+  // catches the exception, as the VCL does with an exception raised in a message handler
+  FContainer.RegisterType<IReentrant, TReentrant>.AsTransient;
+  error := '';
+  TReentrant.OnCreate :=
+    procedure
+    begin
+      try
+        FContainer.Resolve<IReentrant>;
+      except
+        on E: Exception do error := E.ClassName + ': ' + E.Message;
+      end;
+    end;
+  try
+    FContainer.Resolve<IReentrant>;
+  finally
+    TReentrant.OnCreate := nil;
+  end;
+  Assert.IsTrue(error.StartsWith('EIocCycleError:'), 'The re-entry must raise EIocCycleError. Got: ' + error);
+  Assert.IsTrue(Pos('re-entered in this thread while building TReentrant', error) > 0,
+    'The message must explain the re-entry. Got: ' + error);
 end;
 
 initialization

@@ -149,7 +149,7 @@ type
   private
     fDependencies : TDictionary<string, TObjectList<TIocRegistration>>;
     fDependencyOrder : TObjectList<TIocRegistration>;
-    //singleton registrations in the order their instances were created (under the singleton lock)
+    //singleton registrations in the order their instances were created (added under fSingletonLock)
     fCreatedSingletons : TList<TIocRegistration>;
     //set by ReleaseInstances: a singleton that is not alive is not built again
     fReleasing : Boolean;
@@ -198,6 +198,8 @@ type
   private
     fRegistrator : TIocRegistrator;
     fInjector : TIocInjector;
+    //serializes the Add of concurrent creations to fRegistrator.fCreatedSingletons; each singleton is
+    //created under the lock of its own registration
     fSingletonLock : TObject;
     fValidateScopes : Boolean;
     function CreateInstance(aClass : TClass) : TValue; overload;
@@ -537,7 +539,10 @@ begin
         chain := RegistrationLabel(node.fReg) + ' -> ' + chain;
         node := node.fParent;
       end;
-      raise EIocCycleError.CreateFmt('Dependency cycle: %s',[RegistrationLabel(aReg) + ' -> ' + chain]);
+      //a re-entry in this thread (a message handler run by ProcessMessages in a constructor) looks the same
+      raise EIocCycleError.CreateFmt('Dependency cycle: %s. If there is no such dependency, the container was ' +
+        're-entered in this thread while building %s (for example by Application.ProcessMessages in a constructor)',
+        [RegistrationLabel(aReg) + ' -> ' + chain,RegistrationLabel(aReg)]);
     end;
     node := node.fParent;
   end;
@@ -1700,6 +1705,21 @@ var
   instance : Pointer;
   newIntf : IInterface;
   newObj : TObject;
+
+  procedure AddCreated;
+  begin
+    //released in reverse order of creation (TIocRegistrator.ReleaseInstances). Singletons of different
+    //registrations can be created at the same time, so the list has a lock of its own: taken only for
+    //the Add, with no user code under it. Called before the instance is published: a thread that sees
+    //it, and builds a singleton depending on it, adds that one after it
+    TMonitor.Enter(fSingletonLock);
+    try
+      fRegistrator.fCreatedSingletons.Add(aReg);
+    finally
+      TMonitor.Exit(fSingletonLock);
+    end;
+  end;
+
 begin
   //fast path, without the lock: a singleton instance goes from nil to its value once and is
   //never replaced while the container lives, so a non-nil pointer read with a full memory
@@ -1718,8 +1738,10 @@ begin
         'released, or never created. In a destructor, use what the service received in its constructor: the ' +
         'container releases a singleton before the ones it depends on.',[aServiceType.Name]);
     //slow path: lazy creation must not race, two threads could otherwise build two "singletons".
-    //TMonitor is reentrant, so a singleton depending on another singleton is fine.
-    TMonitor.Enter(fSingletonLock);
+    //The lock is the registration's own, so creating a singleton waits only for the creation of that
+    //same one, or of one it depends on (a single lock deadlocks when a constructor waits for a thread
+    //creating an unrelated one)
+    TMonitor.Enter(aReg);
     try
       //checked again: another thread may have created it while this one waited for the lock.
       //Dependencies of a singleton are resolved with no scope: a scoped dependency would be
@@ -1729,11 +1751,10 @@ begin
         if TIocRegistrationInterface(aReg).fInstance = nil then
         begin
           newIntf := BuildValue(aReg,aServiceType,nil).AsInterface;
+          AddCreated;
           //the construction must be visible to other threads before the pointer is published
           MemoryBarrier;
           TIocRegistrationInterface(aReg).Instance := newIntf;
-          //released in reverse order of creation (TIocRegistrator.ReleaseInstances)
-          fRegistrator.fCreatedSingletons.Add(aReg);
         end;
         instance := Pointer(TIocRegistrationInterface(aReg).fInstance);
       end
@@ -1742,14 +1763,14 @@ begin
         if TIocRegistrationInstance(aReg).fInstance = nil then
         begin
           newObj := BuildValue(aReg,aServiceType,nil).AsObject;
+          AddCreated;
           MemoryBarrier;
           TIocRegistrationInstance(aReg).Instance := newObj;
-          fRegistrator.fCreatedSingletons.Add(aReg);
         end;
         instance := Pointer(TIocRegistrationInstance(aReg).fInstance);
       end;
     finally
-      TMonitor.Exit(fSingletonLock);
+      TMonitor.Exit(aReg);
     end;
   end;
 
