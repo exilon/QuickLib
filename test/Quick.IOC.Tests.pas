@@ -861,6 +861,8 @@ type
     procedure Test_Singleton_ConstructorWaitingForAnotherBeingCreated_DoesNotDeadlock;
     [Test]
     procedure Test_Cycle_ReentryInSameThread_MessageExplainsIt;
+    [Test]
+    procedure Test_Singleton_ClassDelegateReturnsNil_ResolvingKeepsNoMemory;
   end;
 
 implementation
@@ -3716,6 +3718,47 @@ begin
   Assert.IsTrue(error.StartsWith('EIocCycleError:'), 'The re-entry must raise EIocCycleError. Got: ' + error);
   Assert.IsTrue(Pos('re-entered in this thread while building TReentrant', error) > 0,
     'The message must explain the re-entry. Got: ' + error);
+end;
+
+// bytes allocated by the default memory manager
+function AllocatedBytes: UInt64;
+var
+  state: TMemoryManagerState;
+  i: Integer;
+begin
+  GetMemoryManagerState(state);
+  Result := state.TotalAllocatedMediumBlockSize + state.TotalAllocatedLargeBlockSize;
+  for i := Low(state.SmallBlockTypeStates) to High(state.SmallBlockTypeStates) do
+    Inc(Result, UInt64(state.SmallBlockTypeStates[i].UseableBlockSize) * state.SmallBlockTypeStates[i].AllocatedBlockCount);
+end;
+
+procedure TQuickIOCTests.Test_Singleton_ClassDelegateReturnsNil_ResolvingKeepsNoMemory;
+const
+  RESOLUTIONS = 10000;
+var
+  calls: Integer;
+  before: UInt64;
+  kept: Int64;
+  i: Integer;
+begin
+  // a class singleton whose delegate returns nil is never created: each resolution calls the
+  // delegate again, as before the fork. Each call used to record the registration for release
+  // again, so the list of created singletons grew while the program ran (a pointer per resolution)
+  calls := 0;
+  FContainer.RegisterInstance<TPlainThing>.DelegateTo(
+    function: TPlainThing
+    begin
+      Inc(calls);
+      Result := nil;
+    end).AsSingleton;
+  // first resolution outside the measure: it allocates what is allocated once
+  FContainer.Resolve<TPlainThing>;
+  before := AllocatedBytes;
+  for i := 1 to RESOLUTIONS do FContainer.Resolve<TPlainThing>;
+  kept := Int64(AllocatedBytes) - Int64(before);
+  Assert.AreEqual(RESOLUTIONS + 1, calls, 'Each resolution calls the delegate again');
+  Assert.IsTrue(kept < 16 * 1024,
+    Format('%d resolutions must not keep memory; kept %d bytes', [RESOLUTIONS, kept]));
 end;
 
 initialization

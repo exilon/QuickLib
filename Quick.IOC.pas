@@ -1763,7 +1763,8 @@ begin
         if TIocRegistrationInstance(aReg).fInstance = nil then
         begin
           newObj := BuildValue(aReg,aServiceType,nil).AsObject;
-          AddCreated;
+          //a delegate may return nil: nothing to release, and the next resolution calls it again
+          if newObj <> nil then AddCreated;
           MemoryBarrier;
           TIocRegistrationInstance(aReg).Instance := newObj;
         end;
