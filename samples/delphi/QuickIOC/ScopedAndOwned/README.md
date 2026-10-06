@@ -125,6 +125,5 @@ The main screen opens screens with the four combinations of its two check boxes:
 
 ## Where to read more
 
-`docs/QuickIOC-Scopes.html` (English) and `docs/QuickIOC-Scopes.pt-BR.html` (Portuguese) explain how
-the container implements scopes and owned instances, with this sample as the running example; open
-them in a browser.
+`docs/QuickIOC-Scopes.html` explains how the container implements scopes and owned instances, with
+this sample as the running example; open it in a browser.
