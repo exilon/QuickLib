@@ -1,0 +1,6 @@
+#created by "boss install"
+modules/
+boss-lock.json
+#build output
+Win32/
+Win64/

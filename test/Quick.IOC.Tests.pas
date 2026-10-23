@@ -67,6 +67,183 @@ type
     procedure SendEmail(const mailto, subject, body: string);
   end;
 
+  // Logger that counts destructions, to check scope release
+  TTrackedLogger = class(TInterfacedObject, ILogger)
+  private class var
+    FDestroyed: Integer;
+  public
+    destructor Destroy; override;
+    procedure Log(const msg: string);
+    class property Destroyed: Integer read FDestroyed write FDestroyed;
+  end;
+
+  // Dependency graph for IOwned<T>, with X scoped:
+  //   A(X, B, C, D, E);  B(X, IOwned<D>, E);  C(X, IOwned<D>, E);  D(X, E);  E(X)
+  IGraphX = interface
+  ['{5C2E8A41-7D3F-4B19-9E06-A1F4C8D2B735}']
+  end;
+
+  IGraphE = interface
+  ['{8E1F3C72-4A5B-4D60-B9C7-2F6E0A1D3B48}']
+    function X: IGraphX;
+  end;
+
+  IGraphD = interface
+  ['{2A7C9E15-6B3D-4F82-A0E4-9D1B5C7F3E26}']
+    function X: IGraphX;
+    function E: IGraphE;
+  end;
+
+  IGraphBranch = interface
+  ['{D4B6F803-1E2A-4C57-8F39-6A0C2E5D7B91}']
+    function X: IGraphX;
+    function E: IGraphE;
+    function OwnedD: IOwned<IGraphD>;
+  end;
+
+  IGraphB = interface(IGraphBranch)
+  ['{7F3A1D96-2C4E-4B08-9A57-E0B6D3C1F842}']
+  end;
+
+  IGraphC = interface(IGraphBranch)
+  ['{1B9E4C27-8D6A-4E31-B5F0-3C7A2E9D6F54}']
+  end;
+
+  IGraphA = interface
+  ['{9C5D2E68-3F7B-4A14-8E92-B6D0F1A4C375}']
+    function X: IGraphX;
+    function B: IGraphB;
+    function C: IGraphC;
+    function D: IGraphD;
+    function E: IGraphE;
+  end;
+
+  TGraphX = class(TInterfacedObject, IGraphX)
+  private class var
+    FDestroyed: Integer;
+  public
+    destructor Destroy; override;
+    class property Destroyed: Integer read FDestroyed write FDestroyed;
+  end;
+
+  TGraphE = class(TInterfacedObject, IGraphE)
+  private
+    FX: IGraphX;
+  public
+    constructor Create(x: IGraphX);
+    function X: IGraphX;
+  end;
+
+  TGraphD = class(TInterfacedObject, IGraphD)
+  private
+    FX: IGraphX;
+    FE: IGraphE;
+  public
+    constructor Create(x: IGraphX; e: IGraphE);
+    function X: IGraphX;
+    function E: IGraphE;
+  end;
+
+  TGraphBranch = class(TInterfacedObject, IGraphB, IGraphC)
+  private
+    FX: IGraphX;
+    FE: IGraphE;
+    FOwnedD: IOwned<IGraphD>;
+  public
+    constructor Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+    function X: IGraphX;
+    function E: IGraphE;
+    function OwnedD: IOwned<IGraphD>;
+  end;
+
+  // own constructors: CreateInstance tries a class's own constructors first and, among
+  // inherited ones, the parameterless TObject.Create before any other
+  TGraphB = class(TGraphBranch)
+  public
+    constructor Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+  end;
+
+  TGraphC = class(TGraphBranch)
+  public
+    constructor Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+  end;
+
+  TGraphA = class(TInterfacedObject, IGraphA)
+  private
+    FX: IGraphX;
+    FB: IGraphB;
+    FC: IGraphC;
+    FD: IGraphD;
+    FE: IGraphE;
+  public
+    constructor Create(x: IGraphX; b: IGraphB; c: IGraphC; d: IGraphD; e: IGraphE);
+    function X: IGraphX;
+    function B: IGraphB;
+    function C: IGraphC;
+    function D: IGraphD;
+    function E: IGraphE;
+  end;
+
+  EExplodingDestroy = class(Exception);
+
+  // scoped instance whose destructor raises
+  IExploding = interface
+  ['{DBAB5F9B-3540-4C65-85D4-946B544F4945}']
+  end;
+
+  TExplodingOnDestroy = class(TInterfacedObject, IExploding)
+  public
+    destructor Destroy; override;
+  end;
+
+  // destructor that raises after releasing its scoped logger
+  TExplodingWithLogger = class(TExplodingOnDestroy)
+  private
+    FLogger: ILogger;
+  public
+    constructor Create(logger: ILogger);
+    destructor Destroy; override;
+  end;
+
+  // runs OnDestroy in its destructor, as a scoped service released by its scope
+  IRunsOnDestroy = interface
+  ['{EDDBE5E3-6389-47E1-A4B9-F9D7391A030A}']
+  end;
+
+  TRunsOnDestroy = class(TInterfacedObject, IRunsOnDestroy)
+  private class var
+    FOnDestroy: TProc;
+    FOutcome: string;
+  public
+    destructor Destroy; override;
+    class property OnDestroy: TProc read FOnDestroy write FOnDestroy;
+    // 'ok', or the exception raised by OnDestroy
+    class property Outcome: string read FOutcome write FOutcome;
+  end;
+
+  ILoggerConsumer = interface
+  ['{6E2B9D41-3A7C-4F05-B8E1-C4D0A2F7B396}']
+    function Logger: ILogger;
+  end;
+
+  // asks only for IOwned<ILogger>
+  TOwnedConsumer = class(TInterfacedObject, ILoggerConsumer)
+  private
+    FOwned: IOwned<ILogger>;
+  public
+    constructor Create(owned: IOwned<ILogger>);
+    function Logger: ILogger;
+  end;
+
+  EFailsAfterExploding = class(Exception);
+
+  // constructor that fails after IExploding was already created in the scope
+  TFailsAfterExploding = class(TInterfacedObject, ILoggerConsumer)
+  public
+    constructor Create(exploding: IExploding);
+    function Logger: ILogger;
+  end;
+
   // Options class for testing RegisterOptions
   TAppSettings = class(TOptions)
   private
@@ -127,6 +304,56 @@ type
     procedure Test_IsRegistered_WithImplementation;
     [Test]
     procedure Test_ResolveAll_EmptyWhenNotRegistered;
+    { Scoped lifetime }
+    [Test]
+    procedure Test_Scoped_SameInstance_WithinScope;
+    [Test]
+    procedure Test_Scoped_DifferentInstance_AcrossScopes;
+    [Test]
+    procedure Test_Scoped_SharedByDependents_InSameScope;
+    [Test]
+    procedure Test_Scoped_FromRoot_RaisesScopeError;
+    [Test]
+    procedure Test_Scoped_FromRoot_MessageShowsHowToKeepOldBehaviour;
+    [Test]
+    procedure Test_Scoped_AsSingletonDependency_RaisesScopeError;
+    [Test]
+    procedure Test_Scoped_ValidateScopesOff_BehavesAsTransient;
+    [Test]
+    procedure Test_Scope_Free_ReleasesScopedInstances;
+    [Test]
+    procedure Test_Singleton_ResolvedWithinScope_SameAsRoot;
+    [Test]
+    procedure Test_Scope_Free_ReleasesAllEvenIfOneDestructorRaises;
+    [Test]
+    procedure Test_Scope_FreeThatRaises_LosesOnlyItsOwnMemory;
+    [Test]
+    procedure Test_Scope_ResolveWhileBeingFreed_RaisesScopeError;
+    { IOwned<T> }
+    [Test]
+    procedure Test_Owned_IsRegisteredAutomatically;
+    [Test]
+    procedure Test_Owned_Graph_ConsumerScopeSharedOutsideOwnedBranches;
+    [Test]
+    procedure Test_Owned_Graph_EachBranchGetsItsOwnScope;
+    [Test]
+    procedure Test_Owned_Release_FreesItsScopedInstances;
+    [Test]
+    procedure Test_Owned_ResolvedFromRoot_OpensItsOwnScope;
+    [Test]
+    procedure Test_Owned_Release_FreesScopeEvenIfValueDestructorRaises;
+    [Test]
+    procedure Test_Owned_ResolutionFailure_NotHiddenByScopeRelease;
+    [Test]
+    procedure Test_Owned_AutoRegisterOff_NotRegistered;
+    [Test]
+    procedure Test_Owned_RegisterOwned_OnePerKeyWrapsWhatResolveReturns;
+    [Test]
+    procedure Test_Owned_RegisterOwned_WithoutRegistration_Raises;
+    [Test]
+    procedure Test_Owned_NotRegistered_ConsumerRaisesRegisterError;
+    [Test]
+    procedure Test_Owned_GivenInstanceOnTop_OwnedWrapsIt;
   end;
 
 implementation
@@ -172,6 +399,216 @@ end;
 procedure TEmailService.SendEmail(const mailto, subject, body: string);
 begin
   FLogger.Log(Format('Sending email to %s: %s', [mailto, subject]));
+end;
+
+{ TTrackedLogger }
+
+destructor TTrackedLogger.Destroy;
+begin
+  Inc(FDestroyed);
+  inherited;
+end;
+
+procedure TTrackedLogger.Log(const msg: string);
+begin
+end;
+
+{ IOwned<T> test graph }
+
+destructor TGraphX.Destroy;
+begin
+  Inc(FDestroyed);
+  inherited;
+end;
+
+constructor TGraphE.Create(x: IGraphX);
+begin
+  FX := x;
+end;
+
+function TGraphE.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+constructor TGraphD.Create(x: IGraphX; e: IGraphE);
+begin
+  FX := x;
+  FE := e;
+end;
+
+function TGraphD.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+function TGraphD.E: IGraphE;
+begin
+  Result := FE;
+end;
+
+constructor TGraphBranch.Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+begin
+  FX := x;
+  FOwnedD := ownedD;
+  FE := e;
+end;
+
+function TGraphBranch.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+function TGraphBranch.E: IGraphE;
+begin
+  Result := FE;
+end;
+
+function TGraphBranch.OwnedD: IOwned<IGraphD>;
+begin
+  Result := FOwnedD;
+end;
+
+constructor TGraphB.Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+begin
+  inherited Create(x, ownedD, e);
+end;
+
+constructor TGraphC.Create(x: IGraphX; ownedD: IOwned<IGraphD>; e: IGraphE);
+begin
+  inherited Create(x, ownedD, e);
+end;
+
+constructor TGraphA.Create(x: IGraphX; b: IGraphB; c: IGraphC; d: IGraphD; e: IGraphE);
+begin
+  FX := x;
+  FB := b;
+  FC := c;
+  FD := d;
+  FE := e;
+end;
+
+function TGraphA.X: IGraphX;
+begin
+  Result := FX;
+end;
+
+function TGraphA.B: IGraphB;
+begin
+  Result := FB;
+end;
+
+function TGraphA.C: IGraphC;
+begin
+  Result := FC;
+end;
+
+function TGraphA.D: IGraphD;
+begin
+  Result := FD;
+end;
+
+function TGraphA.E: IGraphE;
+begin
+  Result := FE;
+end;
+
+procedure RegisterGraph(aContainer: TIocContainer);
+begin
+  aContainer.RegisterType<IGraphX, TGraphX>.AsScoped;
+  aContainer.RegisterType<IGraphE, TGraphE>.AsTransient;
+  aContainer.RegisterType<IGraphD, TGraphD>.AsTransient;
+  aContainer.RegisterType<IGraphB, TGraphB>.AsTransient;
+  aContainer.RegisterType<IGraphC, TGraphC>.AsTransient;
+  aContainer.RegisterType<IGraphA, TGraphA>.AsTransient;
+end;
+
+{ TExplodingOnDestroy }
+
+destructor TExplodingOnDestroy.Destroy;
+begin
+  inherited;
+  raise EExplodingDestroy.Create('Simulated failure in a scoped destructor');
+end;
+
+{ TExplodingWithLogger }
+
+constructor TExplodingWithLogger.Create(logger: ILogger);
+begin
+  inherited Create;
+  FLogger := logger;
+end;
+
+destructor TExplodingWithLogger.Destroy;
+begin
+  // released before the inherited destructor raises: a destructor that raises never finalizes
+  // the fields, and the logger must depend only on its scope
+  FLogger := nil;
+  inherited;
+end;
+
+{ TRunsOnDestroy }
+
+destructor TRunsOnDestroy.Destroy;
+begin
+  if Assigned(FOnDestroy) then
+  begin
+    try
+      FOnDestroy();
+      FOutcome := 'ok';
+    except
+      on E: Exception do FOutcome := E.ClassName + ': ' + E.Message;
+    end;
+  end;
+  inherited;
+end;
+
+{ TOwnedConsumer }
+
+constructor TOwnedConsumer.Create(owned: IOwned<ILogger>);
+begin
+  inherited Create;
+  FOwned := owned;
+end;
+
+function TOwnedConsumer.Logger: ILogger;
+begin
+  if FOwned <> nil then Result := FOwned.Value
+    else Result := nil;
+end;
+
+{ TFailsAfterExploding }
+
+constructor TFailsAfterExploding.Create(exploding: IExploding);
+begin
+  inherited Create;
+  raise EFailsAfterExploding.Create('Simulated failure in a constructor');
+end;
+
+function TFailsAfterExploding.Logger: ILogger;
+begin
+  Result := nil;
+end;
+
+// blocks allocated by the default memory manager
+function AllocatedBlocks: Int64;
+var
+  state: TMemoryManagerState;
+  i: Integer;
+begin
+  GetMemoryManagerState(state);
+  Result := Int64(state.AllocatedMediumBlockCount) + Int64(state.AllocatedLargeBlockCount);
+  for i := Low(state.SmallBlockTypeStates) to High(state.SmallBlockTypeStates) do
+    Inc(Result, Int64(state.SmallBlockTypeStates[i].AllocatedBlockCount));
+end;
+
+// resolved in a routine of its own: the compiler's temporary references to the result are
+// finalized on exit, so only the scope holds the instance afterwards
+procedure ResolveExplodingAndRelease(aScope: TIocScope);
+var
+  exploding: IExploding;
+begin
+  exploding := aScope.Resolve<IExploding>;
 end;
 
 { TQuickIOCTests }
@@ -441,6 +878,475 @@ begin
   finally
     results.Free;
   end;
+end;
+
+{ Scoped lifetime }
+
+procedure TQuickIOCTests.Test_Scoped_SameInstance_WithinScope;
+var
+  scope: TIocScope;
+  a, b: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<ILogger>;
+    b := scope.Resolve<ILogger>;
+    Assert.AreSame(a, b, 'Scoped must return the same instance within a scope');
+  finally
+    a := nil;
+    b := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_DifferentInstance_AcrossScopes;
+var
+  scope1, scope2: TIocScope;
+  a, b: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  scope1 := FContainer.CreateScope;
+  scope2 := FContainer.CreateScope;
+  try
+    a := scope1.Resolve<ILogger>;
+    b := scope2.Resolve<ILogger>;
+    Assert.AreNotSame(a, b, 'Scoped must return a different instance in each scope');
+  finally
+    a := nil;
+    b := nil;
+    scope2.Free;
+    scope1.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_SharedByDependents_InSameScope;
+var
+  scope: TIocScope;
+  user: IUserService;
+  email: IEmailService;
+begin
+  // the transient services receive the scoped logger through constructor injection
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterType<IUserService, TUserService>.AsTransient;
+  FContainer.RegisterType<IEmailService, TEmailService>.AsTransient;
+  scope := FContainer.CreateScope;
+  try
+    user := scope.Resolve<IUserService>;
+    email := scope.Resolve<IEmailService>;
+    Assert.IsNotNull(TUserService(user as TObject).FLogger, 'Scoped dependency must be injected');
+    Assert.AreSame(TUserService(user as TObject).FLogger, TEmailService(email as TObject).FLogger,
+      'Dependents resolved in the same scope must share the scoped instance');
+  finally
+    user := nil;
+    email := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_FromRoot_RaisesScopeError;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.Resolve<ILogger>;
+    end, EIocScopeError, 'Resolving a scoped service from the root must raise EIocScopeError');
+end;
+
+procedure TQuickIOCTests.Test_Scoped_FromRoot_MessageShowsHowToKeepOldBehaviour;
+var
+  msg: string;
+begin
+  // ValidateScopes is True by default: code that resolved AsScoped from the root (as transient)
+  // must be told how to keep that behaviour
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  msg := '';
+  try
+    FContainer.Resolve<ILogger>;
+  except
+    on E: EIocScopeError do msg := E.Message;
+  end;
+  Assert.IsTrue(Pos('ValidateScopes := False', msg) > 0,
+    'The message must show how to keep the previous behaviour. Message: ' + msg);
+end;
+
+procedure TQuickIOCTests.Test_Scoped_AsSingletonDependency_RaisesScopeError;
+var
+  scope: TIocScope;
+begin
+  // a singleton would capture the scoped instance for the whole application lifetime
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  FContainer.RegisterType<IUserService, TUserService>.AsSingleton;
+  scope := FContainer.CreateScope;
+  try
+    Assert.WillRaise(
+      procedure
+      begin
+        scope.Resolve<IUserService>;
+      end, EIocScopeError, 'A singleton depending on a scoped service must raise EIocScopeError');
+  finally
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scoped_ValidateScopesOff_BehavesAsTransient;
+var
+  a, b: ILogger;
+begin
+  FContainer.ValidateScopes := False;
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsScoped;
+  a := FContainer.Resolve<ILogger>;
+  b := FContainer.Resolve<ILogger>;
+  Assert.IsNotNull(a, 'Legacy mode must still resolve');
+  Assert.AreNotSame(a, b, 'With ValidateScopes off, scoped outside a scope keeps the legacy transient behaviour');
+end;
+
+procedure TQuickIOCTests.Test_Scope_Free_ReleasesScopedInstances;
+var
+  scope: TIocScope;
+  logger: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  TTrackedLogger.Destroyed := 0;
+  scope := FContainer.CreateScope;
+  try
+    // explicit variable, released before freeing the scope: an implicit interface
+    // temporary would only be released at the end of this routine
+    logger := scope.Resolve<ILogger>;
+    logger.Log('x');
+    logger := scope.Resolve<ILogger>;
+    logger.Log('y');
+    logger := nil;
+    Assert.AreEqual(0, TTrackedLogger.Destroyed, 'Scoped instance must live while the scope is alive');
+  finally
+    logger := nil;
+    scope.Free;
+  end;
+  Assert.AreEqual(1, TTrackedLogger.Destroyed, 'Freeing the scope must release its single scoped instance');
+end;
+
+procedure TQuickIOCTests.Test_Singleton_ResolvedWithinScope_SameAsRoot;
+var
+  scope: TIocScope;
+  a, b: ILogger;
+begin
+  FContainer.RegisterType<ILogger, TConsoleLogger>.AsSingleton;
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<ILogger>;
+    b := FContainer.Resolve<ILogger>;
+    Assert.AreSame(a, b, 'A singleton is the same instance inside and outside scopes');
+  finally
+    a := nil;
+    b := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Scope_Free_ReleasesAllEvenIfOneDestructorRaises;
+var
+  scope: TIocScope;
+  logger: ILogger;
+  exploding: IExploding;
+  raised: string;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  FContainer.RegisterType<IExploding, TExplodingOnDestroy>.AsScoped;
+  TTrackedLogger.Destroyed := 0;
+  scope := FContainer.CreateScope;
+  logger := scope.Resolve<ILogger>;          // created first, released last
+  exploding := scope.Resolve<IExploding>;    // released first: its destructor raises
+  logger := nil;
+  exploding := nil;
+  raised := '';
+  try
+    scope.Free;
+  except
+    on E: Exception do raised := E.ClassName;
+  end;
+  Assert.AreEqual(1, TTrackedLogger.Destroyed, 'Every scoped instance must be released even if a destructor raises');
+  Assert.AreEqual('EExplodingDestroy', raised, 'The destructor failure must reach the caller');
+end;
+
+procedure TQuickIOCTests.Test_Scope_FreeThatRaises_LosesOnlyItsOwnMemory;
+var
+  scope: TIocScope;
+  round: Integer;
+  before: Int64;
+  kept: Int64;
+begin
+  // a destructor that raises skips FreeInstance. When a scoped destructor raises, the scope's Free
+  // raises too: the instance and the scope's own memory are lost (two blocks), nothing else
+  FContainer.RegisterType<IExploding, TExplodingOnDestroy>.AsScoped;
+  kept := 0;
+  // the first round allocates what is allocated once (RTTI); the second is measured
+  for round := 1 to 2 do
+  begin
+    before := AllocatedBlocks;
+    scope := FContainer.CreateScope;
+    ResolveExplodingAndRelease(scope);
+    try
+      scope.Free;
+    except
+      on EExplodingDestroy do ;
+    end;
+    kept := AllocatedBlocks - before;
+  end;
+  Assert.AreEqual<Int64>(2, kept, 'Only the instance whose destructor raised and the scope itself may be lost');
+end;
+
+procedure TQuickIOCTests.Test_Scope_ResolveWhileBeingFreed_RaisesScopeError;
+var
+  scope: TIocScope;
+  runner: IRunsOnDestroy;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  FContainer.RegisterType<IRunsOnDestroy, TRunsOnDestroy>.AsScoped;
+  TRunsOnDestroy.Outcome := '';
+  scope := FContainer.CreateScope;
+  try
+    runner := scope.Resolve<IRunsOnDestroy>;
+    runner := nil;
+    // released by scope.Free: its destructor resolves from that same scope
+    TRunsOnDestroy.OnDestroy :=
+      procedure
+      begin
+        scope.Resolve<ILogger>;
+      end;
+  finally
+    scope.Free;
+    TRunsOnDestroy.OnDestroy := nil;
+  end;
+  Assert.IsTrue(TRunsOnDestroy.Outcome.StartsWith('EIocScopeError:'),
+    'Resolving from a scope while it is freed must raise EIocScopeError. Got: ' + TRunsOnDestroy.Outcome);
+end;
+
+{ IOwned<T> }
+
+procedure TQuickIOCTests.Test_Owned_IsRegisteredAutomatically;
+begin
+  FContainer.RegisterType<IGraphD, TGraphD>.AsTransient;
+  Assert.IsTrue(FContainer.IsRegistered<IOwned<IGraphD>>(''),
+    'RegisterType<I,T> must also register IOwned<I>');
+end;
+
+procedure TQuickIOCTests.Test_Owned_Graph_ConsumerScopeSharedOutsideOwnedBranches;
+var
+  scope: TIocScope;
+  a: IGraphA;
+  x0: IGraphX;
+begin
+  // everything A receives directly, and what B and C receive directly, is in A's scope
+  RegisterGraph(FContainer);
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<IGraphA>;
+    x0 := a.X;
+    Assert.IsNotNull(x0, 'X must be injected into A');
+    Assert.AreSame(x0, a.D.X, 'D received directly by A shares A''s X');
+    Assert.AreSame(x0, a.E.X, 'E received directly by A shares A''s X');
+    Assert.AreSame(x0, a.D.E.X, 'E inside A''s own D shares A''s X');
+    Assert.AreSame(x0, a.B.X, 'B shares A''s X');
+    Assert.AreSame(x0, a.B.E.X, 'E received directly by B shares A''s X');
+    Assert.AreSame(x0, a.C.X, 'C shares A''s X');
+    Assert.AreSame(x0, a.C.E.X, 'E received directly by C shares A''s X');
+  finally
+    x0 := nil;
+    a := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_Graph_EachBranchGetsItsOwnScope;
+var
+  scope: TIocScope;
+  a: IGraphA;
+  x0, xB, xC: IGraphX;
+  dB, dC: IGraphD;
+begin
+  // the D -> E chain behind each IOwned<D> lives in its own scope, one per consumer
+  RegisterGraph(FContainer);
+  scope := FContainer.CreateScope;
+  try
+    a := scope.Resolve<IGraphA>;
+    x0 := a.X;
+    dB := a.B.OwnedD.Value;
+    dC := a.C.OwnedD.Value;
+    xB := dB.X;
+    xC := dC.X;
+    Assert.IsNotNull(xB, 'X must be injected into B''s owned D');
+    Assert.IsNotNull(xC, 'X must be injected into C''s owned D');
+    Assert.AreNotSame(x0, xB, 'B''s owned D must not share A''s X');
+    Assert.AreNotSame(x0, xC, 'C''s owned D must not share A''s X');
+    Assert.AreNotSame(xB, xC, 'B and C must each open their own scope');
+    Assert.AreSame(xB, dB.E.X, 'D and E in B''s owned chain share that chain''s X');
+    Assert.AreSame(xC, dC.E.X, 'D and E in C''s owned chain share that chain''s X');
+  finally
+    dB := nil;
+    dC := nil;
+    x0 := nil;
+    xB := nil;
+    xC := nil;
+    a := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_Release_FreesItsScopedInstances;
+var
+  scope: TIocScope;
+  owned: IOwned<IGraphD>;
+  d: IGraphD;
+  x: IGraphX;
+begin
+  // releasing the IOwned frees its scope (and its X), while the consumer's scope lives on.
+  // explicit variables, released before the assertion: chained calls such as owned.Value.X
+  // would keep implicit interface temporaries alive until the end of this routine
+  RegisterGraph(FContainer);
+  TGraphX.Destroyed := 0;
+  scope := FContainer.CreateScope;
+  try
+    owned := scope.Resolve<IOwned<IGraphD>>;
+    d := owned.Value;
+    x := d.X;
+    Assert.IsNotNull(x, 'Owned D must receive an X');
+    x := nil;
+    d := nil;
+    Assert.AreEqual(0, TGraphX.Destroyed, 'Owned scope must live while IOwned is referenced');
+    owned := nil;
+    Assert.AreEqual(1, TGraphX.Destroyed, 'Releasing IOwned must free its scope''s X');
+  finally
+    x := nil;
+    d := nil;
+    owned := nil;
+    scope.Free;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_ResolvedFromRoot_OpensItsOwnScope;
+var
+  owned: IOwned<IGraphD>;
+begin
+  // IOwned does not need an outer scope: it opens one, so scoped dependencies resolve
+  RegisterGraph(FContainer);
+  owned := FContainer.Resolve<IOwned<IGraphD>>;
+  try
+    Assert.IsNotNull(owned.Value.X, 'Scoped X must resolve inside the owned scope');
+    Assert.AreSame(owned.Value.X, owned.Value.E.X, 'D and E share the owned scope''s X');
+  finally
+    owned := nil;
+  end;
+end;
+
+procedure TQuickIOCTests.Test_Owned_Release_FreesScopeEvenIfValueDestructorRaises;
+var
+  owned: IOwned<IExploding>;
+  raised: string;
+begin
+  FContainer.RegisterType<ILogger, TTrackedLogger>.AsScoped;
+  FContainer.RegisterType<IExploding, TExplodingWithLogger>.AsTransient;
+  TTrackedLogger.Destroyed := 0;
+  owned := FContainer.Resolve<IOwned<IExploding>>; // its own scope, with its own scoped logger
+  raised := '';
+  try
+    owned := nil; // the value's destructor raises
+  except
+    on E: Exception do raised := E.ClassName;
+  end;
+  Assert.AreEqual(1, TTrackedLogger.Destroyed, 'The IOwned scope must be released even if the value destructor raises');
+  Assert.AreEqual('EExplodingDestroy', raised, 'The destructor failure must reach the caller');
+end;
+
+procedure TQuickIOCTests.Test_Owned_ResolutionFailure_NotHiddenByScopeRelease;
+var
+  raised: string;
+begin
+  FContainer.RegisterType<IExploding, TExplodingOnDestroy>.AsScoped;
+  FContainer.RegisterType<ILoggerConsumer, TFailsAfterExploding>.AsTransient;
+  raised := '';
+  try
+    // IExploding is created in the IOwned scope, then the constructor fails; releasing that scope
+    // raises EExplodingDestroy
+    FContainer.Resolve<IOwned<ILoggerConsumer>>;
+  except
+    on E: Exception do raised := E.ClassName;
+  end;
+  Assert.AreEqual('EFailsAfterExploding', raised,
+    'The resolution failure must reach the caller, not the exception raised while releasing the IOwned scope');
+end;
+
+procedure TQuickIOCTests.Test_Owned_AutoRegisterOff_NotRegistered;
+begin
+  FContainer.AutoRegisterOwned := False;
+  FContainer.RegisterType<ILogger, TConsoleLogger>;
+  Assert.IsFalse(FContainer.IsRegistered<IOwned<ILogger>>(''),
+    'With AutoRegisterOwned off, RegisterType<I,T> must not register IOwned<I>');
+end;
+
+procedure TQuickIOCTests.Test_Owned_RegisterOwned_OnePerKeyWrapsWhatResolveReturns;
+var
+  logger: ILogger;
+  owned: IOwned<ILogger>;
+begin
+  // RegisterInstance does not register IOwned: RegisterOwned adds it
+  logger := TFileLogger.Create('given.log');
+  FContainer.RegisterInstance<ILogger>(logger);
+  FContainer.RegisterOwned<ILogger>;
+  owned := FContainer.Resolve<IOwned<ILogger>>;
+  Assert.IsTrue((owned.Value as TObject) = (logger as TObject), 'IOwned<I> must wrap what Resolve<I> returns');
+  owned := nil;
+  // a later registration: its IOwned is already there, and wraps the new one
+  FContainer.RegisterType<ILogger, TConsoleLogger>;
+  FContainer.RegisterOwned<ILogger>;
+  Assert.AreEqual(1, Integer(FContainer.Registrator.Dependencies[FContainer.Registrator.GetKey(TypeInfo(IOwned<ILogger>))].Count),
+    'One IOwned per key, not duplicated');
+  owned := FContainer.Resolve<IOwned<ILogger>>;
+  Assert.IsTrue((owned.Value as TObject) is TConsoleLogger, 'IOwned<I> must follow a registration added later');
+end;
+
+procedure TQuickIOCTests.Test_Owned_RegisterOwned_WithoutRegistration_Raises;
+begin
+  Assert.WillRaise(
+    procedure
+    begin
+      FContainer.RegisterOwned<ILogger>;
+    end, EIocRegisterError, 'RegisterOwned<I> before any registration of I must raise EIocRegisterError');
+end;
+
+procedure TQuickIOCTests.Test_Owned_NotRegistered_ConsumerRaisesRegisterError;
+var
+  error: string;
+begin
+  // the non-generic RegisterType never registers IOwned
+  FContainer.RegisterType(TypeInfo(ILogger), TConsoleLogger);
+  FContainer.RegisterType<ILoggerConsumer, TOwnedConsumer>;
+  error := '';
+  try
+    FContainer.Resolve<ILoggerConsumer>;
+  except
+    on E: Exception do error := E.ClassName + ': ' + E.Message;
+  end;
+  Assert.IsTrue(error.StartsWith('EIocRegisterError:'),
+    'Asking for an unregistered IOwned must raise, not fall back to TObject.Create. Got: ' + error);
+  Assert.IsTrue((Pos('TOwnedConsumer.Create asks for IOwned<', error) > 0) and (Pos('RegisterOwned', error) > 0),
+    'The message must name the constructor and the fix. Got: ' + error);
+end;
+
+procedure TQuickIOCTests.Test_Owned_GivenInstanceOnTop_OwnedWrapsIt;
+var
+  mock: ILogger;
+  consumer: ILoggerConsumer;
+begin
+  // a mock given with RegisterInstance<I> on top of the production registration: Resolve<I>
+  // returns the mock, and IOwned<I> must wrap it too
+  FContainer.RegisterType<ILogger, TConsoleLogger>;
+  mock := TFileLogger.Create('mock');
+  FContainer.RegisterInstance<ILogger>(mock);
+  FContainer.RegisterType<ILoggerConsumer, TOwnedConsumer>;
+  Assert.IsTrue(FContainer.Resolve<ILogger> = mock, 'Resolve<ILogger> must return the given instance');
+  consumer := FContainer.Resolve<ILoggerConsumer>;
+  Assert.IsTrue(consumer.Logger = mock, 'IOwned<ILogger> must wrap what Resolve<ILogger> returns: the given instance');
 end;
 
 initialization

@@ -1,0 +1,11 @@
+{
+  "name": "scopedandownedhorse",
+  "description": "Quick.IOC sample: scoped services and owned instances (IOwned<T>) with Horse",
+  "version": "1.0.0",
+  "homepage": "https://github.com/exilon/QuickLib",
+  "mainsrc": "./",
+  "projects": [],
+  "dependencies": {
+    "github.com/hashload/horse": "^3.1.0"
+  }
+}
